@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Buscador — Atlas Method</title>
+</head>
+<body>
+
+<h1>Buscador</h1>
+
+<input type="text" id="search" placeholder="Buscar ejercicio..." onkeyup="buscar()">
+
+<ul id="resultados"></ul>
+
+<script>
+const data = [
+  "Press de banca",
+  "Sentadilla",
+  "Peso muerto",
+  "Dominadas",
+  "Curl bíceps",
+  "Extensión tríceps"
+];
+
+function buscar() {
+  const input = document.getElementById("search").value.toLowerCase();
+  const lista = document.getElementById("resultados");
+  lista.innerHTML = "";
+
+  const filtrados = data.filter(item => item.toLowerCase().includes(input));
+
+  filtrados.forEach(el => {
+    const li = document.createElement("li");
+    li.textContent = el;
+    lista.appendChild(li);
+  });
+}
+</script>
+
+</body>
+</html>
