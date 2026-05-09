@@ -1,5 +1,5 @@
 // AppStore — global state + localStorage persistence
-const STORE_KEY = 'atlas.store.v1';
+const STORE_KEY = 'atlas.store.v2';
 
 const DEFAULT_STORE = {
   user: {
@@ -15,6 +15,7 @@ const DEFAULT_STORE = {
   reading: {
     progress: {},
     lastRead: null,
+    completed: [],
   },
   plan: null,
   sessions: {
@@ -22,6 +23,9 @@ const DEFAULT_STORE = {
     streak: 4,
     lastDate: null,
   },
+  log: [],
+  store: { owned: [] },
+  achievements: [],
   prefs: {
     theme: 'light',
     sinnerduo: true,
@@ -33,7 +37,19 @@ function readStore() {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return structuredClone(DEFAULT_STORE);
     const parsed = JSON.parse(raw);
-    return { ...structuredClone(DEFAULT_STORE), ...parsed };
+    // Deep merge to handle new fields
+    const merged = structuredClone(DEFAULT_STORE);
+    if (parsed.user) merged.user = { ...merged.user, ...parsed.user };
+    if (parsed.gems) merged.gems = { ...merged.gems, ...parsed.gems };
+    if (parsed.favorites) merged.favorites = parsed.favorites;
+    if (parsed.reading) merged.reading = { ...merged.reading, ...parsed.reading };
+    if (parsed.plan !== undefined) merged.plan = parsed.plan;
+    if (parsed.sessions) merged.sessions = { ...merged.sessions, ...parsed.sessions };
+    if (parsed.log) merged.log = parsed.log;
+    if (parsed.store) merged.store = { ...merged.store, ...parsed.store };
+    if (parsed.achievements) merged.achievements = parsed.achievements;
+    if (parsed.prefs) merged.prefs = { ...merged.prefs, ...parsed.prefs };
+    return merged;
   } catch (e) {
     return structuredClone(DEFAULT_STORE);
   }
@@ -103,6 +119,125 @@ function StoreProvider({ children }) {
         gems: {
           balance: s.gems.balance + 25,
           history: [{ id: Date.now(), amount: 25, reason: 'Sesión completada', ts: Date.now() }, ...s.gems.history].slice(0, 50),
+        },
+      };
+    }),
+
+    // NEW: Log a full workout session with exercises
+    logSession: (exercises) => setState(s => {
+      const today = new Date().toDateString();
+      const wasYesterday = s.sessions.lastDate === new Date(Date.now() - 86400000).toDateString();
+      const alreadyToday = s.sessions.lastDate === today;
+      const newStreak = alreadyToday
+        ? s.sessions.streak
+        : wasYesterday
+          ? s.sessions.streak + 1
+          : 1;
+
+      const entry = {
+        id: Date.now(),
+        date: today,
+        dateTs: Date.now(),
+        exercises,
+        gems: 30,
+      };
+
+      const newLog = [entry, ...s.log].slice(0, 100);
+      const newCompleted = s.sessions.completed + (alreadyToday ? 0 : 1);
+
+      // Check achievements
+      const newAchievements = [...s.achievements];
+      if (!newAchievements.includes('primera-sesion')) newAchievements.push('primera-sesion');
+      if (newStreak >= 3 && !newAchievements.includes('racha-3')) newAchievements.push('racha-3');
+      if (newStreak >= 7 && !newAchievements.includes('racha-7')) newAchievements.push('racha-7');
+
+      const newBalance = s.gems.balance + 30;
+      if (newBalance >= 500 && !newAchievements.includes('gemas-500')) newAchievements.push('gemas-500');
+      if (newBalance >= 1000 && !newAchievements.includes('gemas-1000')) newAchievements.push('gemas-1000');
+
+      return {
+        ...s,
+        log: newLog,
+        sessions: {
+          completed: newCompleted,
+          streak: newStreak,
+          lastDate: today,
+        },
+        gems: {
+          balance: newBalance,
+          history: [{ id: Date.now(), amount: 30, reason: 'Sesión registrada', ts: Date.now() }, ...s.gems.history].slice(0, 50),
+        },
+        achievements: newAchievements,
+      };
+    }),
+
+    // NEW: Mark an article as read, award gems if first time
+    markArticleRead: (id) => setState(s => {
+      const alreadyRead = (s.reading.completed || []).includes(id);
+      const gemsToAward = alreadyRead ? 0 : 15;
+
+      const newAchievements = [...s.achievements];
+      if (!newAchievements.includes('primer-articulo')) newAchievements.push('primer-articulo');
+      const newCompleted = alreadyRead
+        ? s.reading.completed
+        : [...(s.reading.completed || []), id];
+      if (newCompleted.length >= 5 && !newAchievements.includes('cinco-articulos')) {
+        newAchievements.push('cinco-articulos');
+      }
+
+      const newBalance = s.gems.balance + gemsToAward;
+      if (newBalance >= 500 && !newAchievements.includes('gemas-500')) newAchievements.push('gemas-500');
+      if (newBalance >= 1000 && !newAchievements.includes('gemas-1000')) newAchievements.push('gemas-1000');
+
+      return {
+        ...s,
+        reading: {
+          ...s.reading,
+          lastRead: id,
+          completed: newCompleted,
+        },
+        gems: alreadyRead ? s.gems : {
+          balance: newBalance,
+          history: [{ id: Date.now(), amount: 15, reason: `Artículo leído`, ts: Date.now() }, ...s.gems.history].slice(0, 50),
+        },
+        achievements: newAchievements,
+      };
+    }),
+
+    // NEW: Buy a store item
+    buyStoreItem: (id, cost) => setState(s => {
+      if (s.gems.balance < cost) return s;
+      if ((s.store.owned || []).includes(id)) return s;
+      return {
+        ...s,
+        store: { owned: [...(s.store.owned || []), id] },
+        gems: {
+          balance: s.gems.balance - cost,
+          history: [{ id: Date.now(), amount: -cost, reason: `Compra: ${id}`, ts: Date.now() }, ...s.gems.history].slice(0, 50),
+        },
+      };
+    }),
+
+    // NEW: Unlock an achievement
+    unlockAchievement: (id) => setState(s => {
+      if (s.achievements.includes(id)) return s;
+      return { ...s, achievements: [...s.achievements, id] };
+    }),
+
+    // Save generated protocol, award 25 gems
+    saveProtocol: (protocol) => setState(s => {
+      const newAchievements = [...s.achievements];
+      if (!newAchievements.includes('primer-protocolo')) newAchievements.push('primer-protocolo');
+      const newBalance = s.gems.balance + 25;
+      if (newBalance >= 500 && !newAchievements.includes('gemas-500')) newAchievements.push('gemas-500');
+      if (newBalance >= 1000 && !newAchievements.includes('gemas-1000')) newAchievements.push('gemas-1000');
+      return {
+        ...s,
+        plan: protocol,
+        achievements: newAchievements,
+        gems: {
+          balance: newBalance,
+          history: [{ id: Date.now(), amount: 25, reason: 'Protocolo guardado', ts: Date.now() }, ...s.gems.history].slice(0, 50),
         },
       };
     }),
