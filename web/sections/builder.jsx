@@ -12,16 +12,8 @@ const MUSCLE_GROUPS = [
   { id: 'core',    label: 'Core',     icon: 'C' },
 ];
 
-// Gradient per muscle group — used for thumbnails and color strips
-const GROUP_STYLE = {
-  pecho:   { from: '#1e3a5f', to: '#2A6FDB' },
-  espalda: { from: '#1a1230', to: '#7C3AED' },
-  pierna:  { from: '#102210', to: '#1F8B3A' },
-  hombro:  { from: '#2e1212', to: '#C24545' },
-  biceps:  { from: '#0d2233', to: '#0EA5C8' },
-  triceps: { from: '#2e2010', to: '#D97706' },
-  core:    { from: '#1a1a1a', to: '#5C6477' },
-};
+// Use gradient tokens from ExerciseMedia service
+const GROUP_STYLE = ExerciseMedia.GROUP_STYLE;
 
 // Derive primary muscle group from exercise pattern + primary muscle
 function getExerciseGroup(ex) {
@@ -49,59 +41,7 @@ function estimateDuration(workout) {
   return Math.round((workout.length > 0 ? 5 : 0) + totalSets * 2.5);
 }
 
-// ── Exercise thumbnail (gradient placeholder + future media support) ───────────
-
-function ExerciseThumbnail({ exercise, group, isAdded }) {
-  const gs = GROUP_STYLE[group] || GROUP_STYLE.core;
-
-  // Future: if exercise.mediaUrl exists, render <img> or <video> instead
-  return (
-    <div style={{
-      height: 78,
-      background: `linear-gradient(140deg, ${gs.from} 0%, ${gs.to} 100%)`,
-      position: 'relative', overflow: 'hidden', flexShrink: 0,
-    }}>
-      {/* Subtle grid texture */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        backgroundImage: [
-          'repeating-linear-gradient(0deg, transparent, transparent 13px, rgba(255,255,255,0.03) 13px, rgba(255,255,255,0.03) 14px)',
-          'repeating-linear-gradient(90deg, transparent, transparent 13px, rgba(255,255,255,0.03) 13px, rgba(255,255,255,0.03) 14px)',
-        ].join(','),
-      }} />
-
-      {/* Large italic letter */}
-      <div style={{
-        position: 'absolute', bottom: 4, left: 10,
-        fontFamily: '"Instrument Serif",serif', fontStyle: 'italic',
-        fontSize: 34, fontWeight: 400, color: 'rgba(255,255,255,0.22)',
-        lineHeight: 1, userSelect: 'none',
-      }}>
-        {exercise.name.charAt(0)}
-      </div>
-
-      {/* Compound indicator top-left */}
-      {exercise.compound && (
-        <div style={{
-          position: 'absolute', top: 7, left: 8,
-          fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 8, fontWeight: 700,
-          color: 'rgba(255,255,255,0.5)', letterSpacing: 0.5,
-        }}>CPT</div>
-      )}
-
-      {/* Added overlay */}
-      {isAdded && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'rgba(31,139,58,0.45)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <span style={{ fontSize: 22, color: '#FFFFFF' }}>✓</span>
-        </div>
-      )}
-    </div>
-  );
-}
+// ExerciseThumbnail now delegates to ExerciseMedia.Thumbnail (SVG illustrations + future media)
 
 // ── Visual exercise grid card ─────────────────────────────────────────────────
 
@@ -109,63 +49,71 @@ function ExerciseGridCard({ exercise, isAdded, onToggle }) {
   const { META } = ExerciseService;
   const group = getExerciseGroup(exercise);
   const eqMeta = META.EQUIPMENT_META[exercise.equipment] || {};
+  const [hovered, setHovered] = React.useState(false);
 
   return (
     <div
       onClick={onToggle}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
-        borderRadius: 14, overflow: 'hidden', cursor: 'pointer',
-        border: `1.5px solid ${isAdded ? 'rgba(31,139,58,0.28)' : 'rgba(15,26,46,0.07)'}`,
+        borderRadius: 16, overflow: 'hidden', cursor: 'pointer',
+        border: `1.5px solid ${isAdded ? 'rgba(31,139,58,0.30)' : hovered ? 'rgba(15,26,46,0.16)' : 'rgba(15,26,46,0.07)'}`,
         background: isAdded ? 'rgba(31,139,58,0.02)' : '#FFFFFF',
-        transition: 'border-color 0.15s, box-shadow 0.15s',
+        boxShadow: hovered && !isAdded ? '0 8px 28px -8px rgba(15,26,46,0.18)' : 'none',
+        transform: hovered ? 'translateY(-2px)' : 'none',
+        transition: 'border-color 0.15s, box-shadow 0.2s, transform 0.15s',
         position: 'relative',
       }}
     >
-      <ExerciseThumbnail exercise={exercise} group={group} isAdded={isAdded} />
+      {/* SVG muscle illustration thumbnail */}
+      <ExerciseMedia.Thumbnail exercise={exercise} group={group} isAdded={isAdded} height={92} />
 
       {/* Quick add/remove button */}
       <div style={{
-        position: 'absolute', top: 7, right: 7,
-        width: 24, height: 24, borderRadius: 999,
-        background: isAdded ? 'rgba(194,69,69,0.82)' : 'rgba(15,26,46,0.68)',
+        position: 'absolute', top: 8, right: 8,
+        width: 26, height: 26, borderRadius: 999,
+        background: isAdded ? 'rgba(180,40,40,0.80)' : 'rgba(10,18,36,0.65)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        backdropFilter: 'blur(4px)',
-        fontFamily: '"Inter",system-ui', fontSize: 14, fontWeight: 700, color: '#FFFFFF',
+        backdropFilter: 'blur(6px)',
+        fontFamily: '"Inter",system-ui', fontSize: 15, fontWeight: 700, color: '#FFFFFF',
+        transition: 'background 0.15s',
       }}>
         {isAdded ? '−' : '+'}
       </div>
 
       {/* Info block */}
-      <div style={{ padding: '9px 11px 11px' }}>
+      <div style={{ padding: '10px 12px 12px' }}>
         <div style={{
           fontFamily: '"Inter",system-ui', fontSize: 12, fontWeight: 700,
-          color: '#0F1A2E', lineHeight: 1.25, marginBottom: 3,
+          color: '#0F1A2E', lineHeight: 1.25, marginBottom: 4,
         }}>
           {exercise.name}
         </div>
 
         <div style={{
           fontFamily: '"Inter",system-ui', fontSize: 10, color: '#9498A4',
-          marginBottom: 7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {exercise.muscles.primary.join(' · ')}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{
-            fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 999,
+            fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
             background: eqMeta.bg || 'rgba(15,26,46,0.06)',
             color: eqMeta.color || '#5C6477',
             fontFamily: '"Inter",system-ui',
           }}>
             {eqMeta.label || exercise.equipment}
           </span>
-          {/* Fatigue dots */}
-          <div style={{ display: 'flex', gap: 2 }}>
+          {/* Fatigue indicator */}
+          <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 8, color: '#C4C8D0', marginRight: 2 }}>FAT</span>
             {[1,2,3,4,5].map(i => (
               <div key={i} style={{
                 width: 5, height: 5, borderRadius: '50%',
-                background: i <= exercise.fatigueLoad ? '#C24545' : 'rgba(15,26,46,0.1)',
+                background: i <= exercise.fatigueLoad ? '#C24545' : 'rgba(15,26,46,0.10)',
               }} />
             ))}
           </div>
