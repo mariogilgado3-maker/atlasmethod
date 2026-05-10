@@ -1,14 +1,13 @@
-// Laboratorio — protocol generator (4-step selector + dynamic output)
+// Laboratorio — protocol generator with intelligent exercise suggestions
 
 function generateProtocol(objetivo, nivel, dias, tiempo) {
   const splitMap = {
     2: 'Full Body',
-    3: nivel === 'principiante' ? 'Full Body 3x' : 'Push/Pull/Legs',
-    4: 'Upper/Lower',
+    3: nivel === 'principiante' ? 'Full Body 3×' : 'Push / Pull / Legs',
+    4: 'Upper / Lower',
     5: nivel === 'avanzado' ? 'PPL + Upper/Lower' : 'Upper/Lower + Full',
-    6: 'Push/Pull/Legs A/B',
+    6: 'Push / Pull / Legs A/B',
   };
-
   const splitName = splitMap[dias] || 'Full Body';
 
   const scheduleTemplates = {
@@ -18,42 +17,41 @@ function generateProtocol(objetivo, nivel, dias, tiempo) {
     5: { days: ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'], sessions: [0, 1, 2, null, 3, 4, null], labels: nivel === 'avanzado' ? ['Push','Pull','Legs','Upper','Lower'] : ['Upper A','Lower A','Full','Upper B','Lower B'] },
     6: { days: ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'], sessions: [0, 1, 2, 3, 4, 5, null], labels: ['Push A','Pull A','Legs A','Push B','Pull B','Legs B'] },
   };
-
   const scheduleTemplate = scheduleTemplates[dias] || scheduleTemplates[3];
 
   const volumeGuides = {
-    hipertrofia: { pecho: '12-20 series/sem', espalda: '14-22 series/sem', hombro: '10-16 series/sem', biceps: '10-14 series/sem', triceps: '10-14 series/sem', pierna: '16-20 series/sem' },
-    fuerza: { pecho: '8-12 series/sem', espalda: '10-14 series/sem', hombro: '6-10 series/sem', biceps: '6-8 series/sem', triceps: '6-8 series/sem', pierna: '10-14 series/sem' },
-    recomp: { pecho: '10-16 series/sem', espalda: '12-18 series/sem', hombro: '8-12 series/sem', biceps: '8-12 series/sem', triceps: '8-12 series/sem', pierna: '14-18 series/sem' },
-    rendimiento: { pecho: '8-12 series/sem', espalda: '10-14 series/sem', hombro: '8-10 series/sem', biceps: '6-8 series/sem', triceps: '6-8 series/sem', pierna: '12-16 series/sem' },
+    hipertrofia: { pecho: '12–20 s/sem', espalda: '14–22 s/sem', hombro: '10–16 s/sem', bíceps: '10–14 s/sem', tríceps: '10–14 s/sem', pierna: '16–20 s/sem' },
+    fuerza:      { pecho: '8–12 s/sem',  espalda: '10–14 s/sem', hombro: '6–10 s/sem',  bíceps: '6–8 s/sem',  tríceps: '6–8 s/sem',  pierna: '10–14 s/sem' },
+    recomp:      { pecho: '10–16 s/sem', espalda: '12–18 s/sem', hombro: '8–12 s/sem',  bíceps: '8–12 s/sem', tríceps: '8–12 s/sem', pierna: '14–18 s/sem' },
+    rendimiento: { pecho: '8–12 s/sem',  espalda: '10–14 s/sem', hombro: '8–10 s/sem',  bíceps: '6–8 s/sem',  tríceps: '6–8 s/sem',  pierna: '12–16 s/sem' },
   };
 
   const intensitySchemes = {
     hipertrofia: { rpeRange: '7–8 RPE', rm: '65–80% 1RM', reps: '8–15 reps', rest: '90–120 s' },
-    fuerza: { rpeRange: '8–9 RPE', rm: '80–93% 1RM', reps: '3–6 reps', rest: '3–5 min' },
-    recomp: { rpeRange: '7–8.5 RPE', rm: '65–85% 1RM', reps: '8–12 reps', rest: '60–90 s' },
-    rendimiento: { rpeRange: '8–9 RPE', rm: '75–90% 1RM', reps: '4–8 reps', rest: '2–4 min' },
+    fuerza:      { rpeRange: '8–9 RPE', rm: '80–93% 1RM', reps: '3–6 reps',  rest: '3–5 min' },
+    recomp:      { rpeRange: '7–8.5 RPE', rm: '65–85% 1RM', reps: '8–12 reps', rest: '60–90 s' },
+    rendimiento: { rpeRange: '8–9 RPE', rm: '75–90% 1RM', reps: '4–8 reps',  rest: '2–4 min' },
   };
 
   const progressionModels = {
     hipertrofia: { principiante: 'Progresión lineal', intermedio: 'Progresión ondulante (DUP)', avanzado: 'Periodización por bloques' },
-    fuerza: { principiante: 'Progresión lineal (SL/StrongLifts)', intermedio: 'Progresión Texas Method', avanzado: 'Periodización conjugada' },
-    recomp: { principiante: 'Progresión lineal', intermedio: 'Progresión ondulante', avanzado: 'Periodización ondulatoria avanzada' },
+    fuerza:      { principiante: 'Progresión lineal (SL/StrongLifts)', intermedio: 'Texas Method', avanzado: 'Periodización conjugada' },
+    recomp:      { principiante: 'Progresión lineal', intermedio: 'Progresión ondulante', avanzado: 'Periodización ondulatoria avanzada' },
     rendimiento: { principiante: 'Progresión lineal', intermedio: 'Periodización clásica', avanzado: 'Periodización compleja' },
   };
 
   const sciJustifications = {
-    hipertrofia: 'La hipertrofia muscular se maximiza con un volumen semanal entre el MEV y el MRV, frecuencias de 2× por grupo muscular y RPE en rango 7-8 para garantizar suficiente estímulo sin comprometer la recuperación. La evidencia actual (Schoenfeld, 2016; Ralston, 2017) indica que el volumen es la variable con mayor impacto en el crecimiento a largo plazo.',
-    fuerza: 'El desarrollo de la fuerza máxima requiere especificidad: cargas ≥80% del 1RM, baja cantidad de repeticiones y recuperaciones largas. La progresión en fuerza sigue la ley de Henneman, activando unidades motoras de alto umbral que solo responden a cargas elevadas. La frecuencia alta y la especificidad del patrón de movimiento son claves (Kraemer & Ratamess, 2004).',
-    recomp: 'La recomposición corporal simultánea (pérdida de grasa + ganancia muscular) es más pronunciada en personas con margen anabólico suficiente. Requiere déficit calórico moderado (200-300 kcal/día), alta ingesta proteica (2.0-2.4g/kg) y entrenamiento de fuerza con volumen moderado-alto para preservar y construir masa muscular.',
-    rendimiento: 'El entrenamiento orientado al rendimiento combina trabajo de fuerza máxima, potencia y capacidad de trabajo. La periodización busca picos de forma en momentos específicos mediante fases de carga, intensificación y tapering, con especial atención a la transferencia deportiva.',
+    hipertrofia: 'La hipertrofia muscular se maximiza con un volumen semanal entre el MEV y el MRV, frecuencias de 2× por grupo muscular y RPE 7–8. La evidencia (Schoenfeld, 2016; Ralston, 2017) indica que el volumen es la variable con mayor impacto a largo plazo. Los ejercicios compuestos garantizan estímulo multiarticular eficiente.',
+    fuerza:      'El desarrollo de la fuerza máxima requiere especificidad: cargas ≥80% del 1RM, baja cantidad de repeticiones y recuperaciones largas. La progresión sigue la ley de Henneman, activando unidades motoras de alto umbral que solo responden a cargas elevadas. La frecuencia y especificidad del patrón son claves (Kraemer & Ratamess, 2004).',
+    recomp:      'La recomposición simultánea (pérdida de grasa + ganancia muscular) requiere déficit calórico moderado (200–300 kcal/día), alta ingesta proteica (2.0–2.4 g/kg) y entrenamiento de fuerza con volumen moderado-alto. Los ejercicios seleccionados maximizan el gasto calórico preservando masa muscular.',
+    rendimiento: 'El entrenamiento orientado al rendimiento combina trabajo de fuerza máxima, potencia y capacidad. La periodización busca picos de forma en momentos específicos mediante fases de carga, intensificación y tapering, con especial atención a la transferencia deportiva.',
   };
 
   const mesocycle = [
-    { week: 1, phase: 'Acumulación', vol: 100, rpe: intensitySchemes[objetivo].rpeRange.split('–')[0], notes: 'Adaptación al volumen' },
-    { week: 2, phase: 'Acumulación', vol: 115, rpe: intensitySchemes[objetivo].rpeRange.split('–')[0], notes: '+15% series respecto semana 1' },
-    { week: 3, phase: 'Intensificación', vol: 90, rpe: intensitySchemes[objetivo].rpeRange.split('–')[1] || '9', notes: 'Reducir volumen, subir intensidad' },
-    { week: 4, phase: 'Deload', vol: 60, rpe: '6', notes: 'Recuperación activa' },
+    { week: 1, phase: 'Acumulación',     vol: 100, rpe: '7',   notes: 'Adaptación al volumen' },
+    { week: 2, phase: 'Acumulación',     vol: 115, rpe: '7.5', notes: '+15% series respecto a semana 1' },
+    { week: 3, phase: 'Intensificación', vol: 90,  rpe: '8.5', notes: 'Reducir volumen, subir intensidad' },
+    { week: 4, phase: 'Deload',          vol: 60,  rpe: '6',   notes: 'Recuperación activa' },
   ];
 
   return {
@@ -67,23 +65,140 @@ function generateProtocol(objetivo, nivel, dias, tiempo) {
   };
 }
 
+// ── Exercise suggestion card (compact, for protocol view) ─────────────────────
+
+function SuggestedExerciseChip({ exercise }) {
+  const { META } = ExerciseService;
+  const patMeta = META.PATTERN_META[exercise.pattern] || {};
+  const eqMeta = META.EQUIPMENT_META[exercise.equipment] || {};
+
+  return (
+    <div style={{
+      padding: '10px 14px', borderRadius: 12,
+      background: '#FFFFFF', border: '1px solid rgba(15,26,46,0.07)',
+      display: 'flex', alignItems: 'flex-start', gap: 10,
+    }}>
+      {/* Pattern color strip */}
+      <div style={{ width: 3, borderRadius: 999, background: patMeta.color || '#5C6477', alignSelf: 'stretch', flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
+          <span style={{ fontFamily: '"Inter",system-ui', fontSize: 12, fontWeight: 700, color: '#0F1A2E' }}>
+            {exercise.name}
+          </span>
+          {exercise.compound && (
+            <span style={{
+              fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 999,
+              background: 'rgba(15,26,46,0.05)', color: '#5C6477',
+              fontFamily: '"Inter",system-ui', textTransform: 'uppercase', letterSpacing: 0.3,
+            }}>CPT</span>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 4 }}>
+          <span style={{
+            fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 999,
+            background: patMeta.bg || 'rgba(15,26,46,0.06)', color: patMeta.color || '#5C6477',
+            fontFamily: '"Inter",system-ui',
+          }}>{patMeta.short || exercise.pattern}</span>
+          <span style={{
+            fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 999,
+            background: eqMeta.bg || 'rgba(15,26,46,0.06)', color: eqMeta.color || '#5C6477',
+            fontFamily: '"Inter",system-ui',
+          }}>{eqMeta.label || exercise.equipment}</span>
+        </div>
+        <div style={{ fontFamily: '"Inter",system-ui', fontSize: 10, color: '#9498A4' }}>
+          {exercise.muscles.primary.join(' · ')}
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 8, color: '#9498A4', fontWeight: 700 }}>FAT</span>
+          <div style={{ display: 'flex', gap: 2 }}>
+            {[1,2,3,4,5].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: i <= exercise.fatigueLoad ? '#C24545' : 'rgba(15,26,46,0.1)' }} />)}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 8, color: '#9498A4', fontWeight: 700 }}>TÉC</span>
+          <div style={{ display: 'flex', gap: 2 }}>
+            {[1,2,3,4,5].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: i <= exercise.technicalDifficulty ? '#2A6FDB' : 'rgba(15,26,46,0.1)' }} />)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Session exercises panel ───────────────────────────────────────────────────
+
+function SessionExercisesPanel({ sessionLabel, objetivo, nivel, tiempo }) {
+  const [open, setOpen] = React.useState(false);
+  const exercises = React.useMemo(
+    () => ExerciseService.selectForSession(sessionLabel, objetivo, nivel, tiempo),
+    [sessionLabel, objetivo, nivel, tiempo]
+  );
+
+  return (
+    <div style={{
+      borderRadius: 14, overflow: 'hidden',
+      border: '1px solid rgba(15,26,46,0.07)',
+      background: '#FAFAF7',
+    }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%', padding: '12px 16px', border: 'none', cursor: 'pointer',
+          background: 'transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}
+      >
+        <div>
+          <span style={{ fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 700, color: '#0F1A2E' }}>
+            {sessionLabel}
+          </span>
+          <span style={{ fontFamily: '"Inter",system-ui', fontSize: 11, color: '#9498A4', marginLeft: 8 }}>
+            {exercises.length} ejercicios sugeridos
+          </span>
+        </div>
+        <span style={{
+          fontFamily: '"Inter",system-ui', fontSize: 12, color: '#5C6477',
+          transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s',
+          display: 'inline-block',
+        }}>↓</span>
+      </button>
+      {open && (
+        <div style={{ padding: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {exercises.map(ex => <SuggestedExerciseChip key={ex.id} exercise={ex} />)}
+          <div style={{
+            marginTop: 4, padding: '8px 12px', borderRadius: 10,
+            background: 'rgba(42,111,219,0.05)', border: '1px solid rgba(42,111,219,0.1)',
+            fontFamily: '"Inter",system-ui', fontSize: 10, color: '#1a4fa0', lineHeight: 1.5,
+          }}>
+            Selección basada en objetivo ({objetivo}), nivel ({nivel}) y balance de patrones de movimiento.
+            Puedes personalizar en el <strong>Builder</strong>.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
 const OBJETIVO_LABELS = [
   { id: 'hipertrofia', label: 'Hipertrofia' },
-  { id: 'fuerza', label: 'Fuerza' },
-  { id: 'recomp', label: 'Recomposición' },
+  { id: 'fuerza',      label: 'Fuerza' },
+  { id: 'recomp',      label: 'Recomposición' },
   { id: 'rendimiento', label: 'Rendimiento' },
 ];
-
 const NIVEL_LABELS = [
   { id: 'principiante', label: 'Principiante' },
-  { id: 'intermedio', label: 'Intermedio' },
-  { id: 'avanzado', label: 'Avanzado' },
+  { id: 'intermedio',   label: 'Intermedio' },
+  { id: 'avanzado',     label: 'Avanzado' },
 ];
-
 const TIEMPO_OPTS = [45, 60, 90];
 
+// ── Main section ──────────────────────────────────────────────────────────────
+
 function LaboratorioSection() {
-  const { state, actions } = useStore();
+  const { actions } = useStore();
   const [objetivo, setObjetivo] = React.useState('hipertrofia');
   const [nivel, setNivel] = React.useState('intermedio');
   const [dias, setDias] = React.useState(4);
@@ -95,6 +210,12 @@ function LaboratorioSection() {
     () => generateProtocol(objetivo, nivel, dias, tiempo),
     [objetivo, nivel, dias, tiempo]
   );
+
+  // Unique session labels from schedule
+  const sessionLabels = React.useMemo(() => {
+    const labels = protocol.schedule.labels;
+    return [...new Set(labels)];
+  }, [protocol]);
 
   const handleSave = () => {
     actions.saveProtocol({ objetivo, nivel, dias, tiempo, ...protocol, savedAt: Date.now() });
@@ -110,8 +231,7 @@ function LaboratorioSection() {
     background: active ? '#0F1A2E' : '#FFFFFF',
     color: active ? '#FAFAF7' : '#0F1A2E',
     fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 600,
-    transition: 'all 0.15s',
-    whiteSpace: 'nowrap',
+    transition: 'all 0.15s', whiteSpace: 'nowrap',
   });
 
   return (
@@ -124,8 +244,7 @@ function LaboratorioSection() {
             background: '#0F1A2E', color: '#FAFAF7',
             padding: '10px 20px', borderRadius: 999,
             fontFamily: '"Inter",system-ui', fontSize: 14, fontWeight: 700,
-            animation: 'fadeIn 0.3s ease',
-            boxShadow: '0 8px 32px rgba(15,26,46,0.25)',
+            animation: 'fadeIn 0.3s ease', boxShadow: '0 8px 32px rgba(15,26,46,0.25)',
           }}>
             💎 +25 gemas · Protocolo guardado
           </div>
@@ -140,49 +259,37 @@ function LaboratorioSection() {
             Tu protocolo. <span style={{ fontFamily: '"Instrument Serif",serif', fontStyle: 'italic', fontWeight: 400 }}>Basado en ciencia.</span>
           </h1>
           <p style={{ fontFamily: '"Inter",system-ui', fontSize: 17, color: '#3A4257', lineHeight: 1.55, letterSpacing: -0.2, margin: 0, maxWidth: 560 }}>
-            Selecciona tus parámetros y obtén un protocolo de entrenamiento completo con justificación científica, mesociclo y guía de volumen.
+            Selecciona tus parámetros y obtén un protocolo completo con ejercicios específicos, mesociclo y justificación científica.
           </p>
         </div>
 
-        {/* Main layout */}
-        <div style={{
-          display: 'grid', gridTemplateColumns: '380px 1fr', gap: 24,
-          alignItems: 'start',
-        }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: 24, alignItems: 'start' }}>
 
-          {/* LEFT — selectors */}
+          {/* ── LEFT: selectors ────────────────────────────────────────── */}
           <div style={{
             background: '#FAFAF7', borderRadius: 24,
             border: '1px solid rgba(15,26,46,0.08)',
             padding: 28, display: 'flex', flexDirection: 'column', gap: 28,
             position: 'sticky', top: 80,
           }}>
-
-            {/* Objetivo */}
             <div>
               <div style={sectionLabel}>Objetivo</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                 {OBJETIVO_LABELS.map(o => (
-                  <button key={o.id} onClick={() => setObjetivo(o.id)} style={pillBtn(objetivo === o.id)}>
-                    {o.label}
-                  </button>
+                  <button key={o.id} onClick={() => setObjetivo(o.id)} style={pillBtn(objetivo === o.id)}>{o.label}</button>
                 ))}
               </div>
             </div>
 
-            {/* Nivel */}
             <div>
               <div style={sectionLabel}>Nivel</div>
               <div style={{ display: 'flex', gap: 6 }}>
                 {NIVEL_LABELS.map(n => (
-                  <button key={n.id} onClick={() => setNivel(n.id)} style={{ ...pillBtn(nivel === n.id), flex: 1 }}>
-                    {n.label}
-                  </button>
+                  <button key={n.id} onClick={() => setNivel(n.id)} style={{ ...pillBtn(nivel === n.id), flex: 1 }}>{n.label}</button>
                 ))}
               </div>
             </div>
 
-            {/* Días */}
             <div>
               <div style={sectionLabel}>
                 Días / semana
@@ -198,19 +305,15 @@ function LaboratorioSection() {
               </div>
             </div>
 
-            {/* Tiempo */}
             <div>
               <div style={sectionLabel}>Tiempo por sesión</div>
               <div style={{ display: 'flex', gap: 6 }}>
                 {TIEMPO_OPTS.map(t => (
-                  <button key={t} onClick={() => setTiempo(t)} style={{ ...pillBtn(tiempo === t), flex: 1 }}>
-                    {t} min
-                  </button>
+                  <button key={t} onClick={() => setTiempo(t)} style={{ ...pillBtn(tiempo === t), flex: 1 }}>{t} min</button>
                 ))}
               </div>
             </div>
 
-            {/* Save button */}
             <button
               onClick={handleSave}
               style={{
@@ -225,13 +328,11 @@ function LaboratorioSection() {
             </button>
           </div>
 
-          {/* RIGHT — protocol output */}
+          {/* ── RIGHT: protocol output ──────────────────────────────────── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-            {/* Split name + header */}
-            <div style={{
-              background: '#0F1A2E', borderRadius: 24, padding: '28px 32px', color: '#FAFAF7',
-            }}>
+            {/* Header card */}
+            <div style={{ background: '#0F1A2E', borderRadius: 24, padding: '28px 32px', color: '#FAFAF7' }}>
               <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, fontWeight: 700, letterSpacing: 1, opacity: 0.5, marginBottom: 8 }}>
                 PROTOCOLO GENERADO
               </div>
@@ -259,7 +360,7 @@ function LaboratorioSection() {
                         padding: '8px 4px', borderRadius: 10,
                         background: hasSession ? '#0F1A2E' : 'rgba(15,26,46,0.04)',
                         color: hasSession ? '#FAFAF7' : '#9498A4',
-                        fontFamily: '"Inter",system-ui', fontSize: 11, fontWeight: hasSession ? 700 : 400,
+                        fontFamily: '"Inter",system-ui', fontSize: 10, fontWeight: hasSession ? 700 : 400,
                         minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
                         {hasSession ? protocol.schedule.labels[sessionIdx] : '—'}
@@ -270,27 +371,19 @@ function LaboratorioSection() {
               </div>
             </div>
 
-            {/* 2-col row: volume + intensity */}
+            {/* Volume + Intensity row */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-
-              {/* Volume guide */}
               <div style={{ background: '#FAFAF7', borderRadius: 20, border: '1px solid rgba(15,26,46,0.08)', padding: '20px 24px' }}>
                 <div style={cardLabel}>Volumen prescrito</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
                   {Object.entries(protocol.volumeGuide).map(([muscle, vol]) => (
                     <div key={muscle} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontFamily: '"Inter",system-ui', fontSize: 12, fontWeight: 600, color: '#3A4257', textTransform: 'capitalize' }}>
-                        {muscle}
-                      </span>
-                      <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: '#5C6477', fontWeight: 700 }}>
-                        {vol}
-                      </span>
+                      <span style={{ fontFamily: '"Inter",system-ui', fontSize: 12, fontWeight: 600, color: '#3A4257', textTransform: 'capitalize' }}>{muscle}</span>
+                      <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: '#5C6477', fontWeight: 700 }}>{vol}</span>
                     </div>
                   ))}
                 </div>
               </div>
-
-              {/* Intensity scheme + progression */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div style={{ background: '#FAFAF7', borderRadius: 20, border: '1px solid rgba(15,26,46,0.08)', padding: '20px 24px' }}>
                   <div style={cardLabel}>Esquema de intensidad</div>
@@ -299,18 +392,13 @@ function LaboratorioSection() {
                       const labels = { rpeRange: 'RPE', rm: '% 1RM', reps: 'Reps', rest: 'Descanso' };
                       return (
                         <div key={key} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ fontFamily: '"Inter",system-ui', fontSize: 12, fontWeight: 600, color: '#3A4257' }}>
-                            {labels[key] || key}
-                          </span>
-                          <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: '#0F1A2E', fontWeight: 700 }}>
-                            {val}
-                          </span>
+                          <span style={{ fontFamily: '"Inter",system-ui', fontSize: 12, fontWeight: 600, color: '#3A4257' }}>{labels[key] || key}</span>
+                          <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: '#0F1A2E', fontWeight: 700 }}>{val}</span>
                         </div>
                       );
                     })}
                   </div>
                 </div>
-
                 <div style={{ background: '#FAFAF7', borderRadius: 20, border: '1px solid rgba(15,26,46,0.08)', padding: '20px 24px' }}>
                   <div style={cardLabel}>Modelo de progresión</div>
                   <div style={{ fontFamily: '"Inter",system-ui', fontSize: 14, fontWeight: 700, color: '#0F1A2E', marginTop: 12 }}>
@@ -320,11 +408,27 @@ function LaboratorioSection() {
               </div>
             </div>
 
+            {/* ── Ejercicios sugeridos por sesión ── */}
+            <div style={{ background: '#FAFAF7', borderRadius: 20, border: '1px solid rgba(15,26,46,0.08)', padding: '20px 24px' }}>
+              <div style={{ ...cardLabel, marginBottom: 6 }}>Ejercicios sugeridos por sesión</div>
+              <p style={{ fontFamily: '"Inter",system-ui', fontSize: 12, color: '#9498A4', margin: '0 0 14px', lineHeight: 1.5 }}>
+                Selección inteligente basada en tu objetivo, nivel y patrones de movimiento del split. Despliega cada sesión para ver los ejercicios.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {sessionLabels.map(label => (
+                  <SessionExercisesPanel
+                    key={label}
+                    sessionLabel={label}
+                    objetivo={objetivo}
+                    nivel={nivel}
+                    tiempo={tiempo}
+                  />
+                ))}
+              </div>
+            </div>
+
             {/* Scientific justification */}
-            <div style={{
-              background: 'rgba(15,26,46,0.02)', borderRadius: 20,
-              border: '1px solid rgba(15,26,46,0.06)', padding: '20px 24px',
-            }}>
+            <div style={{ background: 'rgba(15,26,46,0.02)', borderRadius: 20, border: '1px solid rgba(15,26,46,0.06)', padding: '20px 24px' }}>
               <div style={cardLabel}>Justificación científica</div>
               <p style={{ fontFamily: '"Inter",system-ui', fontSize: 14, color: '#3A4257', lineHeight: 1.7, margin: '12px 0 0' }}>
                 {protocol.sciJustification}
@@ -337,29 +441,18 @@ function LaboratorioSection() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
                 {protocol.mesocycle.map((week, i) => (
                   <div key={i} style={{
-                    display: 'grid', gridTemplateColumns: '60px 1fr 80px 80px auto',
+                    display: 'grid', gridTemplateColumns: '60px 1fr 80px 70px auto',
                     alignItems: 'center', gap: 12,
                     padding: '12px 16px', borderRadius: 12,
                     background: '#FFFFFF', border: '1px solid rgba(15,26,46,0.06)',
                   }}>
-                    <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: '#9498A4', fontWeight: 700 }}>
-                      SEM {week.week}
-                    </span>
-                    <span style={{ fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 700, color: week.phase === 'Deload' ? '#C24545' : '#0F1A2E' }}>
-                      {week.phase}
-                    </span>
-                    <span style={{
-                      fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 12, fontWeight: 700,
-                      color: week.vol >= 100 ? '#1F8B3A' : week.vol >= 80 ? '#0F1A2E' : '#C24545',
-                    }}>
+                    <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: '#9498A4', fontWeight: 700 }}>SEM {week.week}</span>
+                    <span style={{ fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 700, color: week.phase === 'Deload' ? '#C24545' : '#0F1A2E' }}>{week.phase}</span>
+                    <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 12, fontWeight: 700, color: week.vol >= 100 ? '#1F8B3A' : week.vol >= 80 ? '#0F1A2E' : '#C24545' }}>
                       Vol {week.vol}%
                     </span>
-                    <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: '#5C6477' }}>
-                      RPE {week.rpe}
-                    </span>
-                    <span style={{ fontFamily: '"Inter",system-ui', fontSize: 11, color: '#9498A4', textAlign: 'right' }}>
-                      {week.notes}
-                    </span>
+                    <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: '#5C6477' }}>RPE {week.rpe}</span>
+                    <span style={{ fontFamily: '"Inter",system-ui', fontSize: 11, color: '#9498A4', textAlign: 'right' }}>{week.notes}</span>
                   </div>
                 ))}
               </div>
