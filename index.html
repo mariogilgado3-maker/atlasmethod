@@ -46,7 +46,9 @@
 <script type="text/babel" src="web/sections/coach.jsx"></script>
 <script type="text/babel" src="web/sections/mobile.jsx"></script>
 <script type="text/babel" src="web/sections/closing.jsx"></script>
+<script type="text/babel" src="web/services/articles.jsx"></script>
 <script type="text/babel" src="web/sections/aula.jsx"></script>
+<script type="text/babel" src="web/sections/aula-admin.jsx"></script>
 <script type="text/babel" src="web/sections/laboratorio.jsx"></script>
 <script type="text/babel" src="web/sections/gems-store.jsx"></script>
 
@@ -64,10 +66,11 @@ function HomePage() {
   );
 }
 
-function AulaPage() { return <AulaSection />; }
+function AulaPage()        { return <AulaSection />; }
 function LaboratorioPage() { return <LaboratorioSection />; }
-function BuilderPage() { return <BuilderSection />; }
-function PerfilPage() { return <><DashboardSection /><GemsStoreSection /></>; }
+function BuilderPage()     { return <BuilderSection />; }
+function PerfilPage()      { return <><DashboardSection /><GemsStoreSection /></>; }
+function AdminPage()       { return <AulaAdminSection />; }
 
 function Routes() {
   const { route } = useRoute();
@@ -77,6 +80,7 @@ function Routes() {
     '/laboratorio': LaboratorioPage,
     '/builder': BuilderPage,
     '/perfil': PerfilPage,
+    '/admin': AdminPage,
   }[route] || HomePage;
 
   return (
