@@ -30,6 +30,7 @@ const DEFAULT_STORE = {
     theme: 'light',
     sinnerduo: true,
   },
+  currentWorkout: [],
 };
 
 function readStore() {
@@ -49,6 +50,7 @@ function readStore() {
     if (parsed.store) merged.store = { ...merged.store, ...parsed.store };
     if (parsed.achievements) merged.achievements = parsed.achievements;
     if (parsed.prefs) merged.prefs = { ...merged.prefs, ...parsed.prefs };
+    if (parsed.currentWorkout) merged.currentWorkout = parsed.currentWorkout;
     return merged;
   } catch (e) {
     return structuredClone(DEFAULT_STORE);
@@ -242,6 +244,8 @@ function StoreProvider({ children }) {
       };
     }),
 
+    setCurrentWorkout: (exercises) => setState(s => ({ ...s, currentWorkout: exercises })),
+
     setPref: (key, value) => setState(s => ({ ...s, prefs: { ...s.prefs, [key]: value } })),
 
     reset: () => setState(structuredClone(DEFAULT_STORE)),
@@ -261,7 +265,7 @@ function useStore() {
 }
 
 // ─── Hash router ──────────────────────────────────────
-const ROUTES = ['/', '/aula', '/laboratorio', '/builder', '/perfil', '/admin'];
+const ROUTES = ['/', '/aula', '/laboratorio', '/coach', '/builder', '/perfil', '/admin'];
 
 function useRoute() {
   const [route, setRoute] = React.useState(() => {

@@ -427,6 +427,7 @@ function VolumeChart({ exercises }) {
 // ── Main section ──────────────────────────────────────────────────────────────
 function BuilderSection() {
   const { actions } = useStore();
+  const { navigate } = useRoute();
   const [activeGroup, setActiveGroup] = React.useState('all');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedExId, setSelectedExId] = React.useState(null);
@@ -457,6 +458,13 @@ function BuilderSection() {
 
   const currentExIds = React.useMemo(() => new Set(workout.map(e => e.id)), [workout]);
   const selectedExercise = selectedExId ? allExercises.find(e => e.id === selectedExId) : null;
+
+  // Sync active workout to store so Atlas Coach can analyze it live
+  React.useEffect(() => {
+    actions.setCurrentWorkout(workout.map(ex => ({
+      name: ex.name, muscles: ex.muscles.primary, pattern: ex.pattern, sets: ex.sets,
+    })));
+  }, [workout]);
 
   // Sync center sets when selecting an exercise
   React.useEffect(() => {
@@ -679,7 +687,14 @@ function BuilderSection() {
           }}>
             {/* Stats header */}
             <div style={{ padding: '14px 14px 10px', flexShrink: 0, borderBottom: `1px solid ${D.border}` }}>
-              <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 8, color: D.textMuted, fontWeight: 700, letterSpacing: 0.8, marginBottom: 6 }}>RUTINA ACTUAL</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 8, color: D.textMuted, fontWeight: 700, letterSpacing: 0.8 }}>RUTINA ACTUAL</div>
+                {workout.length > 0 && (
+                  <button onClick={() => navigate('/coach')} style={{ padding: '3px 9px', borderRadius: 999, border: '1px solid rgba(42,111,219,0.35)', background: 'rgba(42,111,219,0.12)', color: '#6BA3F0', fontFamily: '"Inter",system-ui', fontSize: 9, fontWeight: 700, cursor: 'pointer', letterSpacing: 0.2 }}>
+                    Analizar →
+                  </button>
+                )}
+              </div>
               <div style={{ display: 'flex', gap: 14, alignItems: 'baseline' }}>
                 <div>
                   <span style={{ fontFamily: '"Inter",system-ui', fontSize: 22, fontWeight: 800, color: D.text, lineHeight: 1 }}>{workout.length}</span>
