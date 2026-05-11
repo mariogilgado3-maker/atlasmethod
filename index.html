@@ -69,7 +69,8 @@ function HomePage() {
 }
 
 function AulaPage()        { return <AulaSection />; }
-function LaboratorioPage() { return <LaboratorioSection />; }
+function CoachPage()       { return <AtlasCoachSection />; }
+function LaboratorioPage() { return <AtlasCoachSection />; }
 function BuilderPage()     { return <BuilderSection />; }
 function PerfilPage()      { return <><DashboardSection /><GemsStoreSection /></>; }
 function AdminPage()       { return <AulaAdminSection />; }
@@ -79,6 +80,7 @@ function Routes() {
   const Page = {
     '/': HomePage,
     '/aula': AulaPage,
+    '/coach': CoachPage,
     '/laboratorio': LaboratorioPage,
     '/builder': BuilderPage,
     '/perfil': PerfilPage,
