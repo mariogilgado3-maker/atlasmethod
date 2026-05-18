@@ -1,109 +1,173 @@
-// Aula — article browser powered by ArticlesService
-// Reads from ArticlesService (localStorage-backed mock, swappable to API)
+// Aula — Editorial knowledge feed
 
-const CATEGORY_META = {
-  all:         { label: 'Todos',         color: '#0F1A2E', bg: 'rgba(15,26,46,0.06)' },
-  fuerza:      { label: 'Fuerza',        color: '#0F1A2E', bg: 'rgba(15,26,46,0.07)', gradient: 'linear-gradient(135deg, #1a2845 0%, #0f3460 100%)' },
-  hipertrofia: { label: 'Hipertrofia',   color: '#1F8B3A', bg: '#E7F8EC',             gradient: 'linear-gradient(135deg, #0d3b1e 0%, #1a6b3a 100%)' },
-  nutricion:   { label: 'Nutrición',     color: '#b35c00', bg: 'rgba(179,92,0,0.09)', gradient: 'linear-gradient(135deg, #3b1f0a 0%, #7a3e12 100%)' },
-  recuperacion:{ label: 'Recuperación',  color: '#1a4fa0', bg: 'rgba(26,79,160,0.09)',gradient: 'linear-gradient(135deg, #0d1e3b 0%, #1a3b6b 100%)' },
-  cognitivo:   { label: 'Cognitivo',     color: '#6b3ba0', bg: 'rgba(107,59,160,0.09)',gradient: 'linear-gradient(135deg, #1e0d3b 0%, #3b1a6b 100%)' },
-  sueno:       { label: 'Sueño',         color: '#2a7a8a', bg: 'rgba(42,122,138,0.09)',gradient: 'linear-gradient(135deg, #0d2b30 0%, #1a5060 100%)' },
+// ── Design tokens ─────────────────────────────────────────────────────────────
+const AL = {
+  page:   '#FAFAF7',
+  card:   '#FFFFFF',
+  navy:   '#0F1A2E',
+  sub:    '#5C6477',
+  muted:  '#9498A4',
+  border: 'rgba(15,26,46,0.07)',
+  bord2:  'rgba(15,26,46,0.11)',
 };
 
-const EVIDENCE_META = {
-  'meta-analysis': { label: 'Meta-análisis', color: '#1F8B3A', bg: '#E7F8EC' },
-  'rct':           { label: 'ECA',           color: '#1a4fa0', bg: 'rgba(26,79,160,0.09)' },
-  'cohort':        { label: 'Cohorte',       color: '#b35c00', bg: 'rgba(179,92,0,0.09)' },
-  'review':        { label: 'Revisión',      color: '#0F1A2E', bg: 'rgba(15,26,46,0.07)' },
-  'expert-opinion':{ label: 'Experto',       color: '#9498A4', bg: 'rgba(148,152,164,0.1)' },
+const ALcat = {
+  hipertrofia:  { label:'Hipertrofia',  c:'#059669', bg:'rgba(5,150,105,0.09)',   dot:'#10B981', grad:'135deg,#082e1d 0%,#0d5c3a 100%' },
+  fuerza:       { label:'Fuerza',       c:'#1E40AF', bg:'rgba(30,64,175,0.08)',   dot:'#3B82F6', grad:'135deg,#08102e 0%,#1a2e70 100%' },
+  nutricion:    { label:'Nutrición',    c:'#B45309', bg:'rgba(180,83,9,0.09)',    dot:'#F59E0B', grad:'135deg,#2e1a05 0%,#704215 100%' },
+  recuperacion: { label:'Recuperación', c:'#0369A1', bg:'rgba(3,105,161,0.08)',   dot:'#38BDF8', grad:'135deg,#041824 0%,#093a5c 100%' },
+  cognitivo:    { label:'Cognitivo',    c:'#6D28D9', bg:'rgba(109,40,217,0.08)',  dot:'#A78BFA', grad:'135deg,#120a2e 0%,#3d1a8a 100%' },
+  sueno:        { label:'Sueño',        c:'#0F766E', bg:'rgba(15,118,110,0.09)',  dot:'#2DD4BF', grad:'135deg,#04201e 0%,#0a4a45 100%' },
+  biomecánica:  { label:'Biomecánica',  c:'#be123c', bg:'rgba(190,18,60,0.08)',   dot:'#FB7185', grad:'135deg,#240510 0%,#700a1e 100%' },
+  suplementos:  { label:'Suplementos',  c:'#7C3AED', bg:'rgba(124,58,237,0.08)',  dot:'#C4B5FD', grad:'135deg,#130a2e 0%,#4a1a8c 100%' },
 };
 
-function CoverPlaceholder({ category, size }) {
-  const meta = CATEGORY_META[category] || CATEGORY_META.fuerza;
-  const h = size === 'detail' ? 260 : 160;
-  const radius = size === 'detail' ? 18 : '16px 16px 0 0';
+const EVIDENCE_LABEL = {
+  'meta-analysis':'Meta-análisis', rct:'ECA', cohort:'Cohorte',
+  review:'Revisión', 'expert-opinion':'Experto',
+};
+
+// ── Static content ─────────────────────────────────────────────────────────────
+const MICRO_TIPS = [
+  { type:'fact',  label:'¿Sabías que?',     icon:'🔬', text:'Entrenar 2× por músculo/semana produce hasta un 22% más de hipertrofia que 1× con el mismo volumen total.' },
+  { type:'myth',  label:'Mito derribado',   icon:'✗',  text:'El cardio no quema músculo si mantienes 1.6 g/kg de proteína. El problema es el déficit calórico excesivo.' },
+  { type:'tip',   label:'Tip rápido',       icon:'⚡', text:'RPE 8 = puedes hacer 2 reps más. Autorregula la carga diaria sin necesitar tests de 1RM.' },
+  { type:'error', label:'Error común',      icon:'⚠',  text:'Más series ≠ más músculo. Pasadas las 20–22 series/sesión, la calidad del estímulo cae y la fatiga sube.' },
+  { type:'fact',  label:'Ciencia aplicada', icon:'📊', text:'La ventana anabólica post-entreno es real pero cómoda: tienes 2–4 horas para comer proteína, no 30 minutos.' },
+  { type:'tip',   label:'Tip rápido',       icon:'💤', text:'La GH se libera principalmente en sueño N3. Menos de 6h de sueño puede reducir la síntesis proteica nocturna en un 30%.' },
+];
+
+const SCIENCE_NEWS = [
+  { date:'May 2026', finding:'Entrenar de noche no perjudica el sueño en personas sanas y activas', application:'El horario importa menos que la consistencia. Entrena cuando puedas cumplir con más frecuencia.', source:'Sports Medicine (2026)' },
+  { date:'Abr 2026', finding:'La creatina mejora la recuperación muscular incluso en atletas con dieta alta en proteína', application:'3–5 g/día es la dosis efectiva sin carga. El efecto es acumulativo a las 2–4 semanas.', source:'JISSN (2026)' },
+  { date:'Mar 2026', finding:'El entrenamiento excéntrico lento produce hasta un 15% más de hipertrofia que el concéntrico puro', application:'Baja el peso en 3–4 segundos. La fase excéntrica es tan importante como la concéntrica.', source:'Eur J Applied Physiol (2026)' },
+  { date:'Feb 2026', finding:'Deloads de solo 5–7 días son suficientes para restaurar la capacidad de entrenamiento en atletas intermedios', application:'Una semana ligera cada 4–6 semanas es suficiente. No necesitas semanas enteras de descanso total.', source:'J Strength Cond Res (2026)' },
+];
+
+const VIDEOS = [
+  { id:'v1', title:'Técnica de sentadilla — análisis biomecánico', duration:'8:32', cat:'fuerza',       views:'2.4k', desc:'Las 5 fallas más comunes y cómo corregirlas.' },
+  { id:'v2', title:'¿Hay que entrenar al fallo?',                   duration:'6:15', cat:'hipertrofia',  views:'3.8k', desc:'Cuándo el fallo muscular ayuda y cuándo frena.' },
+  { id:'v3', title:'La ventana anabólica: mito vs realidad',        duration:'4:50', cat:'nutricion',    views:'5.1k', desc:'Lo que dice la evidencia actual sobre el timing.' },
+  { id:'v4', title:'HRV: cómo leer tu recuperación cada mañana',    duration:'7:22', cat:'recuperacion', views:'1.9k', desc:'Interpretación práctica sin gadgets caros.' },
+];
+
+const EXPLORE_TOPICS = [
+  { id:'hipertrofia',  emoji:'↑',  count:4 },
+  { id:'fuerza',       emoji:'⊕',  count:3 },
+  { id:'nutricion',    emoji:'◉',  count:2 },
+  { id:'recuperacion', emoji:'○',  count:3 },
+  { id:'cognitivo',    emoji:'◎',  count:1 },
+  { id:'sueno',        emoji:'⌁',  count:2 },
+];
+
+// ── Cover visual ──────────────────────────────────────────────────────────────
+function AlCover({ category, height, radius, style }) {
+  const m = ALcat[category] || ALcat.fuerza;
   return (
     <div style={{
-      width: '100%', height: h,
-      background: meta.gradient || 'linear-gradient(135deg, #1a2845, #0f3460)',
-      borderRadius: radius,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      width: '100%', height: height || 180,
+      background: `linear-gradient(${m.grad})`,
+      borderRadius: radius !== undefined ? radius : 0,
       position: 'relative', overflow: 'hidden',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      flexShrink: 0,
+      ...style,
     }}>
       <div style={{
         position: 'absolute', inset: 0,
-        backgroundImage: 'linear-gradient(rgba(255,255,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.04) 1px,transparent 1px)',
-        backgroundSize: '32px 32px',
+        backgroundImage: 'linear-gradient(rgba(255,255,255,0.028) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.028) 1px,transparent 1px)',
+        backgroundSize: '30px 30px',
       }} />
+      <div style={{ position:'absolute', width:220, height:220, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.05)', right:-70, bottom:-70 }} />
+      <div style={{ position:'absolute', width:100, height:100, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.04)', left:-20, top:-20 }} />
+      <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(0,0,0,0.25) 0%, transparent 50%)' }} />
       <span style={{
-        fontFamily: '"Instrument Serif",Georgia,serif', fontStyle: 'italic',
-        fontSize: size === 'detail' ? 72 : 48, color: 'rgba(255,255,255,0.15)',
-        letterSpacing: -2, userSelect: 'none', position: 'relative',
-      }}>A</span>
+        fontFamily:'"Instrument Serif",Georgia,serif', fontStyle:'italic',
+        fontSize: Math.min(height * 0.45, 64), color:'rgba(255,255,255,0.10)',
+        letterSpacing:-2, userSelect:'none', position:'relative', zIndex:1,
+      }}>
+        {m.label}
+      </span>
     </div>
   );
 }
 
-function EvidenceBadge({ level }) {
-  const m = EVIDENCE_META[level];
-  if (!m) return null;
+// ── Evidence badge ────────────────────────────────────────────────────────────
+function AlEvBadge({ level }) {
+  if (!level || !EVIDENCE_LABEL[level]) return null;
   return (
     <span style={{
-      padding: '2px 8px', borderRadius: 4,
-      background: m.bg, color: m.color,
-      fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
-    }}>{m.label}</span>
+      padding:'2px 8px', borderRadius:5,
+      background:'rgba(15,26,46,0.05)', color:AL.muted,
+      fontFamily:'ui-monospace,Menlo,monospace', fontSize:10, fontWeight:700, letterSpacing:0.3,
+    }}>
+      {EVIDENCE_LABEL[level]}
+    </span>
   );
 }
 
-function ArticleCard({ article, isRead, onOpen }) {
-  const [hover, setHover] = React.useState(false);
-  const catMeta = CATEGORY_META[article.category] || CATEGORY_META.fuerza;
+// ── Category pill ─────────────────────────────────────────────────────────────
+function AlCatPill({ category }) {
+  const m = ALcat[category] || ALcat.fuerza;
   return (
-    <div
-      onClick={() => onOpen(article.id)}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        borderRadius: 18, overflow: 'hidden', background: '#FFFFFF',
-        border: '1px solid rgba(15,26,46,0.08)', cursor: 'pointer',
-        transform: hover ? 'translateY(-4px)' : 'translateY(0)',
-        boxShadow: hover ? '0 16px 48px -16px rgba(15,26,46,0.2)' : '0 2px 8px -4px rgba(15,26,46,0.06)',
-        transition: 'all 0.25s cubic-bezier(0.2,0.8,0.2,1)',
-      }}
-    >
-      {article.coverImage
-        ? <img src={article.coverImage} alt={article.title} style={{ width: '100%', height: 160, objectFit: 'cover' }} />
-        : <CoverPlaceholder category={article.category} size="card" />
-      }
-      <div style={{ padding: '16px 20px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-          <span style={{
-            padding: '2px 9px', borderRadius: 999,
-            background: catMeta.bg, color: catMeta.color,
-            fontFamily: '"Inter",system-ui', fontSize: 11, fontWeight: 700, textTransform: 'capitalize',
-          }}>{catMeta.label}</span>
-          <EvidenceBadge level={article.evidenceLevel} />
-          {isRead && (
-            <span style={{
-              marginLeft: 'auto', padding: '2px 8px', borderRadius: 999,
-              background: '#E7F8EC', color: '#1F8B3A',
-              fontFamily: '"Inter",system-ui', fontSize: 10, fontWeight: 700,
-            }}>✓ Leído</span>
-          )}
+    <span style={{
+      padding:'2px 9px', borderRadius:5,
+      background:m.bg, color:m.c,
+      fontFamily:'"Inter",system-ui', fontSize:11, fontWeight:700,
+    }}>
+      {m.label}
+    </span>
+  );
+}
+
+// ── Hero ──────────────────────────────────────────────────────────────────────
+function AulaHero({ total, completed, query, onQuery }) {
+  return (
+    <div style={{ paddingBottom: 40, marginBottom: 40, borderBottom: `1px solid ${AL.border}` }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:16 }}>
+        <div style={{ width:7, height:7, borderRadius:'50%', background:'#10B981' }} />
+        <span style={{ fontFamily:'"Inter",system-ui', fontSize:11, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:AL.muted }}>Aula Atlas</span>
+      </div>
+
+      <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', gap:24, flexWrap:'wrap' }}>
+        <div style={{ maxWidth:600 }}>
+          <h1 style={{
+            fontFamily:'"Inter",system-ui', fontWeight:800,
+            fontSize:54, color:AL.navy, letterSpacing:-2.5,
+            lineHeight:0.98, margin:'0 0 18px',
+          }}>
+            Entrena con{' '}
+            <em style={{ fontFamily:'"Instrument Serif",Georgia,serif', fontStyle:'italic', fontWeight:400, letterSpacing:-1 }}>evidencia</em>
+            .
+          </h1>
+          <p style={{ fontFamily:'"Inter",system-ui', fontSize:17, color:AL.sub, lineHeight:1.55, margin:0, letterSpacing:-0.2, maxWidth:520 }}>
+            Ciencia aplicada al entrenamiento. Sin dogma, sin ruido. Solo lo que funciona.
+          </p>
         </div>
-        <h3 style={{ fontFamily: '"Inter",system-ui', fontSize: 17, fontWeight: 700, color: '#0F1A2E', letterSpacing: -0.4, lineHeight: 1.2, margin: '0 0 4px' }}>{article.title}</h3>
-        <p style={{ fontFamily: '"Inter",system-ui', fontSize: 13, color: '#5C6477', margin: '0 0 10px', fontStyle: 'italic' }}>{article.subtitle}</p>
-        <p style={{ fontFamily: '"Inter",system-ui', fontSize: 13, color: '#3A4257', lineHeight: 1.5, margin: '0 0 14px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{article.summary}</p>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontFamily: '"Inter",system-ui', fontSize: 11, color: '#9498A4', fontWeight: 600 }}>{article.readTime} min</span>
-            {article.publishYear && <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10, color: '#9498A4' }}>{article.publishYear}</span>}
+
+        <div style={{ display:'flex', flexDirection:'column', gap:6, alignItems:'flex-end' }}>
+          {/* Search */}
+          <div style={{ position:'relative' }}>
+            <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:AL.muted, fontSize:14, pointerEvents:'none' }}>⌕</span>
+            <input
+              value={query} onChange={e => onQuery(e.target.value)}
+              placeholder="Buscar artículos…"
+              style={{
+                padding:'10px 14px 10px 34px', borderRadius:12,
+                border:`1px solid ${AL.bord2}`, background:'#FFFFFF',
+                color:AL.navy, fontFamily:'"Inter",system-ui', fontSize:13,
+                outline:'none', width:220,
+              }}
+            />
           </div>
-          {!isRead && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 999, background: 'rgba(15,26,46,0.05)', fontFamily: '"Inter",system-ui', fontSize: 11, fontWeight: 700, color: '#0F1A2E' }}>
-              <Gem size={11} /> +{article.gems}
+          {/* Stats */}
+          {completed > 0 && (
+            <span style={{
+              padding:'5px 12px', borderRadius:999,
+              background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.14)',
+              fontFamily:'"Inter",system-ui', fontSize:11, color:'#059669', fontWeight:700,
+            }}>
+              ✓ {completed} leído{completed !== 1 ? 's' : ''} · +{completed * 15} 💎
             </span>
           )}
         </div>
@@ -112,113 +176,455 @@ function ArticleCard({ article, isRead, onOpen }) {
   );
 }
 
-function ArticleDetail({ article, isRead, onBack, onMarkRead }) {
-  const [openSections, setOpenSections] = React.useState({ 0: true });
-  const [showAi, setShowAi] = React.useState(false);
-  const catMeta = CATEGORY_META[article.category] || CATEGORY_META.fuerza;
-  const toggle = (i) => setOpenSections(s => ({ ...s, [i]: !s[i] }));
+// ── Category filter strip ─────────────────────────────────────────────────────
+function AlCatStrip({ active, onChange }) {
+  const cats = [['all','Todos'], ...Object.entries(ALcat).filter(([k]) => ['hipertrofia','fuerza','nutricion','recuperacion','cognitivo','sueno'].includes(k)).map(([k,v]) => [k,v.label])];
+  return (
+    <div style={{ display:'flex', gap:6, marginBottom:40, flexWrap:'wrap' }}>
+      {cats.map(([key, label]) => {
+        const m = ALcat[key];
+        const act = active === key;
+        return (
+          <button key={key} onClick={() => onChange(key)} style={{
+            padding:'7px 15px', borderRadius:999, border:'none', cursor:'pointer',
+            background: act ? AL.navy : 'rgba(15,26,46,0.05)',
+            color: act ? '#FAFAF7' : AL.sub,
+            fontFamily:'"Inter",system-ui', fontSize:13, fontWeight: act ? 700 : 500,
+            transition:'all .15s',
+          }}>
+            {m && !act && (
+              <span style={{ display:'inline-block', width:6, height:6, borderRadius:'50%', background:m.dot, marginRight:6, verticalAlign:'middle', marginTop:-1 }} />
+            )}
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Featured article (horizontal hero card) ───────────────────────────────────
+function AulaFeatured({ article, isRead, onOpen }) {
+  const [hov, setHov] = React.useState(false);
+  const m = ALcat[article.category] || ALcat.fuerza;
 
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto' }}>
-      <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 32, background: 'none', border: 'none', cursor: 'pointer', fontFamily: '"Inter",system-ui', fontSize: 14, fontWeight: 600, color: '#5C6477', padding: 0 }}>
-        ← Volver al Aula
-      </button>
-
-      {article.coverImage
-        ? <img src={article.coverImage} alt={article.title} style={{ width: '100%', height: 260, objectFit: 'cover', borderRadius: 18, marginBottom: 32 }} />
-        : <div style={{ marginBottom: 32 }}><CoverPlaceholder category={article.category} size="detail" /></div>
-      }
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-        <span style={{ padding: '3px 10px', borderRadius: 999, background: catMeta.bg, color: catMeta.color, fontFamily: '"Inter",system-ui', fontSize: 12, fontWeight: 700, textTransform: 'capitalize' }}>{catMeta.label}</span>
-        <EvidenceBadge level={article.evidenceLevel} />
-        <span style={{ fontFamily: '"Inter",system-ui', fontSize: 12, color: '#9498A4', marginLeft: 4 }}>{article.readTime} min lectura</span>
-        {article.publishYear && article.journal && (
-          <span style={{ fontFamily: '"Inter",system-ui', fontSize: 12, color: '#9498A4' }}>· {article.journal} ({article.publishYear})</span>
+    <div
+      onClick={() => onOpen(article.id)}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display:'grid', gridTemplateColumns:'1fr 1fr',
+        borderRadius:24, overflow:'hidden',
+        background:AL.card, border:`1px solid ${AL.border}`,
+        cursor:'pointer',
+        boxShadow: hov ? '0 24px 64px rgba(15,26,46,0.15)' : '0 4px 20px rgba(15,26,46,0.07)',
+        transform: hov ? 'translateY(-4px)' : 'none',
+        transition:'all .3s cubic-bezier(.2,.8,.2,1)',
+        marginBottom:56,
+      }}
+    >
+      {/* Left: cover */}
+      <div style={{ position:'relative', overflow:'hidden' }}>
+        <AlCover category={article.category} height={340} />
+        <div style={{
+          position:'absolute', top:16, left:16,
+          padding:'4px 10px', borderRadius:6,
+          background:'rgba(0,0,0,0.40)', backdropFilter:'blur(10px)',
+          fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700,
+          color:'rgba(255,255,255,0.92)', letterSpacing:1.2,
+        }}>DESTACADO DEL DÍA</div>
+        {isRead && (
+          <div style={{
+            position:'absolute', top:16, right:16,
+            padding:'4px 10px', borderRadius:6,
+            background:'rgba(5,150,105,0.75)', backdropFilter:'blur(8px)',
+            fontFamily:'"Inter",system-ui', fontSize:10, fontWeight:700, color:'#fff',
+          }}>✓ Leído</div>
         )}
       </div>
 
-      <h1 style={{ fontFamily: '"Inter",system-ui', fontSize: 40, fontWeight: 700, color: '#0F1A2E', letterSpacing: -1.4, lineHeight: 1.05, margin: '0 0 8px' }}>{article.title}</h1>
-      <p style={{ fontFamily: '"Instrument Serif",Georgia,serif', fontStyle: 'italic', fontSize: 22, color: '#5C6477', margin: '0 0 8px' }}>{article.subtitle}</p>
+      {/* Right: content */}
+      <div style={{ padding:'36px 40px', display:'flex', flexDirection:'column', justifyContent:'center' }}>
+        <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap', alignItems:'center' }}>
+          <AlCatPill category={article.category} />
+          <AlEvBadge level={article.evidenceLevel} />
+        </div>
+
+        <h2 style={{ fontFamily:'"Inter",system-ui', fontSize:30, fontWeight:800, color:AL.navy, letterSpacing:-1.2, lineHeight:1.08, margin:'0 0 12px' }}>
+          {article.title}
+        </h2>
+        <p style={{ fontFamily:'"Instrument Serif",Georgia,serif', fontStyle:'italic', fontSize:18, color:AL.sub, margin:'0 0 16px', lineHeight:1.45 }}>
+          {article.subtitle}
+        </p>
+        <p style={{
+          fontFamily:'"Inter",system-ui', fontSize:14, color:AL.sub, lineHeight:1.65,
+          margin:'0 0 28px',
+          display:'-webkit-box', WebkitLineClamp:3, WebkitBoxOrient:'vertical', overflow:'hidden',
+        }}>
+          {article.summary}
+        </p>
+
+        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+          <span style={{
+            padding:'11px 22px', borderRadius:12,
+            background:AL.navy, color:'#FAFAF7',
+            fontFamily:'"Inter",system-ui', fontSize:13, fontWeight:700,
+            transition:'opacity .15s',
+          }}>
+            Ver análisis →
+          </span>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <span style={{ fontFamily:'"Inter",system-ui', fontSize:12, color:AL.muted, fontWeight:500 }}>{article.readTime} min</span>
+            {!isRead && <span style={{ fontFamily:'"Inter",system-ui', fontSize:12, color:'#059669', fontWeight:700 }}>+{article.gems} 💎</span>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Feed card ─────────────────────────────────────────────────────────────────
+function AulaCard({ article, isRead, onOpen }) {
+  const [hov, setHov] = React.useState(false);
+  return (
+    <div
+      onClick={() => onOpen(article.id)}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        borderRadius:20, overflow:'hidden',
+        background:AL.card, border:`1px solid ${AL.border}`,
+        cursor:'pointer',
+        boxShadow: hov ? '0 16px 48px rgba(15,26,46,0.12)' : '0 2px 8px rgba(15,26,46,0.05)',
+        transform: hov ? 'translateY(-5px)' : 'none',
+        transition:'all .25s cubic-bezier(.2,.8,.2,1)',
+      }}
+    >
+      <div style={{ position:'relative', overflow:'hidden' }}>
+        <AlCover category={article.category} height={168} />
+        {isRead && (
+          <div style={{
+            position:'absolute', top:12, right:12,
+            width:22, height:22, borderRadius:'50%',
+            background:'rgba(5,150,105,0.8)', backdropFilter:'blur(6px)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontFamily:'"Inter",system-ui', fontSize:11, color:'#fff', fontWeight:700,
+          }}>✓</div>
+        )}
+      </div>
+
+      <div style={{ padding:'18px 22px 22px' }}>
+        <div style={{ display:'flex', gap:7, marginBottom:12, alignItems:'center', flexWrap:'wrap' }}>
+          <AlCatPill category={article.category} />
+          <AlEvBadge level={article.evidenceLevel} />
+        </div>
+        <h3 style={{ fontFamily:'"Inter",system-ui', fontSize:18, fontWeight:700, color:AL.navy, letterSpacing:-0.7, lineHeight:1.2, margin:'0 0 6px' }}>
+          {article.title}
+        </h3>
+        <p style={{ fontFamily:'"Inter",system-ui', fontSize:13, color:AL.sub, margin:'0 0 16px', lineHeight:1.5, fontStyle:'italic' }}>
+          {article.subtitle}
+        </p>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ fontFamily:'"Inter",system-ui', fontSize:11, color:AL.muted, fontWeight:600 }}>{article.readTime} min lectura</span>
+          {!isRead
+            ? <span style={{ fontFamily:'"Inter",system-ui', fontSize:11, color:'#059669', fontWeight:700 }}>+{article.gems} 💎</span>
+            : <span style={{ fontFamily:'"Inter",system-ui', fontSize:11, color:'#059669', fontWeight:600 }}>Completado</span>
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Section heading ───────────────────────────────────────────────────────────
+function AlSectionHead({ label, sublabel }) {
+  return (
+    <div style={{ display:'flex', alignItems:'baseline', gap:12, marginBottom:24 }}>
+      <h2 style={{ fontFamily:'"Inter",system-ui', fontSize:22, fontWeight:800, color:AL.navy, letterSpacing:-0.8, margin:0 }}>{label}</h2>
+      {sublabel && <span style={{ fontFamily:'"Inter",system-ui', fontSize:13, color:AL.muted }}>{sublabel}</span>}
+    </div>
+  );
+}
+
+// ── Micro-learning strip ──────────────────────────────────────────────────────
+function AulaMicroLearning() {
+  const typeColors = {
+    fact:  { c:'#1E40AF', bg:'rgba(30,64,175,0.07)'  },
+    myth:  { c:'#B45309', bg:'rgba(180,83,9,0.07)'   },
+    tip:   { c:'#059669', bg:'rgba(5,150,105,0.07)'  },
+    error: { c:'#be123c', bg:'rgba(190,18,60,0.07)'  },
+  };
+
+  return (
+    <div style={{ marginBottom:64 }}>
+      <AlSectionHead label="30 segundos de ciencia" sublabel="Datos rápidos, basados en evidencia" />
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14 }}>
+        {MICRO_TIPS.map((tip, i) => {
+          const tc = typeColors[tip.type] || typeColors.fact;
+          return (
+            <div key={i} style={{
+              padding:'20px 22px', borderRadius:18,
+              background:AL.card, border:`1px solid ${AL.border}`,
+              boxShadow:'0 2px 8px rgba(15,26,46,0.04)',
+            }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
+                <span style={{
+                  padding:'3px 9px', borderRadius:5,
+                  background:tc.bg, color:tc.c,
+                  fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700, letterSpacing:0.6,
+                }}>
+                  {tip.label.toUpperCase()}
+                </span>
+              </div>
+              <p style={{ fontFamily:'"Inter",system-ui', fontSize:14, color:AL.navy, lineHeight:1.6, margin:0, fontWeight:500 }}>
+                {tip.text}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Science feed ──────────────────────────────────────────────────────────────
+function AulaScienceFeed() {
+  return (
+    <div style={{ marginBottom:64 }}>
+      <AlSectionHead label="Avances recientes" sublabel="Últimos hallazgos con aplicación práctica" />
+      <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+        {SCIENCE_NEWS.map((item, i) => (
+          <div key={i} style={{
+            display:'grid', gridTemplateColumns:'80px 1fr 1fr',
+            gap:24, padding:'22px 24px', borderRadius:16,
+            background:AL.card, border:`1px solid ${AL.border}`,
+            marginBottom:2,
+            alignItems:'center',
+          }}>
+            <div>
+              <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:10, color:AL.muted, fontWeight:700, letterSpacing:0.5 }}>{item.date}</div>
+            </div>
+            <div>
+              <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, fontWeight:700, color:AL.muted, letterSpacing:1, marginBottom:6 }}>HALLAZGO</div>
+              <p style={{ fontFamily:'"Inter",system-ui', fontSize:14, fontWeight:600, color:AL.navy, lineHeight:1.45, margin:0 }}>{item.finding}</p>
+              <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, color:AL.muted, marginTop:6 }}>{item.source}</div>
+            </div>
+            <div style={{ padding:'14px 18px', borderRadius:12, background:'rgba(5,150,105,0.05)', border:'1px solid rgba(5,150,105,0.12)' }}>
+              <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, fontWeight:700, color:'#059669', letterSpacing:1, marginBottom:6 }}>APLICACIÓN PRÁCTICA</div>
+              <p style={{ fontFamily:'"Inter",system-ui', fontSize:13, color:'#047857', lineHeight:1.5, margin:0 }}>{item.application}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Video card ────────────────────────────────────────────────────────────────
+function AulaVideoCard({ video }) {
+  const [hov, setHov] = React.useState(false);
+  const m = ALcat[video.cat] || ALcat.fuerza;
+
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        borderRadius:18, overflow:'hidden',
+        background:AL.card, border:`1px solid ${AL.border}`,
+        cursor:'pointer',
+        boxShadow: hov ? '0 12px 36px rgba(15,26,46,0.12)' : '0 2px 8px rgba(15,26,46,0.05)',
+        transform: hov ? 'translateY(-3px)' : 'none',
+        transition:'all .25s cubic-bezier(.2,.8,.2,1)',
+        flexShrink:0, width:260,
+      }}
+    >
+      {/* Thumbnail simulated */}
+      <div style={{ position:'relative', overflow:'hidden' }}>
+        <AlCover category={video.cat} height={148} />
+        {/* Play button */}
+        <div style={{
+          position:'absolute', inset:0,
+          display:'flex', alignItems:'center', justifyContent:'center',
+        }}>
+          <div style={{
+            width:46, height:46, borderRadius:'50%',
+            background:'rgba(255,255,255,0.18)', backdropFilter:'blur(12px)',
+            border:'1.5px solid rgba(255,255,255,0.35)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            transform: hov ? 'scale(1.1)' : 'scale(1)',
+            transition:'transform .2s',
+          }}>
+            <div style={{ width:0, height:0, borderTop:'8px solid transparent', borderBottom:'8px solid transparent', borderLeft:'14px solid rgba(255,255,255,0.9)', marginLeft:3 }} />
+          </div>
+        </div>
+        {/* Duration badge */}
+        <div style={{
+          position:'absolute', bottom:10, right:10,
+          padding:'3px 8px', borderRadius:5,
+          background:'rgba(0,0,0,0.65)', backdropFilter:'blur(6px)',
+          fontFamily:'ui-monospace,Menlo,monospace', fontSize:11, color:'#fff', fontWeight:700,
+        }}>{video.duration}</div>
+      </div>
+
+      <div style={{ padding:'14px 18px 18px' }}>
+        <div style={{ display:'flex', gap:7, marginBottom:8, alignItems:'center' }}>
+          <span style={{ padding:'2px 8px', borderRadius:4, background:m.bg, color:m.c, fontFamily:'"Inter",system-ui', fontSize:10, fontWeight:700 }}>{m.label}</span>
+          <span style={{ fontFamily:'"Inter",system-ui', fontSize:10, color:AL.muted }}>{video.views} vistas</span>
+        </div>
+        <div style={{ fontFamily:'"Inter",system-ui', fontSize:14, fontWeight:700, color:AL.navy, lineHeight:1.3, marginBottom:5 }}>{video.title}</div>
+        <div style={{ fontFamily:'"Inter",system-ui', fontSize:12, color:AL.sub }}>{video.desc}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Videos section ────────────────────────────────────────────────────────────
+function AulaVideos() {
+  return (
+    <div style={{ marginBottom:64 }}>
+      <AlSectionHead label="Vídeos y análisis" sublabel="Contenido visual para aprender más rápido" />
+      <div style={{ display:'flex', gap:16, overflowX:'auto', paddingBottom:8, scrollbarWidth:'thin' }}>
+        {VIDEOS.map(v => <AulaVideoCard key={v.id} video={v} />)}
+      </div>
+    </div>
+  );
+}
+
+// ── Explore by topic ──────────────────────────────────────────────────────────
+function AulaExplore({ onCategory }) {
+  return (
+    <div style={{ marginBottom:64 }}>
+      <AlSectionHead label="Explorar por tema" sublabel="Elige lo que quieres aprender hoy" />
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
+        {EXPLORE_TOPICS.map(topic => {
+          const m = ALcat[topic.id] || ALcat.fuerza;
+          return (
+            <button
+              key={topic.id}
+              onClick={() => onCategory(topic.id)}
+              style={{
+                padding:'20px 22px', borderRadius:16, border:`1px solid ${AL.border}`,
+                background:AL.card, cursor:'pointer', textAlign:'left',
+                transition:'all .2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = m.bg; e.currentTarget.style.borderColor = m.c.replace(')',',0.25)').replace('rgb','rgba'); }}
+              onMouseLeave={e => { e.currentTarget.style.background = AL.card; e.currentTarget.style.borderColor = AL.border; }}
+            >
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+                <div style={{ width:8, height:8, borderRadius:'50%', background:m.dot }} />
+                <span style={{ fontFamily:'"Inter",system-ui', fontSize:15, fontWeight:700, color:AL.navy }}>{m.label}</span>
+              </div>
+              <div style={{ fontFamily:'"Inter",system-ui', fontSize:12, color:AL.muted }}>{topic.count} artículo{topic.count !== 1 ? 's' : ''}</div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Article detail (kept from v1, style polish) ───────────────────────────────
+function AulaDetail({ article, isRead, onBack, onMarkRead }) {
+  const [openSecs, setOpenSecs] = React.useState({ 0:true });
+  const [showAi, setShowAi]     = React.useState(false);
+  const m  = ALcat[article.category] || ALcat.fuerza;
+  const ev = EVIDENCE_LABEL;
+  const toggle = i => setOpenSecs(s => ({ ...s, [i]: !s[i] }));
+
+  return (
+    <div style={{ maxWidth:740, margin:'0 auto' }}>
+      <button onClick={onBack} style={{ display:'inline-flex', alignItems:'center', gap:8, marginBottom:36, background:'none', border:'none', cursor:'pointer', fontFamily:'"Inter",system-ui', fontSize:14, fontWeight:600, color:AL.muted, padding:0 }}>
+        ← Volver al Aula
+      </button>
+
+      <div style={{ marginBottom:36, borderRadius:20, overflow:'hidden' }}>
+        <AlCover category={article.category} height={280} radius={20} />
+      </div>
+
+      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14, flexWrap:'wrap' }}>
+        <AlCatPill category={article.category} />
+        <AlEvBadge level={article.evidenceLevel} />
+        <span style={{ fontFamily:'"Inter",system-ui', fontSize:12, color:AL.muted }}>· {article.readTime} min lectura</span>
+        {article.publishYear && article.journal && (
+          <span style={{ fontFamily:'"Inter",system-ui', fontSize:12, color:AL.muted }}>· {article.journal} ({article.publishYear})</span>
+        )}
+      </div>
+
+      <h1 style={{ fontFamily:'"Inter",system-ui', fontSize:42, fontWeight:800, color:AL.navy, letterSpacing:-1.8, lineHeight:1.0, margin:'0 0 10px' }}>
+        {article.title}
+      </h1>
+      <p style={{ fontFamily:'"Instrument Serif",Georgia,serif', fontStyle:'italic', fontSize:22, color:AL.sub, margin:'0 0 8px' }}>
+        {article.subtitle}
+      </p>
       {article.authors?.length > 0 && (
-        <p style={{ fontFamily: '"Inter",system-ui', fontSize: 13, color: '#9498A4', margin: '0 0 28px' }}>
+        <p style={{ fontFamily:'"Inter",system-ui', fontSize:13, color:AL.muted, margin:'0 0 32px' }}>
           {article.authors.join(', ')}
-          {article.doi && <span> · <a href={`https://doi.org/${article.doi}`} target="_blank" rel="noopener noreferrer" style={{ color: '#1a4fa0', textDecoration: 'none' }}>doi:{article.doi}</a></span>}
-          {article.pmid && <span> · <a href={`https://pubmed.ncbi.nlm.nih.gov/${article.pmid}`} target="_blank" rel="noopener noreferrer" style={{ color: '#1a4fa0', textDecoration: 'none' }}>PubMed</a></span>}
+          {article.doi && <span> · <a href={'https://doi.org/' + article.doi} target="_blank" rel="noopener noreferrer" style={{ color:'#1a4fa0', textDecoration:'none' }}>doi:{article.doi}</a></span>}
         </p>
       )}
 
       {/* Abstract */}
-      <div style={{ padding: '18px 22px', borderRadius: 14, background: '#FAFAF7', border: '1px solid rgba(15,26,46,0.06)', marginBottom: 24 }}>
-        <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10, fontWeight: 700, color: '#9498A4', letterSpacing: 0.6 }}>ABSTRACT</span>
-        <p style={{ fontFamily: '"Inter",system-ui', fontSize: 15, color: '#3A4257', lineHeight: 1.6, margin: '8px 0 0', letterSpacing: -0.1 }}>{article.summary}</p>
+      <div style={{ padding:'20px 24px', borderRadius:16, background:'rgba(15,26,46,0.03)', border:`1px solid ${AL.border}`, marginBottom:24 }}>
+        <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700, color:AL.muted, letterSpacing:1, marginBottom:10 }}>ABSTRACT</div>
+        <p style={{ fontFamily:'"Inter",system-ui', fontSize:15, color:'#3A4257', lineHeight:1.65, margin:0 }}>{article.summary}</p>
       </div>
 
-      {/* AI Summary */}
+      {/* AI summary */}
       {article.aiSummary && (
-        <div style={{ marginBottom: 24 }}>
-          <button onClick={() => setShowAi(s => !s)} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 700, color: '#0F1A2E' }}>
-            <span style={{ width: 22, height: 22, borderRadius: 999, background: 'linear-gradient(135deg,#1A2845,#0F1A2E)', color: '#FAFAF7', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>A</span>
+        <div style={{ marginBottom:24 }}>
+          <button onClick={() => setShowAi(s=>!s)} style={{ display:'flex', alignItems:'center', gap:8, background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'"Inter",system-ui', fontSize:13, fontWeight:700, color:AL.navy }}>
+            <span style={{ width:22, height:22, borderRadius:999, background:AL.navy, color:'#FAFAF7', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:800 }}>A</span>
             Resumen IA {showAi ? '↑' : '↓'}
           </button>
           {showAi && (
-            <div style={{ padding: '14px 18px', borderRadius: 12, background: 'linear-gradient(135deg,rgba(15,26,46,0.03),rgba(15,26,46,0.06))', border: '1px solid rgba(15,26,46,0.08)' }}>
-              <p style={{ fontFamily: '"Inter",system-ui', fontSize: 14, color: '#0F1A2E', lineHeight: 1.5, margin: 0, fontStyle: 'italic' }}>"{article.aiSummary}"</p>
-              {article.aiGeneratedAt && <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10, color: '#9498A4', marginTop: 6, display: 'block' }}>Generado {new Date(article.aiGeneratedAt).toLocaleDateString('es-ES')}</span>}
+            <div style={{ marginTop:10, padding:'16px 20px', borderRadius:14, background:'rgba(15,26,46,0.03)', border:`1px solid ${AL.border}` }}>
+              <p style={{ fontFamily:'"Inter",system-ui', fontSize:14, color:AL.navy, lineHeight:1.55, margin:0, fontStyle:'italic' }}>"{article.aiSummary}"</p>
             </div>
           )}
         </div>
       )}
 
-      {/* Sections accordion */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 28 }}>
+      {/* Sections */}
+      <div style={{ display:'flex', flexDirection:'column', gap:2, marginBottom:32 }}>
         {article.sections.map((s, i) => (
-          <div key={i} style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(15,26,46,0.06)' }}>
-            <button onClick={() => toggle(i)} style={{ width: '100%', textAlign: 'left', padding: '14px 18px', background: openSections[i] ? '#0F1A2E' : '#FFFFFF', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.2s' }}>
-              <span style={{ fontFamily: '"Inter",system-ui', fontSize: 15, fontWeight: 700, color: openSections[i] ? '#FAFAF7' : '#0F1A2E', letterSpacing: -0.2 }}>{s.heading}</span>
-              <span style={{ color: openSections[i] ? 'rgba(250,250,247,0.6)' : '#9498A4', fontSize: 12 }}>{openSections[i] ? '↑' : '↓'}</span>
+          <div key={i} style={{ borderRadius:14, overflow:'hidden', border:`1px solid ${AL.border}` }}>
+            <button onClick={() => toggle(i)} style={{ width:'100%', textAlign:'left', padding:'16px 20px', background: openSecs[i] ? AL.navy : AL.card, border:'none', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', transition:'background .2s' }}>
+              <span style={{ fontFamily:'"Inter",system-ui', fontSize:15, fontWeight:700, color: openSecs[i] ? '#FAFAF7' : AL.navy, letterSpacing:-0.3 }}>{s.heading}</span>
+              <span style={{ color: openSecs[i] ? 'rgba(250,250,247,0.5)' : AL.muted, fontSize:11 }}>{openSecs[i] ? '↑' : '↓'}</span>
             </button>
-            {openSections[i] && (
-              <div style={{ padding: '16px 18px', background: '#FAFAF7' }}>
-                <p style={{ fontFamily: '"Inter",system-ui', fontSize: 14, color: '#3A4257', lineHeight: 1.65, margin: 0 }}>{s.body}</p>
+            {openSecs[i] && (
+              <div style={{ padding:'18px 20px', background:AL.page }}>
+                <p style={{ fontFamily:'"Inter",system-ui', fontSize:14, color:'#3A4257', lineHeight:1.7, margin:0 }}>{s.body}</p>
               </div>
             )}
           </div>
         ))}
       </div>
 
-      {/* Figures */}
-      {article.figures?.filter(f => f.url).map((fig, i) => (
-        <div key={i} style={{ marginBottom: 16 }}>
-          <img src={fig.url} alt={fig.caption} style={{ width: '100%', borderRadius: 12 }} />
-          <p style={{ fontFamily: '"Inter",system-ui', fontSize: 12, color: '#9498A4', textAlign: 'center', margin: '6px 0 0' }}>Figura {i + 1}: {fig.caption}</p>
-        </div>
-      ))}
-
       {/* References */}
       {article.refs?.length > 0 && (
-        <div style={{ padding: '18px 22px', borderRadius: 14, background: '#FAFAF7', border: '1px solid rgba(15,26,46,0.06)', marginBottom: 32 }}>
-          <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10, fontWeight: 700, color: '#9498A4', letterSpacing: 0.6 }}>REFERENCIAS</span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-            {article.refs.map((ref, i) => (
-              <p key={i} style={{ fontFamily: '"Inter",system-ui', fontSize: 12, color: '#5C6477', lineHeight: 1.5, margin: 0, paddingLeft: 16, borderLeft: '2px solid rgba(15,26,46,0.1)' }}>{ref}</p>
-            ))}
-          </div>
+        <div style={{ padding:'18px 22px', borderRadius:14, background:AL.page, border:`1px solid ${AL.border}`, marginBottom:32 }}>
+          <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700, color:AL.muted, letterSpacing:1, marginBottom:12 }}>REFERENCIAS</div>
+          {article.refs.map((ref, i) => (
+            <p key={i} style={{ fontFamily:'"Inter",system-ui', fontSize:12, color:AL.sub, lineHeight:1.55, margin:'0 0 8px', paddingLeft:14, borderLeft:'2px solid rgba(15,26,46,0.1)' }}>{ref}</p>
+          ))}
         </div>
       )}
 
       {/* Read CTA */}
-      <div style={{ padding: '20px 24px', borderRadius: 16, background: isRead ? '#E7F8EC' : '#0F1A2E', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ padding:'22px 26px', borderRadius:18, background: isRead ? 'rgba(5,150,105,0.07)' : AL.navy, border: isRead ? '1px solid rgba(5,150,105,0.16)' : 'none', display:'flex', alignItems:'center', justifyContent:'space-between', gap:16 }}>
         {isRead ? (
-          <div style={{ fontFamily: '"Inter",system-ui', fontSize: 14, fontWeight: 700, color: '#1F8B3A' }}>✓ Artículo completado · gemas ya acreditadas</div>
+          <div style={{ fontFamily:'"Inter",system-ui', fontSize:14, fontWeight:700, color:'#059669' }}>✓ Artículo completado · gemas acreditadas</div>
         ) : (
           <>
             <div>
-              <div style={{ fontFamily: '"Inter",system-ui', fontSize: 14, fontWeight: 700, color: '#FAFAF7' }}>¿Has terminado de leer?</div>
-              <div style={{ fontFamily: '"Inter",system-ui', fontSize: 12, color: 'rgba(250,250,247,0.6)', marginTop: 2 }}>Gana {article.gems} gemas al marcarlo como leído</div>
+              <div style={{ fontFamily:'"Inter",system-ui', fontSize:14, fontWeight:700, color:'#FAFAF7' }}>¿Has terminado de leer?</div>
+              <div style={{ fontFamily:'"Inter",system-ui', fontSize:12, color:'rgba(250,250,247,0.55)', marginTop:2 }}>Gana {article.gems} gemas al marcarlo como leído</div>
             </div>
-            <button onClick={onMarkRead} style={{ padding: '10px 20px', borderRadius: 999, border: 'none', cursor: 'pointer', background: '#FAFAF7', color: '#0F1A2E', fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Gem size={13} /> Marcar como leído
+            <button onClick={onMarkRead} style={{ padding:'11px 22px', borderRadius:12, border:'none', cursor:'pointer', background:'#FAFAF7', color:AL.navy, fontFamily:'"Inter",system-ui', fontSize:13, fontWeight:700, whiteSpace:'nowrap' }}>
+              Marcar como leído 💎
             </button>
           </>
         )}
@@ -227,6 +633,7 @@ function ArticleDetail({ article, isRead, onBack, onMarkRead }) {
   );
 }
 
+// ── Main section ──────────────────────────────────────────────────────────────
 function AulaSection() {
   const { state, actions } = useStore();
   const [articles, setArticles] = React.useState([]);
@@ -238,11 +645,13 @@ function AulaSection() {
 
   React.useEffect(() => {
     setLoading(true);
-    ArticlesService.getAll({ status: 'published' }).then(data => {
+    ArticlesService.getAll({ status:'published' }).then(data => {
       setArticles(data);
       setLoading(false);
     });
   }, []);
+
+  const completed = state.reading?.completed || [];
 
   const filtered = React.useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -255,81 +664,105 @@ function AulaSection() {
     );
   }, [articles, query, category]);
 
-  const completed = state.reading?.completed || [];
+  const featured = filtered[0] || null;
+  const feedItems = filtered.slice(1);
   const openArticle = openId ? articles.find(a => a.id === openId) : null;
 
-  const handleMarkRead = () => {
+  function handleMarkRead() {
     if (!openId) return;
     const art = articles.find(a => a.id === openId);
     if (!art || completed.includes(openId)) return;
     actions.markArticleRead(openId);
     setGemFlash(`+${art.gems} gemas · ${art.title}`);
     setTimeout(() => setGemFlash(null), 2500);
-  };
+  }
+
+  function handleCategoryFromExplore(cat) {
+    setCategory(cat);
+    setOpenId(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
   return (
-    <section style={{ padding: '120px 32px', background: '#FFFFFF', minHeight: '80vh' }}>
+    <section style={{ padding:'100px 32px 100px', background:AL.page, minHeight:'100vh' }}>
       {gemFlash && (
-        <div style={{ position: 'fixed', top: 80, right: 32, zIndex: 200, background: '#0F1A2E', color: '#FAFAF7', padding: '10px 20px', borderRadius: 999, fontFamily: '"Inter",system-ui', fontSize: 14, fontWeight: 700, animation: 'fadeIn 0.3s ease', boxShadow: '0 8px 32px rgba(15,26,46,0.25)' }}>
+        <div style={{ position:'fixed', top:80, right:32, zIndex:300, background:AL.navy, color:'#FAFAF7', padding:'10px 20px', borderRadius:999, fontFamily:'"Inter",system-ui', fontSize:14, fontWeight:700, animation:'fadeIn .3s ease', boxShadow:'0 8px 32px rgba(15,26,46,0.25)' }}>
           💎 {gemFlash}
         </div>
       )}
-      <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+
+      <div style={{ maxWidth:1100, margin:'0 auto' }}>
         {openArticle ? (
-          <ArticleDetail article={openArticle} isRead={completed.includes(openId)} onBack={() => setOpenId(null)} onMarkRead={handleMarkRead} />
+          <AulaDetail
+            article={openArticle}
+            isRead={completed.includes(openId)}
+            onBack={() => setOpenId(null)}
+            onMarkRead={handleMarkRead}
+          />
         ) : (
           <>
-            <div style={{ marginBottom: 48 }}>
-              <span style={{ fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 700, letterSpacing: 1.6, textTransform: 'uppercase', color: '#5C6477' }}>Aula · Base de conocimiento</span>
-              <h1 style={{ fontFamily: '"Inter",system-ui', fontSize: 56, fontWeight: 700, color: '#0F1A2E', letterSpacing: -2, lineHeight: 1.02, margin: '12px 0 16px' }}>
-                Ciencia aplicada. <span style={{ fontFamily: '"Instrument Serif",Georgia,serif', fontStyle: 'italic', fontWeight: 400 }}>Sin filtros.</span>
-              </h1>
-              <p style={{ fontFamily: '"Inter",system-ui', fontSize: 18, color: '#3A4257', lineHeight: 1.5, letterSpacing: -0.2, margin: 0, maxWidth: 600 }}>
-                Artículos basados en evidencia, clasificados por nivel y categoría. Cada lectura completada suma gemas a tu balance.
-              </p>
-            </div>
+            {/* ── Hero ─────────────────────────────────────────────── */}
+            <AulaHero
+              total={articles.length}
+              completed={completed.length}
+              query={query}
+              onQuery={setQuery}
+            />
 
-            {/* Search + filters */}
-            <div style={{ display: 'flex', gap: 12, marginBottom: 28, flexWrap: 'wrap', alignItems: 'center' }}>
-              <div style={{ position: 'relative', flex: 1, minWidth: 240 }}>
-                <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#9498A4', fontSize: 16 }}>⌕</span>
-                <input
-                  value={query} onChange={e => setQuery(e.target.value)}
-                  placeholder="Buscar artículos, conceptos, palabras clave…"
-                  style={{ width: '100%', padding: '12px 14px 12px 38px', borderRadius: 12, border: '1px solid rgba(15,26,46,0.1)', background: '#FAFAF7', color: '#0F1A2E', fontFamily: '"Inter",system-ui', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {Object.entries(CATEGORY_META).map(([key, m]) => (
-                  <button key={key} onClick={() => setCategory(key)} style={{ padding: '8px 14px', borderRadius: 999, border: 'none', cursor: 'pointer', background: category === key ? '#0F1A2E' : m.bg, color: category === key ? '#FAFAF7' : m.color, fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 600, transition: 'all 0.15s' }}>
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* ── Category strip ────────────────────────────────────── */}
+            <AlCatStrip active={category} onChange={setCategory} />
 
-            {/* Stats */}
-            <div style={{ display: 'flex', gap: 20, marginBottom: 28, paddingBottom: 20, borderBottom: '1px solid rgba(15,26,46,0.06)' }}>
-              <span style={{ fontFamily: '"Inter",system-ui', fontSize: 13, color: '#5C6477' }}><strong style={{ color: '#0F1A2E' }}>{filtered.length}</strong> artículos</span>
-              <span style={{ fontFamily: '"Inter",system-ui', fontSize: 13, color: '#5C6477' }}><strong style={{ color: '#1F8B3A' }}>{completed.length}</strong> leídos</span>
-              <span style={{ fontFamily: '"Inter",system-ui', fontSize: 13, color: '#5C6477' }}><strong style={{ color: '#0F1A2E' }}>{articles.reduce((s, a) => s + (completed.includes(a.id) ? a.gems : 0), 0)}</strong> gemas ganadas</span>
-            </div>
-
-            {loading ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
-                {[1,2,3].map(i => <div key={i} style={{ borderRadius: 18, background: '#F4F2EC', height: 320 }} />)}
-              </div>
-            ) : filtered.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '80px 0', color: '#9498A4' }}>
-                <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
-                <div style={{ fontFamily: '"Inter",system-ui', fontSize: 16, fontWeight: 600 }}>Sin resultados para "{query}"</div>
-                <button onClick={() => { setQuery(''); setCategory('all'); }} style={{ marginTop: 16, padding: '8px 18px', borderRadius: 999, border: '1px solid rgba(15,26,46,0.12)', background: 'transparent', cursor: 'pointer', fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 600, color: '#0F1A2E' }}>Limpiar filtros</button>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
-                {filtered.map(a => <ArticleCard key={a.id} article={a} isRead={completed.includes(a.id)} onOpen={setOpenId} />)}
+            {/* ── Loading skeleton ──────────────────────────────────── */}
+            {loading && (
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
+                {[1,2,3,4].map(i => <div key={i} style={{ borderRadius:20, background:'rgba(15,26,46,0.05)', height:280 }} />)}
               </div>
             )}
+
+            {/* ── Empty state ───────────────────────────────────────── */}
+            {!loading && filtered.length === 0 && (
+              <div style={{ textAlign:'center', padding:'80px 0' }}>
+                <div style={{ fontFamily:'"Instrument Serif",Georgia,serif', fontStyle:'italic', fontSize:24, color:AL.sub, marginBottom:12 }}>Sin resultados</div>
+                <p style={{ fontFamily:'"Inter",system-ui', fontSize:14, color:AL.muted, marginBottom:20 }}>
+                  No hay artículos que coincidan con "{query}".
+                </p>
+                <button onClick={() => { setQuery(''); setCategory('all'); }} style={{ padding:'9px 20px', borderRadius:999, border:`1px solid ${AL.bord2}`, background:'transparent', cursor:'pointer', fontFamily:'"Inter",system-ui', fontSize:13, fontWeight:600, color:AL.navy }}>
+                  Limpiar filtros
+                </button>
+              </div>
+            )}
+
+            {/* ── Featured article ──────────────────────────────────── */}
+            {!loading && featured && (
+              <AulaFeatured article={featured} isRead={completed.includes(featured.id)} onOpen={setOpenId} />
+            )}
+
+            {/* ── Feed grid ─────────────────────────────────────────── */}
+            {!loading && feedItems.length > 0 && (
+              <div style={{ marginBottom:64 }}>
+                <AlSectionHead
+                  label={category === 'all' ? 'Lo más reciente' : (ALcat[category]?.label || 'Artículos')}
+                  sublabel={`${feedItems.length} artículo${feedItems.length !== 1 ? 's' : ''}`}
+                />
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:20 }}>
+                  {feedItems.map(a => (
+                    <AulaCard key={a.id} article={a} isRead={completed.includes(a.id)} onOpen={setOpenId} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Micro-learning ────────────────────────────────────── */}
+            {!loading && <AulaMicroLearning />}
+
+            {/* ── Science feed ──────────────────────────────────────── */}
+            {!loading && <AulaScienceFeed />}
+
+            {/* ── Videos ───────────────────────────────────────────── */}
+            {!loading && <AulaVideos />}
+
+            {/* ── Explore by topic ──────────────────────────────────── */}
+            {!loading && <AulaExplore onCategory={handleCategoryFromExplore} />}
           </>
         )}
       </div>
