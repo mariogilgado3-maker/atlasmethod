@@ -1,18 +1,17 @@
-// Builder — body-first, visual, app-like
+// Builder — body map → muscle → exercise visual flow
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 const D = {
   page:    '#060D18',
   panel:   '#0C1524',
   card:    '#111E30',
-  cardHov: '#172236',
+  cardHov: '#162236',
   border:  'rgba(255,255,255,0.07)',
   text:    '#E8EDF8',
   mid:     'rgba(232,237,248,0.55)',
   muted:   'rgba(232,237,248,0.28)',
   accent:  '#2A6FDB',
   success: '#22C55E',
-  danger:  'rgba(220,60,60,0.75)',
 };
 
 // ── Muscle definitions ────────────────────────────────────────────────────────
@@ -63,23 +62,24 @@ function getMuscleExercises(muscleId, all) {
   }
 }
 
+const MUSCLE_VOL_RE = [
+  [/pectoral/i,                                              'pecho'],
+  [/dorsal|romboid|serrato|trapecio|erector/i,              'espalda'],
+  [/deltoid/i,                                               'hombro'],
+  [/bíceps|biceps/i,                                         'biceps'],
+  [/tríceps|triceps/i,                                       'triceps'],
+  [/cuádricep|cuadricep|femoral|pantorrilla|gemelo|sóleo/i,  'piernas'],
+  [/glút|isquio/i,                                           'gluteos'],
+  [/core|transverso|oblicu|abdominal/i,                      'core'],
+];
+
 function computeMuscleVolumes(log) {
   const v = { pecho: 0, espalda: 0, hombro: 0, biceps: 0, triceps: 0, piernas: 0, gluteos: 0, core: 0 };
-  const MAP = [
-    [/pectoral/i,                                        'pecho'],
-    [/dorsal|romboid|serrato|trapecio|erector/i,         'espalda'],
-    [/deltoid/i,                                         'hombro'],
-    [/bíceps|biceps/i,                                   'biceps'],
-    [/tríceps|triceps/i,                                 'triceps'],
-    [/cuádricep|cuadricep|femoral|pantorrilla|gemelo|sóleo/i, 'piernas'],
-    [/glút|isquio/i,                                     'gluteos'],
-    [/core|transverso|oblicu|abdominal/i,                'core'],
-  ];
   (log || []).slice(0, 4).forEach(session => {
     (session.exercises || []).forEach(ex => {
       const n = Math.max((ex.sets || []).length, 1);
       (ex.muscles || []).forEach(m => {
-        for (const [re, g] of MAP) { if (re.test(m)) { v[g] += n; break; } }
+        for (const [re, g] of MUSCLE_VOL_RE) { if (re.test(m)) { v[g] += n; break; } }
       });
     });
   });
@@ -88,9 +88,10 @@ function computeMuscleVolumes(log) {
 
 function computeFrequency(muscleId, log) {
   const MAP = {
-    pecho: /pectoral/i, espalda: /dorsal|romboid|trapecio|erector/i,
-    hombro: /deltoid/i, biceps: /bíceps|biceps/i, triceps: /tríceps|triceps/i,
-    piernas: /cuádricep|cuadricep|femoral|pantorrilla/i,
+    pecho:   /pectoral/i,    espalda: /dorsal|romboid|trapecio/i,
+    hombro:  /deltoid/i,     biceps:  /bíceps|biceps/i,
+    triceps: /tríceps|triceps/i,
+    piernas: /cuádricep|femoral|pantorrilla/i,
     gluteos: /glút|isquio/i, core: /core|transverso|oblicu/i,
   };
   const re = MAP[muscleId];
@@ -101,10 +102,10 @@ function computeFrequency(muscleId, log) {
 }
 
 function fatigueLevel(sets) {
-  if (sets <= 5)  return { label: 'Baja',     color: D.success };
+  if (sets <= 5)  return { label: 'Baja',    color: D.success };
   if (sets <= 12) return { label: 'Moderada', color: '#F59E0B' };
-  if (sets <= 20) return { label: 'Alta',     color: '#F97316' };
-  return             { label: 'Exceso',    color: '#EF4444' };
+  if (sets <= 20) return { label: 'Alta',    color: '#F97316' };
+  return             { label: 'Exceso',  color: '#EF4444' };
 }
 
 function estimateDuration(workout) {
@@ -112,23 +113,14 @@ function estimateDuration(workout) {
   return Math.round((workout.length > 0 ? 5 : 0) + sets * 2.5);
 }
 
-// ── Exercise thumbnail ────────────────────────────────────────────────────────
-function ExerciseThumb({ exercise, size = 52 }) {
-  const g = getExerciseGroup(exercise);
-  const gs = ExerciseMedia.GROUP_STYLE[g] || ExerciseMedia.GROUP_STYLE.core;
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: Math.round(size * 0.22), flexShrink: 0,
-      background: `linear-gradient(140deg, ${gs.from}, ${gs.to})`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      overflow: 'hidden', position: 'relative',
-    }}>
-      <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '10px 10px' }} />
-      <span style={{ fontFamily: '"Instrument Serif",serif', fontStyle: 'italic', fontSize: size * 0.44, color: 'rgba(255,255,255,0.32)', position: 'relative', zIndex: 1 }}>
-        {exercise.name.charAt(0)}
-      </span>
-    </div>
-  );
+function useWindowWidth() {
+  const [w, setW] = React.useState(window.innerWidth);
+  React.useEffect(() => {
+    const h = () => setW(window.innerWidth);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+  return w;
 }
 
 // ── Anatomical SVG body map ───────────────────────────────────────────────────
@@ -139,12 +131,12 @@ function BodyMap({ view, muscleVolumes, selectedMuscle, onSelect }) {
     const isSel = selectedMuscle === id;
     const isHov = hov === id;
     const sets = muscleVolumes[id] || 0;
-    if (isSel) return { fill: '#2A6FDB',                  stroke: '#7AB4FF', sw: 2 };
-    if (isHov) return { fill: 'rgba(42,111,219,0.42)',    stroke: 'rgba(110,169,240,0.70)', sw: 1.5 };
+    if (isSel) return { fill: '#2A6FDB',                   stroke: '#7AB4FF', sw: 2   };
+    if (isHov) return { fill: 'rgba(42,111,219,0.44)',     stroke: 'rgba(110,169,240,0.72)', sw: 1.5 };
     if (sets === 0) return { fill: 'rgba(255,255,255,0.07)', stroke: 'rgba(255,255,255,0.14)', sw: 0.5 };
     if (sets < 6)   return { fill: 'rgba(42,111,219,0.28)',  stroke: 'rgba(42,111,219,0.48)', sw: 0.5 };
-    if (sets < 16)  return { fill: 'rgba(42,111,219,0.58)',  stroke: 'rgba(42,111,219,0.80)', sw: 0.5 };
-    return                  { fill: 'rgba(220,60,60,0.38)',  stroke: 'rgba(220,80,60,0.62)', sw: 0.5 };
+    if (sets < 16)  return { fill: 'rgba(42,111,219,0.60)',  stroke: 'rgba(42,111,219,0.80)', sw: 0.5 };
+    return                  { fill: 'rgba(220,60,60,0.40)',  stroke: 'rgba(220,80,60,0.64)', sw: 0.5 };
   }
 
   function mp(id) {
@@ -158,30 +150,29 @@ function BodyMap({ view, muscleVolumes, selectedMuscle, onSelect }) {
     };
   }
 
-  // Silhouette
   const sf = 'rgba(255,255,255,0.05)';
   const ss = 'rgba(255,255,255,0.09)';
-  const sw = 0.5;
-  const activeLabel = hov || selectedMuscle;
+  const bsw = 0.5;
+  const lbl = hov ? MUSCLE_DEFS[hov]?.label : selectedMuscle ? MUSCLE_DEFS[selectedMuscle]?.label : null;
 
   return (
-    <svg viewBox="0 0 200 430" style={{ width: '100%', maxWidth: 230, display: 'block', margin: '0 auto' }}>
+    <svg viewBox="0 0 200 430" style={{ width: '100%', maxWidth: 240, display: 'block', margin: '0 auto' }}>
       {/* ── Silhouette ── */}
-      <circle cx="100" cy="29" r="21" fill={sf} stroke={ss} strokeWidth={sw} />
+      <circle cx="100" cy="29" r="21" fill={sf} stroke={ss} strokeWidth={bsw} />
       <rect x="91" y="49" width="18" height="17" rx="5" fill={sf} stroke="none" />
-      <path d="M58,65 L142,65 C146,95 147,138 141,170 L128,185 L72,185 L59,170 C53,138 54,95 58,65Z" fill={sf} stroke={ss} strokeWidth={sw} />
-      <ellipse cx="46"  cy="112" rx="11" ry="35" fill={sf} stroke={ss} strokeWidth={sw} />
-      <ellipse cx="154" cy="112" rx="11" ry="35" fill={sf} stroke={ss} strokeWidth={sw} />
-      <ellipse cx="38"  cy="168" rx="9"  ry="26" fill={sf} stroke={ss} strokeWidth={sw} />
-      <ellipse cx="162" cy="168" rx="9"  ry="26" fill={sf} stroke={ss} strokeWidth={sw} />
-      <ellipse cx="79"  cy="257" rx="19" ry="44" fill={sf} stroke={ss} strokeWidth={sw} />
-      <ellipse cx="121" cy="257" rx="19" ry="44" fill={sf} stroke={ss} strokeWidth={sw} />
-      <ellipse cx="79"  cy="356" rx="13" ry="32" fill={sf} stroke={ss} strokeWidth={sw} />
-      <ellipse cx="121" cy="356" rx="13" ry="32" fill={sf} stroke={ss} strokeWidth={sw} />
-      <ellipse cx="79"  cy="402" rx="12" ry="8"  fill={sf} stroke={ss} strokeWidth={sw} />
-      <ellipse cx="121" cy="402" rx="12" ry="8"  fill={sf} stroke={ss} strokeWidth={sw} />
+      <path d="M58,65 L142,65 C146,96 147,138 141,170 L128,185 L72,185 L59,170 C53,138 54,96 58,65Z" fill={sf} stroke={ss} strokeWidth={bsw} />
+      <ellipse cx="46"  cy="112" rx="11" ry="35" fill={sf} stroke={ss} strokeWidth={bsw} />
+      <ellipse cx="154" cy="112" rx="11" ry="35" fill={sf} stroke={ss} strokeWidth={bsw} />
+      <ellipse cx="38"  cy="168" rx="9"  ry="26" fill={sf} stroke={ss} strokeWidth={bsw} />
+      <ellipse cx="162" cy="168" rx="9"  ry="26" fill={sf} stroke={ss} strokeWidth={bsw} />
+      <ellipse cx="79"  cy="257" rx="19" ry="44" fill={sf} stroke={ss} strokeWidth={bsw} />
+      <ellipse cx="121" cy="257" rx="19" ry="44" fill={sf} stroke={ss} strokeWidth={bsw} />
+      <ellipse cx="79"  cy="356" rx="13" ry="32" fill={sf} stroke={ss} strokeWidth={bsw} />
+      <ellipse cx="121" cy="356" rx="13" ry="32" fill={sf} stroke={ss} strokeWidth={bsw} />
+      <ellipse cx="79"  cy="402" rx="12" ry="8"  fill={sf} stroke={ss} strokeWidth={bsw} />
+      <ellipse cx="121" cy="402" rx="12" ry="8"  fill={sf} stroke={ss} strokeWidth={bsw} />
 
-      {/* ── Interactive muscles ── */}
+      {/* ── Interactive muscle regions ── */}
       {view === 'front' ? (
         <React.Fragment>
           <ellipse cx="51"  cy="78"  rx="15" ry="13" {...mp('hombro')} />
@@ -212,88 +203,135 @@ function BodyMap({ view, muscleVolumes, selectedMuscle, onSelect }) {
       )}
 
       {/* Active label */}
-      {activeLabel && (
-        <text x="100" y="422" textAnchor="middle" fill="rgba(232,237,248,0.55)" fontSize="11" fontFamily="Inter, system-ui" fontWeight="700" letterSpacing="0.5">
-          {(MUSCLE_DEFS[activeLabel] || {}).label || ''}
+      {lbl && (
+        <text x="100" y="424" textAnchor="middle" fill="rgba(232,237,248,0.55)" fontSize="11" fontFamily="Inter, system-ui" fontWeight="700" letterSpacing="0.5">
+          {lbl}
         </text>
       )}
     </svg>
   );
 }
 
-// ── Stat block ────────────────────────────────────────────────────────────────
-function StatBlock({ label, value, color }) {
+// ── Volume legend dots ────────────────────────────────────────────────────────
+function VolumeLegend() {
   return (
-    <div>
-      <div style={{ fontFamily: '"Inter",system-ui', fontSize: 28, fontWeight: 800, color: color || D.text, lineHeight: 1, letterSpacing: -1 }}>{value}</div>
-      <div style={{ fontFamily: '"Inter",system-ui', fontSize: 11, color: D.muted, marginTop: 4 }}>{label}</div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
+      {[
+        { c: 'rgba(255,255,255,0.14)', l: 'Sin trabajo' },
+        { c: 'rgba(42,111,219,0.40)',  l: 'Trabajado' },
+        { c: 'rgba(42,111,219,0.78)',  l: 'Alto volumen' },
+        { c: 'rgba(220,60,60,0.48)',   l: 'Exceso' },
+      ].map(({ c, l }) => (
+        <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div style={{ width: 9, height: 9, borderRadius: 3, background: c, flexShrink: 0 }} />
+          <span style={{ fontFamily: '"Inter",system-ui', fontSize: 10, color: D.muted }}>{l}</span>
+        </div>
+      ))}
     </div>
   );
 }
 
-// ── Session exercise row (inside muscle overview) ─────────────────────────────
+// ── Visual exercise card (uses ExerciseMedia.Thumbnail SVG illustrations) ─────
+function ExerciseVisualCard({ exercise, isAdded, isInSession, onClick }) {
+  const [hov, setHov] = React.useState(false);
+  const group = getExerciseGroup(exercise);
+
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        borderRadius: 16, cursor: 'pointer', overflow: 'hidden',
+        border: `1.5px solid ${isInSession ? 'rgba(34,197,94,0.32)' : hov ? 'rgba(42,111,219,0.40)' : D.border}`,
+        transition: 'border-color 0.12s, transform 0.12s',
+        transform: hov && !isInSession ? 'translateY(-2px)' : 'none',
+        background: D.card,
+      }}
+    >
+      <ExerciseMedia.Thumbnail exercise={exercise} group={group} isAdded={isInSession} height={100} />
+      <div style={{ padding: '10px 12px 12px' }}>
+        <div style={{ fontFamily: '"Inter",system-ui', fontSize: 12, fontWeight: 700, color: D.text, lineHeight: 1.3, marginBottom: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {exercise.name}
+        </div>
+        <div style={{ fontFamily: '"Inter",system-ui', fontSize: 10, color: D.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {exercise.muscles.primary[0]}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Session exercise row (muscle overview) ────────────────────────────────────
 function SessionExRow({ workoutEx, onRemove, onEdit }) {
   const [hov, setHov] = React.useState(false);
+  const group = getExerciseGroup(workoutEx);
   return (
     <div
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 14, background: hov ? D.cardHov : D.card, border: `1px solid ${D.border}`, marginBottom: 8, cursor: 'pointer', transition: 'background 0.12s' }}
+      style={{ display: 'flex', alignItems: 'center', gap: 0, borderRadius: 14, overflow: 'hidden', background: hov ? D.cardHov : D.card, border: `1px solid ${D.border}`, marginBottom: 8, cursor: 'pointer', transition: 'background 0.12s' }}
       onClick={onEdit}
     >
-      <ExerciseThumb exercise={workoutEx} size={44} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 600, color: D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{workoutEx.name}</div>
-        <div style={{ fontFamily: '"Inter",system-ui', fontSize: 11, color: D.muted, marginTop: 2 }}>
+      {/* Mini thumbnail strip */}
+      <div style={{ width: 56, flexShrink: 0 }}>
+        <ExerciseMedia.Thumbnail exercise={workoutEx} group={group} isAdded={false} height={56} />
+      </div>
+      <div style={{ flex: 1, padding: '0 12px', minWidth: 0 }}>
+        <div style={{ fontFamily: '"Inter",system-ui', fontSize: 12, fontWeight: 700, color: D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{workoutEx.name}</div>
+        <div style={{ fontFamily: '"Inter",system-ui', fontSize: 10, color: D.muted, marginTop: 2 }}>
           {workoutEx.sets.length} serie{workoutEx.sets.length !== 1 ? 's' : ''}
-          {workoutEx.sets[0] && workoutEx.sets[0].kg ? ` · ${workoutEx.sets[0].kg} kg` : ''}
+          {workoutEx.sets[0]?.kg ? ` · ${workoutEx.sets[0].kg} kg` : ''}
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10, color: D.success, fontWeight: 700 }}>✓</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 12 }}>
+        <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10, color: D.success }}>✓</span>
         <button
           onClick={e => { e.stopPropagation(); onRemove(); }}
-          style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'rgba(220,60,60,0.12)', color: 'rgba(220,60,60,0.75)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ width: 26, height: 26, borderRadius: 8, border: 'none', background: 'rgba(220,60,60,0.14)', color: 'rgba(220,60,60,0.80)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >✕</button>
       </div>
     </div>
   );
 }
 
-// ── Muscle overview panel ─────────────────────────────────────────────────────
+// ── Muscle overview ───────────────────────────────────────────────────────────
 function MuscleOverview({ muscleId, muscleVolumes, sessionExercises, log, onAdd, onRemoveEx, onEditEx }) {
-  const def   = MUSCLE_DEFS[muscleId] || {};
-  const sets  = muscleVolumes[muscleId] || 0;
-  const fat   = fatigueLevel(sets);
-  const freq  = computeFrequency(muscleId, log);
+  const def  = MUSCLE_DEFS[muscleId] || {};
+  const sets = muscleVolumes[muscleId] || 0;
+  const fat  = fatigueLevel(sets);
+  const freq = computeFrequency(muscleId, log);
 
   return (
-    <div style={{ animation: 'fadeIn 0.22s ease' }}>
-      {/* Muscle name */}
-      <h2 style={{ fontFamily: '"Inter",system-ui', fontSize: 32, fontWeight: 800, color: D.text, margin: '0 0 24px', letterSpacing: -1.5 }}>
+    <div style={{ animation: 'fadeIn 0.2s ease' }}>
+      <h2 style={{ fontFamily: '"Inter",system-ui', fontSize: 36, fontWeight: 900, color: D.text, margin: '0 0 6px', letterSpacing: -2 }}>
         {def.label}
       </h2>
 
-      {/* Stats */}
-      <div style={{ display: 'flex', gap: 32, marginBottom: 32, paddingBottom: 28, borderBottom: `1px solid ${D.border}` }}>
-        <StatBlock label="Series esta semana" value={sets || '—'} />
-        <StatBlock label="Fatiga" value={fat.label} color={fat.color} />
-        <StatBlock label="Frecuencia" value={freq > 0 ? `${freq}x` : '—'} />
+      {/* Stats row */}
+      <div style={{ display: 'flex', gap: 28, marginBottom: 28, paddingBottom: 24, borderBottom: `1px solid ${D.border}` }}>
+        <div>
+          <div style={{ fontFamily: '"Inter",system-ui', fontSize: 30, fontWeight: 800, color: D.text, letterSpacing: -1.5, lineHeight: 1 }}>{sets || '—'}</div>
+          <div style={{ fontFamily: '"Inter",system-ui', fontSize: 10, color: D.muted, marginTop: 4 }}>series esta semana</div>
+        </div>
+        <div>
+          <div style={{ fontFamily: '"Inter",system-ui', fontSize: 30, fontWeight: 800, color: fat.color, letterSpacing: -1.5, lineHeight: 1 }}>{fat.label}</div>
+          <div style={{ fontFamily: '"Inter",system-ui', fontSize: 10, color: D.muted, marginTop: 4 }}>fatiga</div>
+        </div>
+        <div>
+          <div style={{ fontFamily: '"Inter",system-ui', fontSize: 30, fontWeight: 800, color: D.text, letterSpacing: -1.5, lineHeight: 1 }}>{freq > 0 ? `${freq}×` : '—'}</div>
+          <div style={{ fontFamily: '"Inter",system-ui', fontSize: 10, color: D.muted, marginTop: 4 }}>frecuencia</div>
+        </div>
       </div>
 
-      {/* Exercises in session */}
+      {/* Session exercises */}
       {sessionExercises.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 20 }}>
           <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 9, fontWeight: 700, color: D.muted, letterSpacing: 1, marginBottom: 10 }}>
             EN TU SESIÓN
           </div>
           {sessionExercises.map(ex => (
-            <SessionExRow
-              key={ex.id}
-              workoutEx={ex}
-              onRemove={() => onRemoveEx(ex.id)}
-              onEdit={() => onEditEx(ex)}
-            />
+            <SessionExRow key={ex.id} workoutEx={ex} onRemove={() => onRemoveEx(ex.id)} onEdit={() => onEditEx(ex)} />
           ))}
         </div>
       )}
@@ -306,257 +344,184 @@ function MuscleOverview({ muscleId, muscleVolumes, sessionExercises, log, onAdd,
           padding: '14px 22px', borderRadius: 14,
           background: D.accent, color: '#fff', border: 'none', cursor: 'pointer',
           fontFamily: '"Inter",system-ui', fontSize: 14, fontWeight: 700,
-          boxShadow: '0 8px 28px -8px rgba(42,111,219,0.5)',
+          boxShadow: '0 8px 28px -8px rgba(42,111,219,0.55)',
         }}
       >
-        <span style={{ fontSize: 18, lineHeight: 1 }}>+</span>
-        Añadir ejercicio de {def.label.toLowerCase()}
+        <span style={{ fontSize: 18, lineHeight: 1, fontWeight: 300 }}>+</span>
+        Añadir ejercicio
       </button>
 
-      {/* Coach tip */}
+      {/* Contextual tip */}
       {sets === 0 && (
-        <div style={{ marginTop: 20, padding: '12px 14px', borderRadius: 12, background: 'rgba(42,111,219,0.06)', border: '1px solid rgba(42,111,219,0.14)', fontFamily: '"Inter",system-ui', fontSize: 12, color: D.mid, lineHeight: 1.55 }}>
-          Sin trabajo registrado en {def.label.toLowerCase()} esta semana. Atlas Coach detectará el desequilibrio.
-        </div>
-      )}
-      {sets > 20 && (
-        <div style={{ marginTop: 20, padding: '12px 14px', borderRadius: 12, background: 'rgba(220,60,60,0.06)', border: '1px solid rgba(220,60,60,0.18)', fontFamily: '"Inter",system-ui', fontSize: 12, color: 'rgba(255,130,110,0.9)', lineHeight: 1.55 }}>
-          Volumen elevado en {def.label.toLowerCase()} ({sets} series). Considera un día de recuperación.
-        </div>
+        <p style={{ fontFamily: '"Inter",system-ui', fontSize: 12, color: D.muted, lineHeight: 1.6, margin: '18px 0 0' }}>
+          Sin trabajo de {def.label.toLowerCase()} esta semana. Atlas Coach detectará el desequilibrio.
+        </p>
       )}
     </div>
   );
 }
 
-// ── Exercise picker panel ─────────────────────────────────────────────────────
+// ── Exercise picker ───────────────────────────────────────────────────────────
 function ExercisePicker({ muscleId, exercises, sessionExIds, onSelect, onBack }) {
   const def = MUSCLE_DEFS[muscleId] || {};
   return (
-    <div style={{ animation: 'fadeIn 0.18s ease' }}>
-      <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', marginBottom: 20, fontFamily: '"Inter",system-ui', fontSize: 12, color: D.mid, fontWeight: 600 }}>
+    <div style={{ animation: 'fadeIn 0.18s ease', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', marginBottom: 18, fontFamily: '"Inter",system-ui', fontSize: 12, color: D.mid, fontWeight: 600, flexShrink: 0 }}>
         ← {def.label}
       </button>
-      <div style={{ fontFamily: '"Inter",system-ui', fontSize: 18, fontWeight: 700, color: D.text, marginBottom: 20, letterSpacing: -0.5 }}>
+      <div style={{ fontFamily: '"Inter",system-ui', fontSize: 18, fontWeight: 700, color: D.text, marginBottom: 16, letterSpacing: -0.5, flexShrink: 0 }}>
         Elige un ejercicio
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
-        {exercises.map(ex => {
-          const added = sessionExIds.has(ex.id);
-          return (
-            <PickerCard key={ex.id} exercise={ex} isAdded={added} onClick={() => onSelect(ex)} />
-          );
-        })}
-        {exercises.length === 0 && (
-          <div style={{ gridColumn: '1/-1', padding: '32px 0', textAlign: 'center', fontFamily: '"Inter",system-ui', fontSize: 13, color: D.muted }}>
-            Sin ejercicios disponibles
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PickerCard({ exercise, isAdded, onClick }) {
-  const [hov, setHov] = React.useState(false);
-  const g = getExerciseGroup(exercise);
-  const gs = ExerciseMedia.GROUP_STYLE[g] || ExerciseMedia.GROUP_STYLE.core;
-  return (
-    <div
-      onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{ borderRadius: 16, cursor: 'pointer', overflow: 'hidden', border: `1px solid ${isAdded ? 'rgba(34,197,94,0.28)' : D.border}`, background: hov ? D.cardHov : D.card, transition: 'background 0.12s' }}
-    >
-      {/* Thumbnail */}
-      <div style={{ height: 80, background: `linear-gradient(140deg, ${gs.from}, ${gs.to})`, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '12px 12px' }} />
-        <span style={{ fontFamily: '"Instrument Serif",serif', fontStyle: 'italic', fontSize: 30, color: 'rgba(255,255,255,0.30)', position: 'relative', zIndex: 1 }}>
-          {exercise.name.charAt(0)}
-        </span>
-        {isAdded && (
-          <div style={{ position: 'absolute', top: 8, right: 8, width: 20, height: 20, borderRadius: 999, background: 'rgba(34,197,94,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 10, color: '#fff', fontWeight: 700 }}>✓</span>
-          </div>
-        )}
-      </div>
-      {/* Name */}
-      <div style={{ padding: '10px 10px 11px' }}>
-        <div style={{ fontFamily: '"Inter",system-ui', fontSize: 11, fontWeight: 600, color: D.text, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {exercise.name}
-        </div>
-        <div style={{ fontFamily: '"Inter",system-ui', fontSize: 9, color: D.muted, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {exercise.muscles.primary[0]}
+      <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+          {exercises.map(ex => (
+            <ExerciseVisualCard
+              key={ex.id}
+              exercise={ex}
+              isAdded={false}
+              isInSession={sessionExIds.has(ex.id)}
+              onClick={() => onSelect(ex)}
+            />
+          ))}
+          {exercises.length === 0 && (
+            <div style={{ gridColumn: '1/-1', padding: '40px 0', textAlign: 'center', fontFamily: '"Inter",system-ui', fontSize: 13, color: D.muted }}>
+              Sin ejercicios en esta categoría
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-// ── Set configuration panel ───────────────────────────────────────────────────
+// ── Set configuration ─────────────────────────────────────────────────────────
 function SetConfigPanel({ exercise, initialSets, onConfirm, onBack }) {
   const [sets, setSets] = React.useState(() =>
     initialSets && initialSets.length > 0
-      ? initialSets.map(s => ({ kg: s.kg || '', reps: s.reps || '10', rest: s.rest || '90', rir: s.rir || '' }))
-      : [{ kg: '', reps: '10', rest: '90', rir: '' }, { kg: '', reps: '10', rest: '90', rir: '' }, { kg: '', reps: '10', rest: '90', rir: '' }]
+      ? initialSets.map(s => ({ kg: s.kg || '', reps: s.reps || '10', rest: '90', rir: '' }))
+      : [
+          { kg: '', reps: '10', rest: '90', rir: '' },
+          { kg: '', reps: '10', rest: '90', rir: '' },
+          { kg: '', reps: '10', rest: '90', rir: '' },
+        ]
   );
 
-  const updateSet = (i, field, val) => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: val } : s));
-  const addSet    = () => setSets(prev => [...prev, { kg: '', reps: '10', rest: '90', rir: '' }]);
-  const removeSet = (i) => setSets(prev => prev.filter((_, idx) => idx !== i));
+  const upd = (i, f, v) => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, [f]: v } : s));
+  const add = () => setSets(prev => [...prev, { kg: '', reps: '10', rest: '90', rir: '' }]);
+  const rem = (i) => setSets(prev => prev.filter((_, idx) => idx !== i));
+  const group = getExerciseGroup(exercise);
 
   return (
-    <div style={{ animation: 'fadeIn 0.18s ease' }}>
-      <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', marginBottom: 20, fontFamily: '"Inter",system-ui', fontSize: 12, color: D.mid, fontWeight: 600 }}>
+    <div style={{ animation: 'fadeIn 0.18s ease', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', marginBottom: 16, fontFamily: '"Inter",system-ui', fontSize: 12, color: D.mid, fontWeight: 600, flexShrink: 0 }}>
         ← Volver
       </button>
 
-      {/* Exercise header */}
-      <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 28 }}>
-        <ExerciseThumb exercise={exercise} size={60} />
-        <div>
-          <div style={{ fontFamily: '"Inter",system-ui', fontSize: 17, fontWeight: 700, color: D.text, lineHeight: 1.25, letterSpacing: -0.3 }}>{exercise.name}</div>
-          <div style={{ fontFamily: '"Inter",system-ui', fontSize: 12, color: D.muted, marginTop: 4 }}>{exercise.muscles.primary.join(' · ')}</div>
+      {/* Exercise visual header */}
+      <div style={{ borderRadius: 16, overflow: 'hidden', marginBottom: 20, flexShrink: 0 }}>
+        <ExerciseMedia.Thumbnail exercise={exercise} group={group} isAdded={false} height={130} />
+        <div style={{ padding: '12px 14px', background: D.card }}>
+          <div style={{ fontFamily: '"Inter",system-ui', fontSize: 16, fontWeight: 700, color: D.text, letterSpacing: -0.3 }}>{exercise.name}</div>
+          <div style={{ fontFamily: '"Inter",system-ui', fontSize: 11, color: D.muted, marginTop: 3 }}>{exercise.muscles.primary.join(' · ')}</div>
         </div>
       </div>
 
       {/* Sets */}
-      <div style={{ marginBottom: 8 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '18px 1fr 1fr 18px', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '18px 1fr 1fr 18px', gap: 6, marginBottom: 8 }}>
           {['', 'Kg', 'Reps', ''].map((h, i) => (
-            <span key={i} style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 8, color: D.muted, fontWeight: 700, textAlign: 'center', letterSpacing: 0.4 }}>{h}</span>
+            <span key={i} style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 8, color: D.muted, fontWeight: 700, textAlign: 'center', letterSpacing: 0.5 }}>{h}</span>
           ))}
         </div>
         {sets.map((set, i) => (
-          <div key={i} style={{ display: 'grid', gridTemplateColumns: '18px 1fr 1fr 18px', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+          <div key={i} style={{ display: 'grid', gridTemplateColumns: '18px 1fr 1fr 18px', gap: 6, alignItems: 'center', marginBottom: 7 }}>
             <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10, color: D.muted, textAlign: 'center' }}>{i + 1}</span>
-            <input
-              type="number" value={set.kg} placeholder="—"
-              onChange={e => updateSet(i, 'kg', e.target.value)}
-              min={0} step={0.5}
-              style={{ width: '100%', padding: '9px 6px', borderRadius: 10, boxSizing: 'border-box', border: `1px solid ${D.border}`, background: 'rgba(255,255,255,0.04)', fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 14, color: D.text, textAlign: 'center' }}
-            />
-            <input
-              type="number" value={set.reps} placeholder="10"
-              onChange={e => updateSet(i, 'reps', e.target.value)}
-              min={1} step={1}
-              style={{ width: '100%', padding: '9px 6px', borderRadius: 10, boxSizing: 'border-box', border: `1px solid ${D.border}`, background: 'rgba(255,255,255,0.04)', fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 14, color: D.text, textAlign: 'center' }}
-            />
+            <input type="number" value={set.kg} placeholder="—" onChange={e => upd(i, 'kg', e.target.value)} min={0} step={0.5}
+              style={{ width: '100%', padding: '10px 6px', borderRadius: 10, boxSizing: 'border-box', border: `1px solid ${D.border}`, background: 'rgba(255,255,255,0.04)', fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 14, color: D.text, textAlign: 'center' }} />
+            <input type="number" value={set.reps} placeholder="10" onChange={e => upd(i, 'reps', e.target.value)} min={1} step={1}
+              style={{ width: '100%', padding: '10px 6px', borderRadius: 10, boxSizing: 'border-box', border: `1px solid ${D.border}`, background: 'rgba(255,255,255,0.04)', fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 14, color: D.text, textAlign: 'center' }} />
             {sets.length > 1
-              ? <button onClick={() => removeSet(i)} style={{ width: 18, height: 18, border: 'none', background: 'rgba(220,60,60,0.12)', color: 'rgba(220,80,60,0.75)', borderRadius: 4, cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
+              ? <button onClick={() => rem(i)} style={{ width: 18, height: 18, border: 'none', background: 'rgba(220,60,60,0.14)', color: 'rgba(220,80,60,0.8)', borderRadius: 4, cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
               : <div />}
           </div>
         ))}
+        <button onClick={add} style={{ marginTop: 4, marginBottom: 20, padding: '7px 14px', borderRadius: 9, border: `1px dashed rgba(255,255,255,0.15)`, background: 'transparent', cursor: 'pointer', fontFamily: '"Inter",system-ui', fontSize: 11, fontWeight: 600, color: D.mid }}>
+          + Serie
+        </button>
+        <button
+          onClick={() => onConfirm(exercise, sets)}
+          style={{ width: '100%', padding: '14px 20px', borderRadius: 14, cursor: 'pointer', background: D.accent, color: '#fff', border: 'none', fontFamily: '"Inter",system-ui', fontSize: 14, fontWeight: 700, letterSpacing: -0.2, boxShadow: '0 8px 28px -8px rgba(42,111,219,0.5)', marginBottom: 4 }}
+        >
+          Añadir · {sets.length} serie{sets.length !== 1 ? 's' : ''} →
+        </button>
       </div>
-
-      <button onClick={addSet} style={{ marginBottom: 24, padding: '7px 14px', borderRadius: 9, border: `1px dashed rgba(255,255,255,0.15)`, background: 'transparent', cursor: 'pointer', fontFamily: '"Inter",system-ui', fontSize: 11, fontWeight: 600, color: D.mid }}>
-        + Serie
-      </button>
-
-      <button
-        onClick={() => onConfirm(exercise, sets)}
-        style={{ width: '100%', padding: '14px 20px', borderRadius: 14, cursor: 'pointer', background: D.accent, color: '#fff', border: 'none', fontFamily: '"Inter",system-ui', fontSize: 14, fontWeight: 700, letterSpacing: -0.2, boxShadow: '0 8px 28px -8px rgba(42,111,219,0.5)' }}
-      >
-        Añadir a la rutina · {sets.length} serie{sets.length !== 1 ? 's' : ''}  →
-      </button>
     </div>
   );
 }
 
-// ── Workout bottom bar ────────────────────────────────────────────────────────
-function WorkoutBar({ workout, onSave, saved, duration }) {
+// ── Workout bar (sticky bottom) ───────────────────────────────────────────────
+function WorkoutBar({ workout, onSave, saved, duration, isMobile }) {
   return (
     <div style={{
       position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200,
-      background: 'rgba(6,13,24,0.94)', backdropFilter: 'blur(24px)',
+      background: 'rgba(6,13,24,0.96)', backdropFilter: 'blur(24px)',
       borderTop: '1px solid rgba(255,255,255,0.08)',
-      padding: '14px 32px',
-      display: 'flex', alignItems: 'center', gap: 16,
+      padding: isMobile ? '12px 16px' : '12px 32px',
+      display: 'flex', alignItems: 'center', gap: 12,
     }}>
-      {/* Exercise pills */}
-      <div style={{ flex: 1, display: 'flex', gap: 6, overflow: 'hidden', flexWrap: 'nowrap' }}>
-        {workout.slice(0, 5).map(ex => (
-          <span key={ex.id} style={{
-            padding: '5px 10px', borderRadius: 999, flexShrink: 0,
-            background: 'rgba(42,111,219,0.14)', border: '1px solid rgba(42,111,219,0.22)',
-            fontFamily: '"Inter",system-ui', fontSize: 11, fontWeight: 600, color: '#6EA9F0',
-            overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 140, whiteSpace: 'nowrap',
-          }}>
-            {ex.name}
-          </span>
-        ))}
-        {workout.length > 5 && (
-          <span style={{ padding: '5px 10px', borderRadius: 999, flexShrink: 0, background: 'rgba(255,255,255,0.06)', fontFamily: '"Inter",system-ui', fontSize: 11, color: D.muted }}>
-            +{workout.length - 5} más
+      <div style={{ flex: 1, display: 'flex', gap: 6, overflow: 'hidden' }}>
+        {workout.slice(0, isMobile ? 2 : 5).map(ex => {
+          const gs = ExerciseMedia.GROUP_STYLE[getExerciseGroup(ex)] || ExerciseMedia.GROUP_STYLE.core;
+          return (
+            <span key={ex.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 999, flexShrink: 0, background: 'rgba(255,255,255,0.06)', border: `1px solid ${D.border}`, fontFamily: '"Inter",system-ui', fontSize: 11, fontWeight: 600, color: D.mid, overflow: 'hidden', maxWidth: 140 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: gs.to, flexShrink: 0 }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ex.name}</span>
+            </span>
+          );
+        })}
+        {workout.length > (isMobile ? 2 : 5) && (
+          <span style={{ padding: '5px 10px', borderRadius: 999, flexShrink: 0, background: 'rgba(255,255,255,0.04)', fontFamily: '"Inter",system-ui', fontSize: 11, color: D.muted }}>
+            +{workout.length - (isMobile ? 2 : 5)}
           </span>
         )}
       </div>
-
-      {/* Duration */}
-      <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: D.muted, flexShrink: 0, whiteSpace: 'nowrap' }}>
+      <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: D.muted, flexShrink: 0, display: isMobile ? 'none' : 'block' }}>
         ~{duration} min
       </span>
-
-      {/* Save */}
       <button
         onClick={onSave}
-        style={{
-          flexShrink: 0, padding: '11px 22px', borderRadius: 12, border: 'none', cursor: 'pointer',
-          background: saved ? 'rgba(34,197,94,0.15)' : D.accent,
-          color: saved ? D.success : '#fff',
-          fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 700,
-          transition: 'all 0.25s', whiteSpace: 'nowrap',
-        }}
+        style={{ flexShrink: 0, padding: '11px 20px', borderRadius: 12, border: 'none', cursor: 'pointer', background: saved ? 'rgba(34,197,94,0.15)' : D.accent, color: saved ? D.success : '#fff', fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 700, transition: 'all 0.25s', whiteSpace: 'nowrap' }}
       >
-        {saved ? '✓ Guardado · +30 💎' : 'Guardar sesión · +30 💎'}
+        {saved ? '✓ +30 💎' : 'Guardar +30 💎'}
       </button>
     </div>
   );
 }
 
 // ── Empty state ───────────────────────────────────────────────────────────────
-function EmptyState() {
+function MapEmptyState({ onSelectMuscle }) {
   return (
-    <div style={{ paddingTop: 40, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 16 }}>
-      <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(42,111,219,0.08)', border: '1px solid rgba(42,111,219,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
-        ✦
+    <div style={{ paddingTop: 20 }}>
+      <div style={{ fontFamily: '"Instrument Serif",serif', fontStyle: 'italic', fontSize: 26, color: D.mid, marginBottom: 12 }}>
+        Toca un músculo
       </div>
-      <div>
-        <div style={{ fontFamily: '"Instrument Serif",serif', fontStyle: 'italic', fontSize: 24, color: D.mid, marginBottom: 8 }}>
-          Toca un músculo
-        </div>
-        <p style={{ fontFamily: '"Inter",system-ui', fontSize: 14, color: D.muted, lineHeight: 1.65, margin: 0, maxWidth: 320 }}>
-          Selecciona un grupo muscular en el mapa para ver tus ejercicios, el volumen semanal y añadir nuevas series a tu sesión.
-        </p>
-      </div>
-
-      {/* Quick-access muscle pills */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+      <p style={{ fontFamily: '"Inter",system-ui', fontSize: 14, color: D.muted, lineHeight: 1.65, margin: '0 0 24px', maxWidth: 320 }}>
+        Selecciona un grupo en el mapa para ver series, fatiga y ejercicios disponibles.
+      </p>
+      {/* Quick-pick pills */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {Object.entries(MUSCLE_DEFS).map(([id, def]) => (
-          <span key={id} style={{ padding: '6px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.04)', border: `1px solid ${D.border}`, fontFamily: '"Inter",system-ui', fontSize: 12, fontWeight: 600, color: D.muted, cursor: 'default' }}>
+          <button
+            key={id}
+            onClick={() => onSelectMuscle(id)}
+            style={{ padding: '7px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.04)', border: `1px solid ${D.border}`, fontFamily: '"Inter",system-ui', fontSize: 12, fontWeight: 600, color: D.muted, cursor: 'pointer', transition: 'background 0.12s, color 0.12s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(42,111,219,0.14)'; e.currentTarget.style.color = '#6EA9F0'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = D.muted; }}
+          >
             {def.label}
-          </span>
+          </button>
         ))}
       </div>
-    </div>
-  );
-}
-
-// ── Volume legend ─────────────────────────────────────────────────────────────
-function VolumeLegend() {
-  const items = [
-    { c: 'rgba(255,255,255,0.14)', l: 'Sin trabajo' },
-    { c: 'rgba(42,111,219,0.40)',  l: 'Trabajado' },
-    { c: 'rgba(42,111,219,0.75)',  l: 'Alto volumen' },
-    { c: 'rgba(220,60,60,0.45)',   l: 'Exceso' },
-  ];
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 16 }}>
-      {items.map(({ c, l }) => (
-        <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <div style={{ width: 9, height: 9, borderRadius: 3, background: c, flexShrink: 0 }} />
-          <span style={{ fontFamily: '"Inter",system-ui', fontSize: 10, color: D.muted }}>{l}</span>
-        </div>
-      ))}
     </div>
   );
 }
@@ -565,10 +530,12 @@ function VolumeLegend() {
 function BuilderSection() {
   const { state, actions } = useStore();
   const { navigate } = useRoute();
+  const width = useWindowWidth();
+  const isMobile = width < 680;
 
   const [mapView,        setMapView]        = React.useState('front');
   const [selectedMuscle, setSelectedMuscle] = React.useState(null);
-  const [panelMode,      setPanelMode]      = React.useState('empty'); // 'empty' | 'overview' | 'picker' | 'setconfig'
+  const [panelMode,      setPanelMode]      = React.useState('empty');
   const [configExercise, setConfigExercise] = React.useState(null);
   const [configInitSets, setConfigInitSets] = React.useState(null);
   const [workout,        setWorkout]        = React.useState([]);
@@ -592,7 +559,7 @@ function BuilderSection() {
 
   const duration = React.useMemo(() => estimateDuration(workout), [workout]);
 
-  // Sync live workout to store for Atlas Coach
+  // Sync to store for Atlas Coach live analysis
   React.useEffect(() => {
     actions.setCurrentWorkout(workout.map(ex => ({
       name: ex.name, muscles: ex.muscles.primary, pattern: ex.pattern, sets: ex.sets,
@@ -602,17 +569,13 @@ function BuilderSection() {
   const handleMuscleSelect = (id) => {
     setSelectedMuscle(id);
     setPanelMode('overview');
-    // Auto-switch view if muscle is only visible on back
     if (MUSCLE_DEFS[id] && !MUSCLE_DEFS[id].front && MUSCLE_DEFS[id].back) setMapView('back');
     if (MUSCLE_DEFS[id] && MUSCLE_DEFS[id].front && !MUSCLE_DEFS[id].back) setMapView('front');
   };
 
-  const handleAddExercise = () => setPanelMode('picker');
-
   const handlePickerSelect = (exercise) => {
-    const inWorkout = workout.find(e => e.id === exercise.id);
     setConfigExercise(exercise);
-    setConfigInitSets(inWorkout ? inWorkout.sets : null);
+    setConfigInitSets(workout.find(e => e.id === exercise.id)?.sets || null);
     setPanelMode('setconfig');
   };
 
@@ -626,14 +589,11 @@ function BuilderSection() {
     setPanelMode('overview');
   };
 
-  const handleRemoveExercise = (id) => {
-    setWorkout(prev => prev.filter(e => e.id !== id));
-  };
+  const handleRemoveExercise = (id) => setWorkout(prev => prev.filter(e => e.id !== id));
 
   const handleEditExercise = (exercise) => {
-    const inWorkout = workout.find(e => e.id === exercise.id);
     setConfigExercise(exercise);
-    setConfigInitSets(inWorkout ? inWorkout.sets : null);
+    setConfigInitSets(workout.find(e => e.id === exercise.id)?.sets || null);
     setPanelMode('setconfig');
   };
 
@@ -645,79 +605,66 @@ function BuilderSection() {
     setTimeout(() => { setSaved(false); setWorkout([]); setSelectedMuscle(null); setPanelMode('empty'); }, 3000);
   };
 
+  // Left column width adapts to screen
+  const leftW = isMobile ? '100%' : 280;
+  const rightW = isMobile ? '100%' : 'calc(100% - 280px - 48px)';
+
   return (
     <section style={{ minHeight: '100vh', background: D.page }}>
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '96px 28px 120px' }}>
+      <div style={{ maxWidth: 1080, margin: '0 auto', padding: isMobile ? '72px 16px 120px' : '96px 28px 120px' }}>
 
         {/* Gem flash */}
         {gemFlash && (
-          <div style={{ position: 'fixed', top: 80, right: 32, zIndex: 300, background: '#0F1A2E', color: '#FAFAF7', padding: '10px 20px', borderRadius: 999, fontFamily: '"Inter",system-ui', fontSize: 14, fontWeight: 700, animation: 'fadeIn 0.3s ease', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-            💎 +30 gemas · Sesión registrada
+          <div style={{ position: 'fixed', top: 72, right: 20, zIndex: 300, background: '#0F1A2E', color: '#FAFAF7', padding: '10px 18px', borderRadius: 999, fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 700, animation: 'fadeIn 0.3s ease', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+            💎 +30 gemas · Sesión guardada
           </div>
         )}
 
-        {/* Header */}
-        <div style={{ marginBottom: 48 }}>
-          <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10, fontWeight: 700, letterSpacing: 1.8, textTransform: 'uppercase', color: D.muted }}>
-            Atlas Builder
-          </span>
-          <h1 style={{ fontFamily: '"Inter",system-ui', fontSize: 40, fontWeight: 800, color: D.text, letterSpacing: -2, lineHeight: 1, margin: '10px 0 0' }}>
-            Tu sesión de hoy.{' '}
-            <span style={{ fontFamily: '"Instrument Serif",serif', fontStyle: 'italic', fontWeight: 400, color: D.mid }}>
+        {/* Page header */}
+        <div style={{ marginBottom: isMobile ? 24 : 40 }}>
+          <h1 style={{ fontFamily: '"Inter",system-ui', fontSize: isMobile ? 32 : 40, fontWeight: 900, color: D.text, letterSpacing: -2, lineHeight: 1, margin: '0 0 6px' }}>
+            Tu sesión.{' '}
+            <span style={{ fontFamily: '"Instrument Serif",serif', fontStyle: 'italic', fontWeight: 400, color: D.mid, letterSpacing: -1 }}>
               Toca un músculo.
             </span>
           </h1>
         </div>
 
-        {/* Two-column layout */}
-        <div style={{ display: 'flex', gap: 48, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        {/* Layout */}
+        <div style={{ display: 'flex', gap: 48, alignItems: 'flex-start', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
 
           {/* LEFT: Body map */}
-          <div style={{ flex: '0 0 260px', minWidth: 220 }}>
-
+          <div style={{ width: leftW, flexShrink: 0 }}>
             {/* Front / back toggle */}
-            <div style={{ display: 'flex', gap: 3, marginBottom: 20, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 3 }}>
+            <div style={{ display: 'flex', gap: 3, marginBottom: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 3 }}>
               {[['front', 'Frontal'], ['back', 'Posterior']].map(([v, lbl]) => (
-                <button
-                  key={v}
-                  onClick={() => setMapView(v)}
-                  style={{
-                    flex: 1, padding: '7px 0', borderRadius: 8, border: 'none', cursor: 'pointer',
-                    background: mapView === v ? D.accent : 'transparent',
-                    color: mapView === v ? '#fff' : D.muted,
-                    fontFamily: '"Inter",system-ui', fontSize: 11, fontWeight: 700,
-                    transition: 'all 0.14s',
-                  }}
-                >
+                <button key={v} onClick={() => setMapView(v)} style={{ flex: 1, padding: '7px 0', borderRadius: 7, border: 'none', cursor: 'pointer', background: mapView === v ? D.accent : 'transparent', color: mapView === v ? '#fff' : D.muted, fontFamily: '"Inter",system-ui', fontSize: 11, fontWeight: 700, transition: 'all 0.14s' }}>
                   {lbl}
                 </button>
               ))}
             </div>
 
-            {/* SVG body map */}
-            <BodyMap
-              view={mapView}
-              muscleVolumes={muscleVolumes}
-              selectedMuscle={selectedMuscle}
-              onSelect={handleMuscleSelect}
-            />
+            {/* SVG (compact on mobile) */}
+            <div style={{ maxWidth: isMobile ? 200 : 'none', margin: isMobile ? '0 auto' : '0' }}>
+              <BodyMap view={mapView} muscleVolumes={muscleVolumes} selectedMuscle={selectedMuscle} onSelect={handleMuscleSelect} />
+            </div>
 
-            {/* Analyze link */}
+            {/* Coach link */}
             {workout.length > 0 && (
-              <button
-                onClick={() => navigate('/coach')}
-                style={{ marginTop: 18, width: '100%', padding: '10px 0', borderRadius: 10, border: '1px solid rgba(42,111,219,0.28)', background: 'rgba(42,111,219,0.08)', color: '#6EA9F0', fontFamily: '"Inter",system-ui', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-              >
+              <button onClick={() => navigate('/coach')} style={{ marginTop: 16, width: '100%', padding: '10px 0', borderRadius: 10, border: '1px solid rgba(42,111,219,0.28)', background: 'rgba(42,111,219,0.08)', color: '#6EA9F0', fontFamily: '"Inter",system-ui', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                 Analizar con Coach →
               </button>
             )}
 
-            <VolumeLegend />
+            {!isMobile && <VolumeLegend />}
           </div>
 
           {/* RIGHT: Contextual panel */}
-          <div style={{ flex: 1, minWidth: 280 }}>
-            {panelMode === 'empty' && <EmptyState />}
+          <div style={{ flex: 1, minWidth: 0, width: isMobile ? '100%' : undefined, maxHeight: isMobile ? 'none' : 680, overflowY: isMobile ? 'visible' : 'auto' }}>
+
+            {panelMode === 'empty' && (
+              <MapEmptyState onSelectMuscle={handleMuscleSelect} />
+            )}
 
             {panelMode === 'overview' && selectedMuscle && (
               <MuscleOverview
@@ -725,7 +672,7 @@ function BuilderSection() {
                 muscleVolumes={muscleVolumes}
                 sessionExercises={sessionExercisesForMuscle}
                 log={state.log || []}
-                onAdd={handleAddExercise}
+                onAdd={() => setPanelMode('picker')}
                 onRemoveEx={handleRemoveExercise}
                 onEditEx={handleEditExercise}
               />
@@ -755,9 +702,9 @@ function BuilderSection() {
         </div>
       </div>
 
-      {/* Sticky bottom workout bar */}
+      {/* Sticky workout bar */}
       {workout.length > 0 && (
-        <WorkoutBar workout={workout} onSave={handleSave} saved={saved} duration={duration} />
+        <WorkoutBar workout={workout} onSave={handleSave} saved={saved} duration={duration} isMobile={isMobile} />
       )}
     </section>
   );
