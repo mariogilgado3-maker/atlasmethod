@@ -459,6 +459,20 @@ function BuilderSection() {
   const [flash,   setFlash]   = React.useState(false);
 
   const allExs = React.useMemo(() => ExerciseService.getAll(), []);
+
+  // Load routine sent from Atlas Coach
+  React.useEffect(() => {
+    const raw = localStorage.getItem('atlas.pendingWorkout');
+    if (!raw) return;
+    try {
+      const exs = JSON.parse(raw);
+      if (Array.isArray(exs) && exs.length > 0) {
+        setWorkout(exs);
+        localStorage.removeItem('atlas.pendingWorkout');
+      }
+    } catch {}
+  }, []);
+
   const muscleExs = React.useMemo(() => muscle ? exsForMuscle(muscle, allExs) : [], [muscle, allExs]);
   const sessionIds = React.useMemo(() => new Set(workout.map(e => e.id)), [workout]);
   const sessionExsForMuscle = React.useMemo(() => {
