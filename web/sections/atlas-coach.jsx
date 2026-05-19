@@ -214,15 +214,20 @@ function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs) {
   }[goal] || { sets: 3, setsComp: 4, reps: '8-12', rir: 2, rest: '90s' };
 
   function pick(group, n, isCompound) {
-    return (byGroup[group] || []).slice(0, n).map((ex, i) => ({
-      ...ex,
-      sets:     isCompound && i === 0 ? scheme.setsComp : scheme.sets,
-      repsRange: scheme.reps,
-      rir:      i === 0 ? scheme.rir : scheme.rir + 1,
-      rest:     isCompound && i === 0 ? scheme.rest : '60-90s',
-      sessionSets: Array.from({ length: isCompound && i === 0 ? scheme.setsComp : scheme.sets },
-        () => ({ kg: '', reps: scheme.reps.split('-')[0] })),
-    }));
+    return (byGroup[group] || []).slice(0, n).map((ex, i) => {
+      const setsN = isCompound && i === 0 ? scheme.setsComp : scheme.sets;
+      return {
+        id: ex.id,
+        name: ex.name,
+        muscles: { primary: (ex.muscles?.primary || []).slice(0, 2), secondary: [] },
+        pattern: ex.pattern,
+        sets: Array.from({ length: setsN }, () => ({ kg: '', reps: scheme.reps.split('-')[0] })),
+        setsCount: setsN,
+        repsRange: scheme.reps,
+        rir: i === 0 ? scheme.rir : scheme.rir + 1,
+        rest: isCompound && i === 0 ? scheme.rest : '60-90s',
+      };
+    });
   }
 
   const configs = {
@@ -246,7 +251,7 @@ function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs) {
   const builder = configs[splitKey] || configs.fullbody;
   return builder().map(s => {
     const exercises = s.exs.filter(e => e && e.id);
-    const totalSets = exercises.reduce((t, e) => t + e.sets, 0);
+    const totalSets = exercises.reduce((t, e) => t + (e.setsCount ?? (Array.isArray(e.sets) ? e.sets.length : e.sets) ?? 3), 0);
     return {
       name: s.name,
       exercises,
@@ -415,7 +420,7 @@ function acResponseInjury(text, memory) {
 
   const advice = alts[part] || `Para ${part}: reduce la carga un 50% en movimientos que involucren esa zona. Si no mejora en 5–7 días o empeora, consulta a un fisioterapeuta.`;
 
-  return { type:'text', text:`${part.charAt(0).toUpperCase() + part.slice(1)} anotado en tu perfil para futuras recomendaciones.\n\n${advice}` };
+  return { type:'text', text:`${part.charAt(0).toUpperCase() + part.slice(1)} anotado en tu perfil para futuras recomendaciones.\n\n${advice}`, _memoryUpdated: found.length > 0 };
 }
 
 function acResponsePlateau(ctx) {
@@ -548,7 +553,7 @@ function AcRoutineCard({ session, onSendToBuilder }) {
                 <div style={{ fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600, color:AC.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ex.name}</div>
                 <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:AC.muted, marginTop:1 }}>{ex.muscles?.primary?.[0]||''}</div>
               </div>
-              <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:14, fontWeight:700, color:AC.text, textAlign:'center' }}>{ex.sets||3}</div>
+              <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:14, fontWeight:700, color:AC.text, textAlign:'center' }}>{ex.setsCount ?? (Array.isArray(ex.sets) ? ex.sets.length : ex.sets) ?? 3}</div>
               <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:12, color:AC.sub, textAlign:'center' }}>{ex.repsRange||'8-12'}</div>
               <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:12, color:'#93C5FD', textAlign:'center', fontWeight:700 }}>RIR{ex.rir||2}</div>
               <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:10, color:AC.muted, textAlign:'center' }}>{ex.rest||'90s'}</div>
@@ -567,7 +572,6 @@ function AcRoutineCard({ session, onSendToBuilder }) {
 
 function AcAnalysisCard({ content }) {
   const sevColor = { warning:'#EF4444', good:'#22C55E', info:'#3B82F6' };
-  const sevBg    = { warning:'rgba(239,68,68,0.06)', good:'rgba(34,197,94,0.06)', info:'rgba(59,130,246,0.06)' };
   const { stats } = content;
   return (
     <div style={{ borderRadius:'4px 18px 18px 18px', overflow:'hidden', border:`1px solid ${AC.border}`, animation:'fadeIn .25s ease' }}>
@@ -612,7 +616,7 @@ function AcCoachMessage({ content, onSendToBuilder }) {
   if (content.type === 'routine') return (
     <div>
       <div style={bubble}>{content.text}</div>
-      {content.sessions.map((session, si) => (
+      {(content.sessions || []).map((session, si) => (
         <AcRoutineCard key={si} session={session} onSendToBuilder={onSendToBuilder} />
       ))}
     </div>
@@ -750,7 +754,15 @@ function AtlasCoachSection() {
   const messages   = activeChat?.messages || [];
 
   React.useEffect(() => {
-    localStorage.setItem(AC_CHATS_KEY, JSON.stringify(chats));
+    try {
+      localStorage.setItem(AC_CHATS_KEY, JSON.stringify(chats));
+    } catch (e) {
+      // Quota exceeded — prune oldest messages and retry once
+      try {
+        const pruned = chats.map(c => ({ ...c, messages: c.messages.slice(-20) })).slice(0, 5);
+        localStorage.setItem(AC_CHATS_KEY, JSON.stringify(pruned));
+      } catch {}
+    }
   }, [chats]);
 
   React.useEffect(() => {
@@ -795,8 +807,12 @@ function AtlasCoachSection() {
     setLoading(true);
     const currentMemory = acLoadMemory();
     setTimeout(() => {
-      const response = acGenerateSmartResponse(userText, state, profile, currentMemory, allExs);
-      // Extract and persist any new injury mentions
+      let response;
+      try {
+        response = acGenerateSmartResponse(userText, state, profile, currentMemory, allExs);
+      } catch (err) {
+        response = { type:'text', text:'Hubo un error al procesar tu mensaje. Por favor intenta de nuevo.' };
+      }
       if (response._memoryUpdated) setMemory(acLoadMemory());
       const coachMsg = { id:`msg-${Date.now()}-c`, role:'coach', content:response, ts:Date.now() };
       setChats(prev => prev.map(c => c.id === chatId ? { ...c, messages:[...c.messages, coachMsg] } : c));
