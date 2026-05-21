@@ -244,37 +244,41 @@ function ExerciseThumbnailMedia({ exercise, group, isAdded, height = 92 }) {
     );
   }
 
-  // 2. Curated group photo with dark gradient overlay
+  // 2. Curated group photo — B&W editorial + muscle SVG overlay
   const groupPhoto = GROUP_PHOTOS[group];
   if (groupPhoto && groupPhotoOk) {
     return (
       <div style={{
         height, flexShrink: 0, position: 'relative', overflow: 'hidden',
-        background: `linear-gradient(140deg, ${gs.from} 0%, ${gs.to} 100%)`,
+        background: '#080808',
       }}>
+        {/* B&W photo — clean editorial aesthetic */}
         <img
           src={groupPhoto}
           alt=""
           loading="lazy"
           onError={() => setGroupPhotoOk(false)}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', objectPosition: 'center 20%',
+            filter: 'grayscale(1) contrast(1.12) brightness(0.82)',
+          }}
         />
-        {/* Color-tinted gradient overlay for premium look */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: `linear-gradient(160deg, ${gs.from}CC 0%, ${gs.to}88 50%, rgba(0,0,0,0.50) 100%)`,
-        }} />
-        {/* SVG illustration at low opacity for muscle highlight */}
-        <div style={{ position: 'absolute', inset: 0, opacity: 0.28 }}>
+        {/* Minimal dark vignette — bottom-weighted */}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.60) 100%)' }} />
+        {/* Muscle SVG — white paths highlight the worked group */}
+        <div style={{ position: 'absolute', inset: 0, opacity: 0.58 }}>
           <SvgComp />
         </div>
+        {/* Group color accent bar */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, background: gs.to }} />
         {exercise.compound && (
           <div style={{
             position: 'absolute', top: 6, left: 6,
             fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 7, fontWeight: 700,
-            color: 'rgba(255,255,255,0.90)', letterSpacing: 0.6,
-            background: 'rgba(0,0,0,0.50)', backdropFilter: 'blur(4px)',
-            padding: '2px 6px', borderRadius: 4,
+            color: 'rgba(255,255,255,0.75)', letterSpacing: 0.8,
+            background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+            padding: '2px 6px', borderRadius: 3,
           }}>CPT</div>
         )}
         {isAdded && <AddedOverlay />}

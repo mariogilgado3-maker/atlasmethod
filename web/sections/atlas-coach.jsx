@@ -531,37 +531,45 @@ function AcRoutineCard({ session, onSendToBuilder }) {
   const [open, setOpen] = React.useState(true);
   return (
     <div style={{ marginTop:10, borderRadius:14, overflow:'hidden', border:`1px solid ${AC.border}`, background:AC.card2, animation:'fadeIn .25s ease' }}>
-      <div onClick={() => setOpen(o=>!o)} style={{ padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', background:'rgba(59,130,246,0.07)', borderBottom:`1px solid ${AC.border}`, cursor:'pointer' }}>
+      {/* Header */}
+      <div onClick={() => setOpen(o=>!o)} style={{ padding:'14px 18px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:`1px solid ${AC.border}`, cursor:'pointer' }}>
         <div>
-          <div style={{ fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, color:'#93C5FD' }}>{session.name}</div>
-          <div style={{ fontFamily:'Inter,system-ui', fontSize:11, color:AC.muted, marginTop:2 }}>
-            {session.exercises.length} ejercicios · {session.totalSets} series · ~{session.duration} min
+          <div style={{ fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, color:AC.text, letterSpacing:-0.2 }}>{session.name}</div>
+          <div style={{ display:'flex', gap:16, marginTop:5 }}>
+            {[
+              `${session.exercises.length} ejerc`,
+              `${session.totalSets} series`,
+              `~${session.duration} min`,
+            ].map(v => (
+              <span key={v} style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700, color:AC.muted, letterSpacing:0.3 }}>{v}</span>
+            ))}
           </div>
         </div>
-        <span style={{ color:AC.muted, fontSize:11, transform:open?'rotate(180deg)':'none', transition:'transform .2s' }}>↓</span>
+        <span style={{ color:AC.muted, fontSize:12, transform:open?'rotate(180deg)':'none', transition:'transform .2s', fontFamily:'ui-monospace,Menlo,monospace' }}>▾</span>
       </div>
       {open && (
         <>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 44px 60px 40px 60px', padding:'7px 16px', background:'rgba(255,255,255,0.02)', borderBottom:`1px solid rgba(255,255,255,0.04)` }}>
-            {['EJERCICIO','SERIES','REPS','RIR','DESCANSO'].map((h, i) => (
-              <div key={h} style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, fontWeight:700, color:AC.muted, letterSpacing:0.5, textAlign:i>0?'center':'left' }}>{h}</div>
+          {/* Column headers */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 36px 56px 38px 56px', padding:'6px 18px', borderBottom:`1px solid rgba(255,255,255,0.04)` }}>
+            {['EJERCICIO','×','REPS','RIR','REST'].map((h, i) => (
+              <div key={h} style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:7, fontWeight:700, color:AC.muted, letterSpacing:0.8, textAlign:i>0?'center':'left' }}>{h}</div>
             ))}
           </div>
           {session.exercises.map((ex, ei) => (
-            <div key={ex.id||ei} style={{ display:'grid', gridTemplateColumns:'1fr 44px 60px 40px 60px', padding:'10px 16px', alignItems:'center', borderTop:`1px solid rgba(255,255,255,0.03)`, background: ei%2===0 ? AC.card : AC.card2 }}>
-              <div>
+            <div key={ex.id||ei} style={{ display:'grid', gridTemplateColumns:'1fr 36px 56px 38px 56px', padding:'9px 18px', alignItems:'center', borderTop:`1px solid rgba(255,255,255,0.03)` }}>
+              <div style={{ minWidth:0 }}>
                 <div style={{ fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600, color:AC.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ex.name}</div>
-                <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:AC.muted, marginTop:1 }}>{ex.muscles?.primary?.[0]||''}</div>
+                <div style={{ fontFamily:'Inter,system-ui', fontSize:9, color:AC.muted, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ex.muscles?.primary?.[0]||''}</div>
               </div>
-              <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:14, fontWeight:700, color:AC.text, textAlign:'center' }}>{ex.setsCount ?? (Array.isArray(ex.sets) ? ex.sets.length : ex.sets) ?? 3}</div>
-              <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:12, color:AC.sub, textAlign:'center' }}>{ex.repsRange||'8-12'}</div>
-              <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:12, color:'#93C5FD', textAlign:'center', fontWeight:700 }}>RIR{ex.rir||2}</div>
-              <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:10, color:AC.muted, textAlign:'center' }}>{ex.rest||'90s'}</div>
+              <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:15, fontWeight:800, color:AC.text, textAlign:'center' }}>{ex.setsCount ?? (Array.isArray(ex.sets) ? ex.sets.length : ex.sets) ?? 3}</div>
+              <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:11, color:AC.sub, textAlign:'center' }}>{ex.repsRange||'8-12'}</div>
+              <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:11, color:'rgba(147,197,253,0.80)', textAlign:'center', fontWeight:700 }}>{ex.rir ?? 2}</div>
+              <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, color:AC.muted, textAlign:'center' }}>{ex.rest||'90s'}</div>
             </div>
           ))}
-          <div style={{ padding:'12px 16px', borderTop:`1px solid rgba(255,255,255,0.05)` }}>
-            <button onClick={() => onSendToBuilder(session.exercises)} style={{ width:'100%', padding:'11px 16px', borderRadius:10, border:'none', cursor:'pointer', background:AC.blue, color:'#fff', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, boxShadow:'0 6px 20px -6px rgba(59,130,246,0.5)' }}>
-              Enviar al Builder →
+          <div style={{ padding:'12px 18px', borderTop:`1px solid rgba(255,255,255,0.05)` }}>
+            <button onClick={() => onSendToBuilder(session.exercises)} style={{ width:'100%', padding:'11px 16px', borderRadius:10, border:'none', cursor:'pointer', background:AC.blue, color:'#fff', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, letterSpacing:-0.2, boxShadow:'0 4px 18px -4px rgba(59,130,246,0.45)' }}>
+              Abrir en Builder →
             </button>
           </div>
         </>
@@ -571,37 +579,58 @@ function AcRoutineCard({ session, onSendToBuilder }) {
 }
 
 function AcAnalysisCard({ content }) {
-  const sevColor = { warning:'#EF4444', good:'#22C55E', info:'#3B82F6' };
+  const SEV_C = { warning:'#EF4444', good:'#22C55E', info:'#3B82F6' };
   const { stats } = content;
+  const fatLabel = { high:'ALTA', moderate:'MOD', low:'BAJA' }[stats?.fatigue] || '—';
+  const fatColor = { high:'#EF4444', moderate:'#F59E0B', low:'#22C55E' }[stats?.fatigue] || AC.muted;
+
+  const metrics = [
+    { k:'SESIONES', v: stats?.sessions ?? '—',                    c: AC.text },
+    { k:'ESTA SEM', v: stats?.week ?? '—',                        c: AC.text },
+    { k:'RACHA',    v: stats?.streak !== undefined ? `${stats.streak}d` : '—', c: (stats?.streak||0) >= 3 ? '#22C55E' : AC.text },
+    stats?.push > 0
+      ? { k:'P:T', v:`${stats.push}:${stats.pull}`, c: stats.push > stats.pull * 1.4 ? '#F59E0B' : AC.text }
+      : null,
+    { k:'FATIGA',   v: fatLabel,                                   c: fatColor },
+  ].filter(Boolean);
+
   return (
-    <div style={{ borderRadius:'4px 18px 18px 18px', overflow:'hidden', border:`1px solid ${AC.border}`, animation:'fadeIn .25s ease' }}>
-      <div style={{ padding:'14px 18px', background:'rgba(59,130,246,0.07)', borderBottom:`1px solid ${AC.border}` }}>
-        <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700, color:'#93C5FD', letterSpacing:1.2, marginBottom:7 }}>ANÁLISIS DE ENTRENAMIENTO</div>
-        <p style={{ fontFamily:'Inter,system-ui', fontSize:14, color:AC.text, margin:'0 0 10px', lineHeight:1.45 }}>{content.summary}</p>
-        {stats && (
-          <div style={{ display:'flex', gap:14, flexWrap:'wrap' }}>
-            {[
-              { label:'Sesiones', val:stats.sessions },
-              { label:'Esta semana', val:stats.week },
-              { label:'Racha', val:`${stats.streak}d` },
-              stats.push > 0 && { label:'Push:Pull', val:`${stats.push}:${stats.pull}` },
-            ].filter(Boolean).map(s => (
-              <div key={s.label}>
-                <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, color:AC.muted, fontWeight:700, letterSpacing:0.6 }}>{s.label}</div>
-                <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:14, fontWeight:800, color:AC.text }}>{s.val}</div>
-              </div>
-            ))}
+    <div style={{ borderRadius:14, overflow:'hidden', border:`1px solid ${AC.border}`, animation:'fadeIn .25s ease' }}>
+
+      {/* ── Metric strip — Whoop-style ── */}
+      <div style={{ display:'flex', borderBottom:`1px solid ${AC.border}` }}>
+        {metrics.map((m, i) => (
+          <div key={m.k} style={{
+            flex:1, padding:'14px 10px', textAlign:'center',
+            borderRight: i < metrics.length - 1 ? `1px solid ${AC.border}` : 'none',
+          }}>
+            <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:7, color:AC.muted, fontWeight:700, letterSpacing:0.9, marginBottom:7 }}>{m.k}</div>
+            <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:20, fontWeight:800, color:m.c, lineHeight:1 }}>{m.v}</div>
           </div>
-        )}
+        ))}
       </div>
-      {content.issues.map((issue, i) => (
-        <div key={i} style={{ padding:'14px 18px', borderTop:i>0?`1px solid rgba(255,255,255,0.04)`:undefined, background: i%2===0 ? AC.card : AC.card2 }}>
+
+      {/* ── Summary ── */}
+      <div style={{ padding:'13px 18px', borderBottom:`1px solid ${AC.border}`, background:'rgba(255,255,255,0.02)' }}>
+        <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, fontWeight:700, color:AC.muted, letterSpacing:1.6, marginBottom:7 }}>ANÁLISIS</div>
+        <p style={{ fontFamily:'Inter,system-ui', fontSize:13, color:AC.sub, margin:0, lineHeight:1.55 }}>{content.summary}</p>
+      </div>
+
+      {/* ── Issue rows — left accent border ── */}
+      {(content.issues || []).map((issue, i) => (
+        <div key={i} style={{
+          padding:'12px 18px',
+          borderTop: i > 0 ? `1px solid rgba(255,255,255,0.04)` : undefined,
+          borderLeft:`2px solid ${SEV_C[issue.sev] || AC.blue}`,
+        }}>
           <div style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
-            <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:13, color:sevColor[issue.sev]||AC.blue, flexShrink:0, marginTop:1, fontWeight:700 }}>{issue.icon}</span>
-            <div style={{ flex:1 }}>
-              <div style={{ fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, color:AC.text, marginBottom:4 }}>{issue.title}</div>
-              <div style={{ fontFamily:'Inter,system-ui', fontSize:12, color:AC.sub, lineHeight:1.55, marginBottom: issue.rec ? 7:0 }}>{issue.detail}</div>
-              {issue.rec && <div style={{ fontFamily:'Inter,system-ui', fontSize:11, color:sevColor[issue.sev]||AC.blue, fontWeight:600 }}>→ {issue.rec}</div>}
+            <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:11, color:SEV_C[issue.sev]||AC.blue, flexShrink:0, marginTop:1, fontWeight:700 }}>{issue.icon}</span>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontFamily:'Inter,system-ui', fontSize:12, fontWeight:700, color:AC.text, marginBottom:3 }}>{issue.title}</div>
+              <div style={{ fontFamily:'Inter,system-ui', fontSize:11, color:AC.sub, lineHeight:1.55, marginBottom:issue.rec?5:0 }}>{issue.detail}</div>
+              {issue.rec && (
+                <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:SEV_C[issue.sev]||AC.blue, fontWeight:600 }}>→ {issue.rec}</div>
+              )}
             </div>
           </div>
         </div>

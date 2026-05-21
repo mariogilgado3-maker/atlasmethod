@@ -134,6 +134,7 @@ function AlCover({ category, height, radius, style, imgIdx }) {
             position: 'absolute', inset: 0,
             width: '100%', height: '100%',
             objectFit: 'cover', objectPosition: 'center 25%',
+            filter: 'grayscale(1) contrast(1.08) brightness(0.88)',
           }}
         />
       )}
