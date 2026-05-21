@@ -13,6 +13,18 @@ const EXERCISE_GROUP_STYLE = {
   core:    { from: '#111111', to: '#444c5e' },
 };
 
+// ── Curated fitness photos per muscle group (Unsplash CDN) ───────────────────
+const GROUP_PHOTOS = {
+  pecho:   'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400&q=80&fit=crop&crop=center',
+  espalda: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&q=80&fit=crop&crop=center',
+  pierna:  'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400&q=80&fit=crop&crop=center',
+  hombro:  'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=400&q=80&fit=crop&crop=center',
+  biceps:  'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400&q=80&fit=crop&crop=center',
+  triceps: 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=400&q=80&fit=crop&crop=center',
+  core:    'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&q=80&fit=crop&crop=center',
+  gluteos: 'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=400&q=80&fit=crop&crop=center',
+};
+
 // ── SVG muscle-group illustrations ────────────────────────────────────────────
 // viewBox 160×90, white fills at varying opacity on transparent bg
 
@@ -209,54 +221,80 @@ const MUSCLE_SVG_MAP = {
 };
 
 function ExerciseThumbnailMedia({ exercise, group, isAdded, height = 92 }) {
+  const [groupPhotoOk, setGroupPhotoOk] = React.useState(true);
   const gs = EXERCISE_GROUP_STYLE[group] || EXERCISE_GROUP_STYLE.core;
   const SvgComp = MUSCLE_SVG_MAP[group] || SVG_CORE;
 
-  // ── Future media support ────────────────────────────────────────────────────
-  // When exercise.mediaUrl is set:
-  //   mediaType === 'video' → <video autoPlay loop muted playsInline>
-  //   mediaType === 'gif'   → <img> (animated)
-  //   mediaType === 'image' → <img> with objectFit: cover
+  // 1. Exercise-specific media (video / gif / image) takes priority
   if (exercise.mediaUrl) {
-    const commonStyle = { width: '100%', height: height, objectFit: 'cover', display: 'block' };
+    const s = { width: '100%', height, objectFit: 'cover', display: 'block' };
     if (exercise.mediaType === 'video') {
       return (
         <div style={{ position: 'relative', height, overflow: 'hidden', flexShrink: 0 }}>
-          <video
-            src={exercise.mediaUrl}
-            autoPlay loop muted playsInline
-            style={commonStyle}
-          />
+          <video src={exercise.mediaUrl} autoPlay loop muted playsInline style={s} />
           {isAdded && <AddedOverlay />}
         </div>
       );
     }
     return (
       <div style={{ position: 'relative', height, overflow: 'hidden', flexShrink: 0 }}>
-        <img src={exercise.mediaUrl} alt={exercise.name} style={commonStyle} />
+        <img src={exercise.mediaUrl} alt={exercise.name} style={s} />
         {isAdded && <AddedOverlay />}
       </div>
     );
   }
 
-  // ── SVG illustration placeholder ───────────────────────────────────────────
+  // 2. Curated group photo with dark gradient overlay
+  const groupPhoto = GROUP_PHOTOS[group];
+  if (groupPhoto && groupPhotoOk) {
+    return (
+      <div style={{
+        height, flexShrink: 0, position: 'relative', overflow: 'hidden',
+        background: `linear-gradient(140deg, ${gs.from} 0%, ${gs.to} 100%)`,
+      }}>
+        <img
+          src={groupPhoto}
+          alt=""
+          loading="lazy"
+          onError={() => setGroupPhotoOk(false)}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }}
+        />
+        {/* Color-tinted gradient overlay for premium look */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: `linear-gradient(160deg, ${gs.from}CC 0%, ${gs.to}88 50%, rgba(0,0,0,0.50) 100%)`,
+        }} />
+        {/* SVG illustration at low opacity for muscle highlight */}
+        <div style={{ position: 'absolute', inset: 0, opacity: 0.28 }}>
+          <SvgComp />
+        </div>
+        {exercise.compound && (
+          <div style={{
+            position: 'absolute', top: 6, left: 6,
+            fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 7, fontWeight: 700,
+            color: 'rgba(255,255,255,0.90)', letterSpacing: 0.6,
+            background: 'rgba(0,0,0,0.50)', backdropFilter: 'blur(4px)',
+            padding: '2px 6px', borderRadius: 4,
+          }}>CPT</div>
+        )}
+        {isAdded && <AddedOverlay />}
+      </div>
+    );
+  }
+
+  // 3. SVG illustration fallback (gradient + dot texture + SVG)
   return (
     <div style={{
       height, flexShrink: 0,
       background: `linear-gradient(140deg, ${gs.from} 0%, ${gs.to} 100%)`,
       position: 'relative', overflow: 'hidden',
     }}>
-      {/* Subtle dot texture */}
       <div style={{
         position: 'absolute', inset: 0,
         backgroundImage: 'radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px)',
         backgroundSize: '16px 16px',
       }} />
-
-      {/* Muscle SVG illustration */}
       <SvgComp />
-
-      {/* Compound badge */}
       {exercise.compound && (
         <div style={{
           position: 'absolute', top: 8, left: 8,
@@ -265,8 +303,6 @@ function ExerciseThumbnailMedia({ exercise, group, isAdded, height = 92 }) {
           background: 'rgba(0,0,0,0.25)', padding: '2px 6px', borderRadius: 4,
         }}>CPT</div>
       )}
-
-      {/* Added overlay */}
       {isAdded && <AddedOverlay />}
     </div>
   );

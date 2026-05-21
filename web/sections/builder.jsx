@@ -520,13 +520,6 @@ function BuilderSection() {
   return (
     <section style={{ minHeight: '100vh', background: BD.page }}>
 
-      {/* BANNER DE DIAGNÓSTICO — confirma que el nuevo builder está cargado */}
-      <div style={{ background: '#DC2626', color: '#fff', padding: '14px 24px',
-        fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 13, fontWeight: 700,
-        textAlign: 'center', letterSpacing: 1 }}>
-        ▶ ATLAS BUILDER NUEVO — MAPA CORPORAL ACTIVO ◀
-      </div>
-
       <div style={{ maxWidth: 1060, margin: '0 auto', padding: mobile ? '48px 16px 120px' : '64px 28px 120px' }}>
 
         {flash && (

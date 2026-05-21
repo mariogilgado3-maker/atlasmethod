@@ -27,6 +27,51 @@ const EVIDENCE_LABEL = {
   review:'Revisión', 'expert-opinion':'Experto',
 };
 
+// ── Curated fitness photos (Unsplash CDN) ────────────────────────────────────
+const AULA_PHOTOS = {
+  hipertrofia: [
+    'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=900&q=80&fit=crop',
+    'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=900&q=80&fit=crop',
+    'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=900&q=80&fit=crop',
+  ],
+  fuerza: [
+    'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=900&q=80&fit=crop',
+    'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=900&q=80&fit=crop',
+    'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=900&q=80&fit=crop',
+  ],
+  nutricion: [
+    'https://images.unsplash.com/photo-1547592180-85f173990554?w=900&q=80&fit=crop',
+    'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=900&q=80&fit=crop',
+  ],
+  recuperacion: [
+    'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=900&q=80&fit=crop',
+    'https://images.unsplash.com/photo-1552673597-e3cd6747a996?w=900&q=80&fit=crop',
+  ],
+  cognitivo: [
+    'https://images.unsplash.com/photo-1542596081-6a9405c1827d?w=900&q=80&fit=crop',
+    'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=900&q=80&fit=crop',
+  ],
+  sueno: [
+    'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=900&q=80&fit=crop',
+    'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=900&q=80&fit=crop',
+  ],
+  biomecánica: [
+    'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=900&q=80&fit=crop',
+    'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=900&q=80&fit=crop',
+  ],
+  suplementos: [
+    'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=900&q=80&fit=crop',
+    'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=900&q=80&fit=crop',
+  ],
+};
+
+const VIDEO_PHOTOS = {
+  fuerza:      'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=520&q=80&fit=crop',
+  hipertrofia: 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=520&q=80&fit=crop',
+  nutricion:   'https://images.unsplash.com/photo-1547592180-85f173990554?w=520&q=80&fit=crop',
+  recuperacion:'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=520&q=80&fit=crop',
+};
+
 // ── Static content ─────────────────────────────────────────────────────────────
 const MICRO_TIPS = [
   { type:'fact',  label:'¿Sabías que?',     icon:'🔬', text:'Entrenar 2× por músculo/semana produce hasta un 22% más de hipertrofia que 1× con el mismo volumen total.' },
@@ -61,11 +106,16 @@ const EXPLORE_TOPICS = [
 ];
 
 // ── Cover visual ──────────────────────────────────────────────────────────────
-function AlCover({ category, height, radius, style }) {
+function AlCover({ category, height, radius, style, imgIdx }) {
+  const [imgOk, setImgOk] = React.useState(true);
   const m = ALcat[category] || ALcat.fuerza;
+  const h = height || 180;
+  const photos = AULA_PHOTOS[category] || AULA_PHOTOS.hipertrofia;
+  const photo  = photos[(imgIdx || 0) % photos.length];
+
   return (
     <div style={{
-      width: '100%', height: height || 180,
+      width: '100%', height: h,
       background: `linear-gradient(${m.grad})`,
       borderRadius: radius !== undefined ? radius : 0,
       position: 'relative', overflow: 'hidden',
@@ -73,21 +123,45 @@ function AlCover({ category, height, radius, style }) {
       flexShrink: 0,
       ...style,
     }}>
+      {/* Real photo */}
+      {imgOk && (
+        <img
+          src={photo}
+          alt=""
+          loading="lazy"
+          onError={() => setImgOk(false)}
+          style={{
+            position: 'absolute', inset: 0,
+            width: '100%', height: '100%',
+            objectFit: 'cover', objectPosition: 'center 25%',
+          }}
+        />
+      )}
+
+      {/* Dark gradient overlay — always present for text readability */}
       <div style={{
         position: 'absolute', inset: 0,
-        backgroundImage: 'linear-gradient(rgba(255,255,255,0.028) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.028) 1px,transparent 1px)',
-        backgroundSize: '30px 30px',
+        background: imgOk
+          ? 'linear-gradient(160deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.60) 100%)'
+          : 'linear-gradient(rgba(255,255,255,0.028) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.028) 1px,transparent 1px)',
+        backgroundSize: imgOk ? 'auto' : '30px 30px',
       }} />
-      <div style={{ position:'absolute', width:220, height:220, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.05)', right:-70, bottom:-70 }} />
-      <div style={{ position:'absolute', width:100, height:100, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.04)', left:-20, top:-20 }} />
-      <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(0,0,0,0.25) 0%, transparent 50%)' }} />
-      <span style={{
-        fontFamily:'"Instrument Serif",Georgia,serif', fontStyle:'italic',
-        fontSize: Math.min(height * 0.45, 64), color:'rgba(255,255,255,0.10)',
-        letterSpacing:-2, userSelect:'none', position:'relative', zIndex:1,
-      }}>
-        {m.label}
-      </span>
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.32) 0%, transparent 55%)' }} />
+
+      {/* Gradient fallback decorations */}
+      {!imgOk && (
+        <>
+          <div style={{ position:'absolute', width:220, height:220, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.05)', right:-70, bottom:-70 }} />
+          <div style={{ position:'absolute', width:100, height:100, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.04)', left:-20, top:-20 }} />
+          <span style={{
+            fontFamily:'"Instrument Serif",Georgia,serif', fontStyle:'italic',
+            fontSize: Math.min(h * 0.45, 64), color:'rgba(255,255,255,0.10)',
+            letterSpacing:-2, userSelect:'none', position:'relative', zIndex:1,
+          }}>
+            {m.label}
+          </span>
+        </>
+      )}
     </div>
   );
 }
@@ -226,7 +300,7 @@ function AulaFeatured({ article, isRead, onOpen }) {
     >
       {/* Left: cover */}
       <div style={{ position:'relative', overflow:'hidden' }}>
-        <AlCover category={article.category} height={340} />
+        <AlCover category={article.category} height={340} imgIdx={0} />
         <div style={{
           position:'absolute', top:16, left:16,
           padding:'4px 10px', borderRadius:6,
@@ -285,7 +359,7 @@ function AulaFeatured({ article, isRead, onOpen }) {
 }
 
 // ── Feed card ─────────────────────────────────────────────────────────────────
-function AulaCard({ article, isRead, onOpen }) {
+function AulaCard({ article, isRead, onOpen, imgIdx }) {
   const [hov, setHov] = React.useState(false);
   return (
     <div
@@ -302,7 +376,7 @@ function AulaCard({ article, isRead, onOpen }) {
       }}
     >
       <div style={{ position:'relative', overflow:'hidden' }}>
-        <AlCover category={article.category} height={168} />
+        <AlCover category={article.category} height={168} imgIdx={(imgIdx || 0) + 1} />
         {isRead && (
           <div style={{
             position:'absolute', top:12, right:12,
@@ -423,8 +497,10 @@ function AulaScienceFeed() {
 
 // ── Video card ────────────────────────────────────────────────────────────────
 function AulaVideoCard({ video }) {
-  const [hov, setHov] = React.useState(false);
+  const [hov, setHov]       = React.useState(false);
+  const [imgOk, setImgOk]   = React.useState(true);
   const m = ALcat[video.cat] || ALcat.fuerza;
+  const photoUrl = VIDEO_PHOTOS[video.cat];
 
   return (
     <div
@@ -440,23 +516,30 @@ function AulaVideoCard({ video }) {
         flexShrink:0, width:260,
       }}
     >
-      {/* Thumbnail simulated */}
-      <div style={{ position:'relative', overflow:'hidden' }}>
-        <AlCover category={video.cat} height={148} />
+      {/* Thumbnail with real photo */}
+      <div style={{ position:'relative', height:148, overflow:'hidden', background:`linear-gradient(${m.grad})` }}>
+        {imgOk && photoUrl && (
+          <img
+            src={photoUrl}
+            alt=""
+            loading="lazy"
+            onError={() => setImgOk(false)}
+            style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover', objectPosition:'center 20%' }}
+          />
+        )}
+        {/* Dark overlay */}
+        <div style={{ position:'absolute', inset:0, background:'linear-gradient(160deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.55) 100%)' }} />
         {/* Play button */}
-        <div style={{
-          position:'absolute', inset:0,
-          display:'flex', alignItems:'center', justifyContent:'center',
-        }}>
+        <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
           <div style={{
             width:46, height:46, borderRadius:'50%',
             background:'rgba(255,255,255,0.18)', backdropFilter:'blur(12px)',
             border:'1.5px solid rgba(255,255,255,0.35)',
             display:'flex', alignItems:'center', justifyContent:'center',
-            transform: hov ? 'scale(1.1)' : 'scale(1)',
+            transform: hov ? 'scale(1.12)' : 'scale(1)',
             transition:'transform .2s',
           }}>
-            <div style={{ width:0, height:0, borderTop:'8px solid transparent', borderBottom:'8px solid transparent', borderLeft:'14px solid rgba(255,255,255,0.9)', marginLeft:3 }} />
+            <div style={{ width:0, height:0, borderTop:'8px solid transparent', borderBottom:'8px solid transparent', borderLeft:'14px solid rgba(255,255,255,0.92)', marginLeft:3 }} />
           </div>
         </div>
         {/* Duration badge */}
@@ -540,7 +623,7 @@ function AulaDetail({ article, isRead, onBack, onMarkRead }) {
       </button>
 
       <div style={{ marginBottom:36, borderRadius:20, overflow:'hidden' }}>
-        <AlCover category={article.category} height={280} radius={20} />
+        <AlCover category={article.category} height={280} radius={20} imgIdx={2} />
       </div>
 
       <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14, flexWrap:'wrap' }}>
@@ -745,8 +828,8 @@ function AulaSection() {
                   sublabel={`${feedItems.length} artículo${feedItems.length !== 1 ? 's' : ''}`}
                 />
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:20 }}>
-                  {feedItems.map(a => (
-                    <AulaCard key={a.id} article={a} isRead={completed.includes(a.id)} onOpen={setOpenId} />
+                  {feedItems.map((a, i) => (
+                    <AulaCard key={a.id} article={a} isRead={completed.includes(a.id)} onOpen={setOpenId} imgIdx={i} />
                   ))}
                 </div>
               </div>
