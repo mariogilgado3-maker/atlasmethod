@@ -79,7 +79,7 @@ function HeroCoachMockup({ insightIdx }) {
         </div>
 
         {/* Coach message */}
-        <p style={{ fontFamily:'"Instrument Serif",serif', fontStyle:'italic', fontSize:16, color:'#3A4257', lineHeight:1.55, margin:'0 0 18px' }}>
+        <p style={{ fontFamily:'"Inter",system-ui', fontSize:15, fontWeight:400, color:'#3A4257', lineHeight:1.6, margin:'0 0 18px' }}>
           He revisado tus últimas 8 sesiones.<br />Encontré algo que deberías atender.
         </p>
 
@@ -210,7 +210,7 @@ function Hero() {
           <h1 style={{ fontFamily:'"Inter",system-ui', fontSize:66, fontWeight:700, color:'#0F1A2E', letterSpacing:-3, lineHeight:0.95, margin:'0 0 24px' }}>
             Entrena<br/>
             con propósito.{' '}
-            <span style={{ display:'block', fontFamily:'"Instrument Serif",serif', fontStyle:'italic', fontWeight:400, letterSpacing:-2, color:'#3A4257' }}>
+            <span style={{ display:'block', fontFamily:'"Inter",system-ui', fontWeight:300, letterSpacing:-2, color:'#3A4257' }}>
               Mejora con evidencia.
             </span>
           </h1>

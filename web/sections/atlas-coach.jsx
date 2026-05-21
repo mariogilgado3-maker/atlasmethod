@@ -758,7 +758,7 @@ function AcSidebar({ chats, activeChatId, onSelect, onNew, profile, onSaveProfil
 
 // ── Main component ────────────────────────────────────────────────────────────
 function AtlasCoachSection() {
-  const { state } = useStore();
+  const { state, actions } = useStore();
   const { navigate } = useRoute();
 
   const [profile, setProfile] = React.useState(() => acLoadProfile());
@@ -850,7 +850,7 @@ function AtlasCoachSection() {
   }
 
   function sendToBuilder(exercises) {
-    localStorage.setItem('atlas.pendingWorkout', JSON.stringify(exercises));
+    actions.setCurrentWorkout(exercises);
     navigate('/builder');
   }
 

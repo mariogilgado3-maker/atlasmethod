@@ -155,9 +155,9 @@ function AlCover({ category, height, radius, style, imgIdx }) {
           <div style={{ position:'absolute', width:220, height:220, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.05)', right:-70, bottom:-70 }} />
           <div style={{ position:'absolute', width:100, height:100, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.04)', left:-20, top:-20 }} />
           <span style={{
-            fontFamily:'"Instrument Serif",Georgia,serif', fontStyle:'italic',
-            fontSize: Math.min(h * 0.45, 64), color:'rgba(255,255,255,0.10)',
-            letterSpacing:-2, userSelect:'none', position:'relative', zIndex:1,
+            fontFamily:'"Inter",system-ui', fontWeight:800,
+            fontSize: Math.min(h * 0.40, 58), color:'rgba(255,255,255,0.08)',
+            letterSpacing:-3, userSelect:'none', position:'relative', zIndex:1,
           }}>
             {m.label}
           </span>
@@ -212,7 +212,7 @@ function AulaHero({ total, completed, query, onQuery }) {
             lineHeight:0.98, margin:'0 0 18px',
           }}>
             Entrena con{' '}
-            <em style={{ fontFamily:'"Instrument Serif",Georgia,serif', fontStyle:'italic', fontWeight:400, letterSpacing:-1 }}>evidencia</em>
+            <em style={{ fontStyle:'normal', fontWeight:300 }}>evidencia</em>
             .
           </h1>
           <p style={{ fontFamily:'"Inter",system-ui', fontSize:17, color:AL.sub, lineHeight:1.55, margin:0, letterSpacing:-0.2, maxWidth:520 }}>
@@ -329,7 +329,7 @@ function AulaFeatured({ article, isRead, onOpen }) {
         <h2 style={{ fontFamily:'"Inter",system-ui', fontSize:30, fontWeight:800, color:AL.navy, letterSpacing:-1.2, lineHeight:1.08, margin:'0 0 12px' }}>
           {article.title}
         </h2>
-        <p style={{ fontFamily:'"Instrument Serif",Georgia,serif', fontStyle:'italic', fontSize:18, color:AL.sub, margin:'0 0 16px', lineHeight:1.45 }}>
+        <p style={{ fontFamily:'"Inter",system-ui', fontSize:16, fontWeight:400, color:AL.sub, margin:'0 0 16px', lineHeight:1.5 }}>
           {article.subtitle}
         </p>
         <p style={{
@@ -397,7 +397,7 @@ function AulaCard({ article, isRead, onOpen, imgIdx }) {
         <h3 style={{ fontFamily:'"Inter",system-ui', fontSize:18, fontWeight:700, color:AL.navy, letterSpacing:-0.7, lineHeight:1.2, margin:'0 0 6px' }}>
           {article.title}
         </h3>
-        <p style={{ fontFamily:'"Inter",system-ui', fontSize:13, color:AL.sub, margin:'0 0 16px', lineHeight:1.5, fontStyle:'italic' }}>
+        <p style={{ fontFamily:'"Inter",system-ui', fontSize:13, color:AL.sub, margin:'0 0 16px', lineHeight:1.5 }}>
           {article.subtitle}
         </p>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
@@ -639,7 +639,7 @@ function AulaDetail({ article, isRead, onBack, onMarkRead }) {
       <h1 style={{ fontFamily:'"Inter",system-ui', fontSize:42, fontWeight:800, color:AL.navy, letterSpacing:-1.8, lineHeight:1.0, margin:'0 0 10px' }}>
         {article.title}
       </h1>
-      <p style={{ fontFamily:'"Instrument Serif",Georgia,serif', fontStyle:'italic', fontSize:22, color:AL.sub, margin:'0 0 8px' }}>
+      <p style={{ fontFamily:'"Inter",system-ui', fontSize:19, fontWeight:400, color:AL.sub, margin:'0 0 8px', lineHeight:1.45 }}>
         {article.subtitle}
       </p>
       {article.authors?.length > 0 && (
@@ -664,7 +664,7 @@ function AulaDetail({ article, isRead, onBack, onMarkRead }) {
           </button>
           {showAi && (
             <div style={{ marginTop:10, padding:'16px 20px', borderRadius:14, background:'rgba(15,26,46,0.03)', border:`1px solid ${AL.border}` }}>
-              <p style={{ fontFamily:'"Inter",system-ui', fontSize:14, color:AL.navy, lineHeight:1.55, margin:0, fontStyle:'italic' }}>"{article.aiSummary}"</p>
+              <p style={{ fontFamily:'"Inter",system-ui', fontSize:14, color:AL.navy, lineHeight:1.55, margin:0 }}>"{article.aiSummary}"</p>
             </div>
           )}
         </div>
@@ -806,7 +806,7 @@ function AulaSection() {
             {/* ── Empty state ───────────────────────────────────────── */}
             {!loading && filtered.length === 0 && (
               <div style={{ textAlign:'center', padding:'80px 0' }}>
-                <div style={{ fontFamily:'"Instrument Serif",Georgia,serif', fontStyle:'italic', fontSize:24, color:AL.sub, marginBottom:12 }}>Sin resultados</div>
+                <div style={{ fontFamily:'"Inter",system-ui', fontSize:20, fontWeight:600, color:AL.sub, marginBottom:12 }}>Sin resultados</div>
                 <p style={{ fontFamily:'"Inter",system-ui', fontSize:14, color:AL.muted, marginBottom:20 }}>
                   No hay artículos que coincidan con "{query}".
                 </p>

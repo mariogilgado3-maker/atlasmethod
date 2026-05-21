@@ -28,7 +28,6 @@ const DEFAULT_STORE = {
   achievements: [],
   prefs: {
     theme: 'light',
-    sinnerduo: true,
   },
   currentWorkout: [],
 };

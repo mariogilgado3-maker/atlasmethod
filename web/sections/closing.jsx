@@ -34,7 +34,7 @@ function ClosingSection() {
 
 function Footer() {
   const cols = [
-    ['Producto', ['Sistema Atlas','Laboratorio','Builder','Dashboard','AI Coach','Synerduo (iOS)']],
+    ['Producto', ['Sistema Atlas','Laboratorio','Builder','Dashboard','AI Coach','App móvil']],
     ['Recursos', ['Metodología','Investigación','Glosario','Cambios','Estado del sistema']],
     ['Empresa', ['Sobre Atlas','Equipo','Contacto','Prensa','Política de privacidad']],
   ];
