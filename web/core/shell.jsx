@@ -7,8 +7,8 @@ function AppNav() {
   const items = [
     { path: '/', label: 'Inicio' },
     { path: '/aula', label: 'Aula' },
-    { path: '/laboratorio', label: 'Laboratorio' },
     { path: '/builder', label: 'Builder' },
+    { path: '/coach', label: 'Atlas Coach' },
     { path: '/perfil', label: 'Perfil' },
   ];
 
