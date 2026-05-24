@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Volumen, intensidad y frecuencia: el triángulo del entrenamiento — Atlas Method</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
+
+    :root {
+      --font-serif: 'Playfair Display', Georgia, serif;
+      --font-sans: 'DM Sans', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+      --color-bg: #fafaf8;
+      --color-surface: #ffffff;
+      --color-text: #1a1a18;
+      --color-muted: #6b6b67;
+      --color-border: #e2e0d8;
+      --color-accent: #1e3a5f;
+      --color-accent-light: #e8eef5;
+      --color-accent-mid: #c2d3e8;
+      --radius: 8px;
+      --radius-lg: 12px;
+      --max-w: 1120px;
+      --article-w: 680px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-bg);
+      color: var(--color-text);
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--color-surface);
+      border-bottom: 0.5px solid var(--color-border);
+      padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px;
+    }
+    .nav-logo {
+      font-family: var(--font-serif);
+      font-size: 20px; font-weight: 500;
+      color: var(--color-text); text-decoration: none;
+    }
+    .nav-links { display: flex; gap: 28px; list-style: none; }
+    .nav-links a {
+      font-size: 13px; color: var(--color-muted);
+      text-decoration: none; font-weight: 400; transition: color 0.15s;
+    }
+    .nav-links a:hover, .nav-links a.active { color: var(--color-text); }
+
+    .progress-bar {
+      position: fixed; top: 60px; left: 0; z-index: 99;
+      height: 2px; width: 0%;
+      background: var(--color-accent);
+      transition: width 0.1s linear;
+    }
+
+    .article-hero {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 64px 24px 56px;
+      border-bottom: 0.5px solid var(--color-border);
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 64px;
+      align-items: start;
+    }
+
+    .article-meta-top {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .article-cat {
+      font-size: 10px; letter-spacing: 2.5px;
+      text-transform: uppercase; color: var(--color-accent);
+      font-weight: 500;
+    }
+
+    .article-cat-sep {
+      width: 1px; height: 14px;
+      background: var(--color-border);
+    }
+
+    .article-meta-info {
+      font-size: 12px; color: var(--color-muted);
+    }
+
+    .article-hero h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(32px, 4vw, 48px);
+      font-weight: 400; line-height: 1.15;
+      margin-bottom: 20px;
+      letter-spacing: -0.5px;
+    }
+
+    .article-hero h1 em {
+      font-style: italic; color: var(--color-muted);
+    }
+
+    .article-lead {
+      font-size: 18px; color: var(--color-muted);
+      line-height: 1.7; font-weight: 300;
+      max-width: 560px;
+    }
+
+    .article-sidebar { padding-top: 8px; }
+
+    .sidebar-block {
+      border: 0.5px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin-bottom: 16px;
+      background: var(--color-surface);
+    }
+
+    .sidebar-label {
+      font-size: 10px; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--color-muted);
+      margin-bottom: 12px;
+    }
+
+    .toc-list { list-style: none; }
+    .toc-list li {
+      padding: 6px 0;
+      border-bottom: 0.5px solid var(--color-border);
+      font-size: 13px; color: var(--color-muted);
+    }
+    .toc-list li:last-child { border-bottom: none; }
+    .toc-list a {
+      text-decoration: none; color: inherit;
+      transition: color 0.15s; display: flex;
+      align-items: center; gap: 8px;
+    }
+    .toc-list a:hover { color: var(--color-accent); }
+    .toc-num {
+      font-family: var(--font-mono);
+      font-size: 10px; color: var(--color-accent);
+      min-width: 18px;
+    }
+
+    .key-stat {
+      text-align: center; padding: 8px 0;
+    }
+    .stat-num {
+      font-family: var(--font-serif);
+      font-size: 36px; font-weight: 400;
+      color: var(--color-accent); display: block;
+      line-height: 1.1; margin-bottom: 6px;
+    }
+    .stat-label {
+      font-size: 12px; color: var(--color-muted); line-height: 1.5;
+    }
+
+    .article-layout {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 64px;
+      align-items: start;
+    }
+
+    .article-body {
+      padding: 56px 0 80px;
+      max-width: var(--article-w);
+    }
+
+    .article-section {
+      margin-bottom: 56px;
+      opacity: 0;
+      transform: translateY(16px);
+      animation: fadeUp 0.5s ease forwards;
+    }
+
+    .article-section:nth-child(1) { animation-delay: 0.05s; }
+    .article-section:nth-child(2) { animation-delay: 0.15s; }
+    .article-section:nth-child(3) { animation-delay: 0.25s; }
+    .article-section:nth-child(4) { animation-delay: 0.35s; }
+    .article-section:nth-child(5) { animation-delay: 0.45s; }
+    .article-section:nth-child(6) { animation-delay: 0.55s; }
+
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .section-marker {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .section-num-badge {
+      font-family: var(--font-mono);
+      font-size: 11px; color: var(--color-accent);
+      background: var(--color-accent-light);
+      padding: 3px 8px; border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .section-type {
+      font-size: 10px; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--color-muted);
+    }
+
+    .article-section h2 {
+      font-family: var(--font-serif);
+      font-size: 28px; font-weight: 400;
+      line-height: 1.25; margin-bottom: 20px;
+      letter-spacing: -0.3px;
+    }
+
+    .article-section h2 em {
+      font-style: italic; color: var(--color-muted);
+    }
+
+    .article-section p {
+      font-size: 16px; color: var(--color-text);
+      line-height: 1.85; margin-bottom: 18px;
+    }
+
+    .article-section p:last-child { margin-bottom: 0; }
+    .article-section strong { font-weight: 500; color: var(--color-text); }
+
+    .pullquote {
+      margin: 32px 0;
+      padding: 28px 32px;
+      border-left: 3px solid var(--color-accent);
+      background: var(--color-accent-light);
+      border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    }
+
+    .pullquote p {
+      font-family: var(--font-serif);
+      font-size: 20px; font-weight: 400;
+      font-style: italic; color: var(--color-accent);
+      line-height: 1.5; margin-bottom: 0 !important;
+    }
+
+    .science-box {
+      border: 0.5px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin: 32px 0;
+    }
+
+    .science-box-header {
+      background: var(--color-accent);
+      padding: 14px 24px;
+      display: flex; align-items: center; gap: 10px;
+    }
+
+    .science-box-header span {
+      font-size: 11px; letter-spacing: 2px;
+      text-transform: uppercase; color: rgba(255,255,255,0.7);
+      font-weight: 500;
+    }
+
+    .science-box-icon {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.5);
+    }
+
+    .science-box-body {
+      background: var(--color-surface);
+      padding: 24px;
+    }
+
+    .science-box-body p {
+      font-size: 14px !important;
+      color: var(--color-muted) !important;
+      line-height: 1.75 !important;
+      margin-bottom: 12px !important;
+    }
+
+    .science-box-body p:last-child { margin-bottom: 0 !important; }
+
+    .cite-ref {
+      font-family: var(--font-mono);
+      font-size: 11px; color: var(--color-accent);
+      vertical-align: super;
+    }
+
+    .data-table-wrap {
+      margin: 32px 0;
+      border: 0.5px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .data-table-wrap table {
+      width: 100%; border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .data-table-wrap thead { background: var(--color-text); }
+
+    .data-table-wrap thead th {
+      padding: 12px 16px; text-align: left;
+      font-size: 10px; letter-spacing: 2px;
+      text-transform: uppercase; color: rgba(255,255,255,0.7);
+      font-weight: 500;
+    }
+
+    .data-table-wrap tbody tr {
+      border-bottom: 0.5px solid var(--color-border);
+      transition: background 0.1s;
+    }
+
+    .data-table-wrap tbody tr:last-child { border-bottom: none; }
+    .data-table-wrap tbody tr:hover { background: var(--color-accent-light); }
+
+    .data-table-wrap td { padding: 12px 16px; color: var(--color-text); }
+    .data-table-wrap td:first-child { font-weight: 500; color: var(--color-accent); }
+
+    .steps-list {
+      list-style: none;
+      display: flex; flex-direction: column; gap: 1px;
+      background: var(--color-border);
+      border: 0.5px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin: 24px 0;
+    }
+
+    .step-item {
+      background: var(--color-surface);
+      padding: 20px 24px;
+      display: flex; gap: 18px; align-items: flex-start;
+    }
+
+    .step-num {
+      font-family: var(--font-mono);
+      font-size: 12px; color: var(--color-accent);
+      background: var(--color-accent-light);
+      padding: 4px 10px; border-radius: 4px;
+      font-weight: 500; flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .step-content h4 {
+      font-size: 15px; font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    .step-content p {
+      font-size: 13px !important;
+      color: var(--color-muted) !important;
+      line-height: 1.65 !important;
+      margin-bottom: 0 !important;
+    }
+
+    .highlight-box {
+      margin: 32px 0;
+      padding: 24px 28px;
+      border: 0.5px solid var(--color-accent-mid);
+      border-radius: var(--radius-lg);
+      background: var(--color-surface);
+      position: relative;
+    }
+
+    .highlight-box::before {
+      content: '';
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 3px;
+      background: var(--color-accent);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    }
+
+    .highlight-label {
+      font-size: 10px; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--color-accent);
+      margin-bottom: 10px; font-weight: 500;
+    }
+
+    .highlight-box p {
+      font-size: 14px !important;
+      color: var(--color-muted) !important;
+      line-height: 1.75 !important;
+      margin-bottom: 0 !important;
+    }
+
+    .formula-block {
+      margin: 24px 0;
+      padding: 20px 24px;
+      background: var(--color-text);
+      border-radius: var(--radius-lg);
+      font-family: var(--font-mono);
+      font-size: 14px; color: #e8eef5;
+      line-height: 1.8;
+    }
+
+    .formula-comment {
+      color: rgba(232,238,245,0.4);
+      font-size: 12px;
+    }
+
+    /* TRIÁNGULO VISUAL — gráfico SVG inline */
+    .triangle-wrap {
+      margin: 32px 0;
+      background: var(--color-surface);
+      border: 0.5px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      text-align: center;
+    }
+
+    .triangle-caption {
+      font-size: 12px; color: var(--color-muted);
+      margin-top: 12px; font-style: italic;
+    }
+
+    .references-section {
+      margin-top: 64px;
+      padding-top: 32px;
+      border-top: 0.5px solid var(--color-border);
+    }
+
+    .references-section h3 {
+      font-size: 12px; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--color-muted);
+      margin-bottom: 20px;
+    }
+
+    .ref-list { list-style: none; }
+
+    .ref-item {
+      display: flex; gap: 12px;
+      padding: 10px 0;
+      border-bottom: 0.5px solid var(--color-border);
+      font-size: 12px; color: var(--color-muted);
+      line-height: 1.6;
+    }
+
+    .ref-item:last-child { border-bottom: none; }
+
+    .ref-num {
+      font-family: var(--font-mono);
+      font-size: 10px; color: var(--color-accent);
+      flex-shrink: 0; padding-top: 2px;
+    }
+
+    .sticky-sidebar {
+      position: sticky;
+      top: 80px;
+      padding: 56px 0 80px;
+    }
+
+    .conclusion-block {
+      background: var(--color-text);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      margin: 32px 0;
+    }
+
+    .conclusion-block .highlight-label {
+      color: rgba(232,238,245,0.5);
+    }
+
+    .conclusion-block p {
+      font-family: var(--font-serif) !important;
+      font-size: 20px !important;
+      font-style: italic;
+      color: #e8eef5 !important;
+      line-height: 1.6 !important;
+      margin-bottom: 16px !important;
+    }
+
+    .conclusion-block p:last-child {
+      font-family: var(--font-sans) !important;
+      font-size: 13px !important;
+      font-style: normal;
+      color: rgba(232,238,245,0.5) !important;
+      margin-bottom: 0 !important;
+    }
+
+    .next-article {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 40px 24px;
+      border-top: 0.5px solid var(--color-border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .next-label {
+      font-size: 11px; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--color-muted);
+      margin-bottom: 6px;
+    }
+
+    .next-title {
+      font-family: var(--font-serif);
+      font-size: 20px; font-weight: 400;
+      color: var(--color-text); text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .next-title:hover { color: var(--color-accent); }
+
+    footer {
+      border-top: 0.5px solid var(--color-border);
+      padding: 28px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px;
+      max-width: var(--max-w); margin: 0 auto;
+    }
+
+    footer p { font-size: 12px; color: var(--color-muted); }
+
+    @media (max-width: 860px) {
+      .article-hero, .article-layout {
+        grid-template-columns: 1fr;
+        gap: 0;
+      }
+      .article-sidebar { display: none; }
+      .sticky-sidebar { display: none; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+
+<nav>
+  <a class="nav-logo" href="index.html">Atlas Method</a>
+  <ul class="nav-links">
+    <li><a href="aula.html" class="active">Aula Científica</a></li>
+    <li><a href="laboratorio.html">Laboratorio</a></li>
+    <li><a href="buscador.html">Buscador</a></li>
+    <li><a href="sobre.html">Sobre nosotros</a></li>
+    <li><a href="contacto.html">Contacto</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<header class="article-hero">
+  <div>
+    <div class="article-meta-top">
+      <span class="article-cat">Fundamentos del entrenamiento</span>
+      <div class="article-cat-sep"></div>
+      <span class="article-meta-info">8 min de lectura · Nivel básico-intermedio</span>
+    </div>
+    <h1>Volumen, intensidad y frecuencia:<br><em>el triángulo del entrenamiento</em></h1>
+    <p class="article-lead">Son las tres variables que determinan prácticamente todo lo que ocurre en un programa de entrenamiento. Entender cómo se relacionan entre sí —y cómo manipularlas— es la diferencia entre progresar de forma coherente y entrenar sin rumbo.</p>
+  </div>
+
+  <div class="article-sidebar">
+    <div class="sidebar-block">
+      <div class="sidebar-label">Contenido del artículo</div>
+      <ul class="toc-list">
+        <li><a href="#definiciones"><span class="toc-num">01</span> Las tres variables</a></li>
+        <li><a href="#relacion"><span class="toc-num">02</span> Cómo se relacionan</a></li>
+        <li><a href="#ciencia"><span class="toc-num">03</span> La base científica</a></li>
+        <li><a href="#objetivo"><span class="toc-num">04</span> Según tu objetivo</a></li>
+        <li><a href="#errores"><span class="toc-num">05</span> Errores frecuentes</a></li>
+        <li><a href="#conclusion"><span class="toc-num">06</span> Conclusión</a></li>
+      </ul>
+    </div>
+    <div class="sidebar-block key-stat">
+      <span class="stat-num">10–20</span>
+      <span class="stat-label">Series semanales por grupo muscular es el rango óptimo para hipertrofia según la evidencia actual</span>
+    </div>
+    <div class="sidebar-block key-stat">
+      <span class="stat-num">2–3×</span>
+      <span class="stat-label">Por semana por grupo muscular es la frecuencia más respaldada científicamente para la mayoría de objetivos</span>
+    </div>
+  </div>
+</header>
+
+<!-- BODY -->
+<div class="article-layout">
+  <article class="article-body">
+
+    <!-- SECCIÓN 1 -->
+    <section class="article-section" id="definiciones">
+      <div class="section-marker">
+        <span class="section-num-badge">01</span>
+        <span class="section-type">Las tres variables</span>
+      </div>
+      <h2>Qué es cada cosa, <em>sin confusión</em></h2>
+
+      <p>Antes de hablar de cómo combinarlas, es necesario definirlas con precisión. En el ámbito del entrenamiento de fuerza, estos tres términos se usan con frecuencia de forma imprecisa, lo que genera confusión a la hora de diseñar o seguir un programa.</p>
+
+      <p><strong>El volumen</strong> es la cantidad total de trabajo realizado. En entrenamiento de fuerza, la forma más práctica y científicamente respaldada de medirlo es a través de las series efectivas: el número de series que se llevan hasta cerca del fallo muscular (generalmente dentro de los últimos 1–4 repeticiones antes de fallar). <span class="cite-ref">[1]</span> La fórmula más completa —series × repeticiones × carga— también se usa en investigación, pero para el seguimiento práctico, contar series por grupo muscular a la semana es suficiente y más operativo.</p>
+
+      <p><strong>La intensidad</strong>, en el contexto del entrenamiento de fuerza, se refiere a la magnitud de la carga relativa al máximo del individuo, expresada habitualmente como porcentaje del 1RM (una repetición máxima). Una sentadilla al 85% del 1RM es alta intensidad; al 60%, intensidad moderada. Esta definición técnica difiere del uso coloquial —donde "intenso" suele significar agotador—, lo que genera confusión frecuente.</p>
+
+      <p><strong>La frecuencia</strong> es el número de veces que se entrena un grupo muscular o un patrón de movimiento por unidad de tiempo, habitualmente por semana. Entrenar el pecho dos veces a la semana implica una frecuencia de 2 para ese grupo muscular.</p>
+
+      <div class="highlight-box">
+        <div class="highlight-label">Por qué importa tener esto claro</div>
+        <p>Mucho del contenido fitness en redes mezcla estos conceptos o los usa de forma intercambiable. Un entrenamiento puede ser de alto volumen y baja intensidad (muchas series con poca carga), o de bajo volumen y alta intensidad (pocas series muy pesadas). No son lo mismo, no generan las mismas adaptaciones, y no se pueden sustituir el uno por el otro sin consecuencias en el resultado final.</p>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 2 -->
+    <section class="article-section" id="relacion">
+      <div class="section-marker">
+        <span class="section-num-badge">02</span>
+        <span class="section-type">La relación entre variables</span>
+      </div>
+      <h2>El triángulo: <em>por qué no puedes tenerlo todo a la vez</em></h2>
+
+      <p>La metáfora del triángulo no es casual. Volumen, intensidad y frecuencia forman un sistema interdependiente donde aumentar una variable generalmente exige reducir alguna de las otras, al menos temporalmente. El organismo tiene una capacidad limitada de recuperación —lo que en fisiología del ejercicio se denomina <em>capacidad de recuperación sistémica</em>—, y el entrenamiento debe mantenerse dentro de esos límites para que las adaptaciones se produzcan sin generar sobreentrenamiento. <span class="cite-ref">[2]</span></p>
+
+      <!-- GRÁFICO SVG — triángulo de las variables -->
+      <div class="triangle-wrap">
+        <svg width="100%" viewBox="0 0 480 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Triángulo de las variables del entrenamiento: volumen, intensidad y frecuencia">
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M2 2L8 5L2 8" fill="none" stroke="#1e3a5f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+
+          <!-- Triángulo principal -->
+          <polygon points="240,40 60,280 420,280"
+            fill="#e8eef5" stroke="#1e3a5f" stroke-width="1.5" stroke-linejoin="round"/>
+
+          <!-- Nodo superior: Volumen -->
+          <circle cx="240" cy="40" r="36" fill="#1e3a5f"/>
+          <text x="240" y="35" text-anchor="middle" font-family="'DM Sans', sans-serif" font-size="11" font-weight="500" fill="rgba(255,255,255,0.9)">VOLUMEN</text>
+          <text x="240" y="51" text-anchor="middle" font-family="'DM Mono', monospace" font-size="10" fill="rgba(255,255,255,0.55)">series / sem</text>
+
+          <!-- Nodo inferior izquierdo: Intensidad -->
+          <circle cx="60" cy="280" r="36" fill="#1e3a5f"/>
+          <text x="60" y="275" text-anchor="middle" font-family="'DM Sans', sans-serif" font-size="11" font-weight="500" fill="rgba(255,255,255,0.9)">INTENSIDAD</text>
+          <text x="60" y="291" text-anchor="middle" font-family="'DM Mono', monospace" font-size="10" fill="rgba(255,255,255,0.55)">% 1RM</text>
+
+          <!-- Nodo inferior derecho: Frecuencia -->
+          <circle cx="420" cy="280" r="36" fill="#1e3a5f"/>
+          <text x="420" y="275" text-anchor="middle" font-family="'DM Sans', sans-serif" font-size="11" font-weight="500" fill="rgba(255,255,255,0.9)">FRECUENCIA</text>
+          <text x="420" y="291" text-anchor="middle" font-family="'DM Mono', monospace" font-size="10" fill="rgba(255,255,255,0.55)">sesiones / sem</text>
+
+          <!-- Etiquetas en los lados del triángulo -->
+          <text x="135" y="168" text-anchor="middle" font-family="'DM Sans', sans-serif" font-size="11" fill="#1e3a5f" transform="rotate(-62, 135, 168)">↑ intensidad → ↓ volumen</text>
+          <text x="345" y="168" text-anchor="middle" font-family="'DM Sans', sans-serif" font-size="11" fill="#1e3a5f" transform="rotate(62, 345, 168)">↑ frecuencia → distribuir volumen</text>
+          <text x="240" y="272" text-anchor="middle" font-family="'DM Sans', sans-serif" font-size="11" fill="#1e3a5f">volumen total = frecuencia × series/sesión</text>
+        </svg>
+        <p class="triangle-caption">Las tres variables del entrenamiento forman un sistema interdependiente. Manipular una afecta necesariamente a las otras dos.</p>
+      </div>
+
+      <p>Esto no significa que sea imposible progresar en más de una variable simultáneamente. Durante las primeras semanas o meses de entrenamiento, el margen de adaptación es tan amplio que el organismo puede responder positivamente a aumentos en las tres variables al mismo tiempo. Sin embargo, a medida que aumenta el nivel de entrenamiento, las compensaciones entre variables se vuelven inevitables y la programación debe volverse más sofisticada.</p>
+
+      <div class="pullquote">
+        <p>"Más volumen, más intensidad y más frecuencia al mismo tiempo no es progresión. Es acumulación de fatiga sin dirección."</p>
+      </div>
+
+      <p>La relación más estudiada y con mayor implicación práctica es la que existe entre <strong>volumen e intensidad</strong>. A medida que la intensidad aumenta —es decir, a medida que los porcentajes de carga se acercan al máximo—, el número de repeticiones posibles por serie disminuye, y por tanto el volumen total tiende a reducirse. Trabajar al 90% del 1RM en múltiples series no solo es físicamente limitante, sino también innecesario para la mayoría de objetivos de hipertrofia.</p>
+    </section>
+
+    <!-- SECCIÓN 3 -->
+    <section class="article-section" id="ciencia">
+      <div class="section-marker">
+        <span class="section-num-badge">03</span>
+        <span class="section-type">Base científica</span>
+      </div>
+      <h2>Lo que dice <em>la investigación</em></h2>
+
+      <p>Las últimas dos décadas han producido una cantidad considerable de evidencia sobre los rangos óptimos de cada variable. El panorama actual es más matizado de lo que los modelos simplificados suelen presentar, pero permite extraer conclusiones prácticas sólidas.</p>
+
+      <div class="science-box">
+        <div class="science-box-header">
+          <div class="science-box-icon"></div>
+          <span>Volumen: lo que dice la evidencia</span>
+        </div>
+        <div class="science-box-body">
+          <p>Schoenfeld et al. (2017) publicaron un metaanálisis que comparó protocolos de bajo volumen (menos de 5 series semanales por grupo muscular), volumen moderado (5–9 series) y alto volumen (10 o más series). Los resultados mostraron una relación dosis-respuesta clara: más series semanales se asociaron con mayores ganancias de hipertrofia, con el mayor efecto observado en el rango de 10 o más series por semana. <span class="cite-ref">[1]</span></p>
+          <p>Sin embargo, existe un límite a partir del cual más volumen deja de ser productivo. Krieger (2010) encontró que, aunque el volumen moderado supera al bajo volumen, la relación no es infinitamente lineal. La mayoría de la evidencia actual sitúa el rango productivo entre 10 y 20 series semanales por grupo muscular para la mayoría de practicantes, con los valores más altos reservados para avanzados en fases de acumulación. <span class="cite-ref">[3]</span></p>
+        </div>
+      </div>
+
+      <div class="science-box">
+        <div class="science-box-header">
+          <div class="science-box-icon"></div>
+          <span>Intensidad: rangos y adaptaciones</span>
+        </div>
+        <div class="science-box-body">
+          <p>La creencia tradicional de que la hipertrofia requería rangos específicos de repeticiones (8–12, asociados a cargas moderadas) ha sido revisada por la investigación reciente. Schoenfeld et al. (2017) demostraron que se puede lograr hipertrofia significativa con cargas que van desde el 30% hasta el 85% del 1RM, siempre que las series se lleven cerca del fallo muscular. <span class="cite-ref">[4]</span></p>
+          <p>No obstante, la intensidad sí determina de forma más específica las adaptaciones neuromusculares orientadas a la fuerza máxima. Para maximizar la fuerza, las cargas superiores al 80% del 1RM producen adaptaciones neuromusculares que no se consiguen con cargas bajas, independientemente de si se llega al fallo. <span class="cite-ref">[2]</span></p>
+        </div>
+      </div>
+
+      <div class="science-box">
+        <div class="science-box-header">
+          <div class="science-box-icon"></div>
+          <span>Frecuencia: ¿más veces es mejor?</span>
+        </div>
+        <div class="science-box-body">
+          <p>Schoenfeld et al. (2016) publicaron un metaanálisis específico sobre frecuencia y concluyeron que entrenar cada grupo muscular dos o más veces a la semana produce mayores ganancias de hipertrofia que entrenarlo una sola vez, cuando el volumen total se equipara. <span class="cite-ref">[5]</span> La explicación fisiológica es doble: mayor frecuencia de estimulación de la síntesis proteica a lo largo de la semana, y mayor calidad del trabajo por sesión al no acumular tanto volumen en una sola vez.</p>
+          <p>Esto no significa que frecuencias más altas sean siempre superiores. Con tres o más sesiones por semana por grupo muscular, los beneficios adicionales se reducen y la gestión de la recuperación se complica. Para la mayoría de practicantes, una frecuencia de 2 representa el punto de mayor relación entre beneficio y viabilidad práctica.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 4 -->
+    <section class="article-section" id="objetivo">
+      <div class="section-marker">
+        <span class="section-num-badge">04</span>
+        <span class="section-type">Aplicación práctica</span>
+      </div>
+      <h2>Cómo configurarlo <em>según tu objetivo</em></h2>
+
+      <p>La manipulación de estas tres variables debe hacerse siempre en función del objetivo principal. No existe una configuración única óptima: existe la configuración óptima para cada objetivo y cada nivel de entrenamiento.</p>
+
+      <div class="data-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Objetivo</th>
+              <th>Volumen (series/sem)</th>
+              <th>Intensidad (%1RM)</th>
+              <th>Frecuencia</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Fuerza máxima</td>
+              <td>4–8 series</td>
+              <td>80–95%</td>
+              <td>2–4× semana</td>
+            </tr>
+            <tr>
+              <td>Hipertrofia</td>
+              <td>10–20 series</td>
+              <td>60–80%</td>
+              <td>2–3× semana</td>
+            </tr>
+            <tr>
+              <td>Resistencia muscular</td>
+              <td>15–25 series</td>
+              <td>40–60%</td>
+              <td>2–3× semana</td>
+            </tr>
+            <tr>
+              <td>Principiante (cualquier objetivo)</td>
+              <td>6–12 series</td>
+              <td>50–75%</td>
+              <td>2–3× semana</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Estos rangos son orientativos y representan puntos de partida basados en la evidencia disponible. La respuesta individual varía en función de la genética, el historial de entrenamiento, la calidad del sueño, la nutrición y el nivel de estrés. <strong>Los datos de la tabla son el punto de inicio de la planificación, no la planificación en sí misma.</strong></p>
+
+      <div class="highlight-box">
+        <div class="highlight-label">Principio de especificidad aplicado</div>
+        <p>Un error frecuente es intentar desarrollar fuerza máxima e hipertrofia simultáneamente con la misma configuración. Ambas adaptaciones requieren énfasis distintos: la fuerza prioriza intensidad alta y volumen moderado; la hipertrofia prioriza volumen moderado-alto con intensidad media. Se pueden trabajar juntas, pero con bloques diferenciados a lo largo del año, no mezclando aleatoriamente las configuraciones.</p>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 5 -->
+    <section class="article-section" id="errores">
+      <div class="section-marker">
+        <span class="section-num-badge">05</span>
+        <span class="section-type">Errores frecuentes</span>
+      </div>
+      <h2>Los errores más comunes <em>y cómo evitarlos</em></h2>
+
+      <ul class="steps-list">
+        <li class="step-item">
+          <span class="step-num">01</span>
+          <div class="step-content">
+            <h4>Aumentar las tres variables al mismo tiempo</h4>
+            <p>Añadir más series, más peso y más días de entrenamiento simultáneamente supera la capacidad de recuperación del organismo. La fatiga acumulada enmascara las adaptaciones y aumenta el riesgo de lesión. Cuando se quiere progresar, hay que elegir qué variable se manipula y en qué fase.</p>
+          </div>
+        </li>
+        <li class="step-item">
+          <span class="step-num">02</span>
+          <div class="step-content">
+            <h4>Confundir fatiga con adaptación</h4>
+            <p>Un entrenamiento agotador no es necesariamente un entrenamiento eficaz. La sensación de cansancio extremo puede ser señal de volumen excesivo o recuperación insuficiente, no de un estímulo óptimo. La adaptación ocurre durante el descanso posterior, no durante la sesión.</p>
+          </div>
+        </li>
+        <li class="step-item">
+          <span class="step-num">03</span>
+          <div class="step-content">
+            <h4>Ignorar la frecuencia como herramienta</h4>
+            <p>Concentrar todo el volumen semanal de un grupo muscular en una sola sesión (el clásico "día de pecho") es menos eficaz que distribuirlo en dos sesiones, según la evidencia disponible. Aumentar la frecuencia es una de las formas más sencillas de mejorar la calidad del trabajo sin necesariamente añadir más series totales.</p>
+          </div>
+        </li>
+        <li class="step-item">
+          <span class="step-num">04</span>
+          <div class="step-content">
+            <h4>Aplicar rangos de volumen de élite a un nivel principiante</h4>
+            <p>Los estudios que muestran beneficios con 20 o más series semanales por grupo muscular se realizan habitualmente con practicantes avanzados cuya capacidad de recuperación es considerablemente mayor. Un principiante obtiene adaptaciones máximas con 6–10 series semanales bien ejecutadas. Más no es mejor si el organismo no está preparado para absorber ese estímulo.</p>
+          </div>
+        </li>
+      </ul>
+
+      <div class="formula-block">
+        <span class="formula-comment">// Referencia rápida de rangos por nivel</span><br><br>
+        Principiante (0–1 año):     6–10 series/semana/grupo · 2× frecuencia<br>
+        Intermedio (1–3 años):     10–16 series/semana/grupo · 2–3× frecuencia<br>
+        Avanzado (3+ años):        14–22 series/semana/grupo · 2–4× frecuencia<br><br>
+        <span class="formula-comment">// Ajustar siempre según respuesta individual y capacidad de recuperación</span>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 6 -->
+    <section class="article-section" id="conclusion">
+      <div class="section-marker">
+        <span class="section-num-badge">06</span>
+        <span class="section-type">Conclusión</span>
+      </div>
+      <h2>Lo que hay que llevarse <em>de todo esto</em></h2>
+
+      <p>Volumen, intensidad y frecuencia no son parámetros independientes que se pueden ajustar sin considerar los demás. Son un sistema. Comprender cómo interactúan —y cómo priorizarlos en función del objetivo— es uno de los conocimientos más prácticos que puede adquirir cualquier persona que entrene con seriedad.</p>
+
+      <p>El contenido de redes sociales tiende a presentar estos conceptos de forma binaria: "más volumen es mejor", "la intensidad alta es la clave", "hay que entrenar cada músculo todos los días". La evidencia científica muestra un panorama más complejo y, paradójicamente, más útil: los rangos óptimos existen, están documentados y son accesibles para cualquiera que los aplique con coherencia.</p>
+
+      <div class="conclusion-block">
+        <div class="highlight-label">Para recordar</div>
+        <p>"El programa de entrenamiento más eficaz no es el más intenso, ni el de mayor volumen, ni el de mayor frecuencia. Es el que equilibra las tres variables de forma coherente con el objetivo, el nivel y la capacidad de recuperación de quien lo sigue."</p>
+        <p>Atlas Method · Fundamentos del entrenamiento</p>
+      </div>
+
+      <p>En próximos artículos exploraremos cómo el descanso y la nutrición interactúan con estas variables, y qué ocurre cuando la recuperación no es suficiente para sostener el estímulo planificado.</p>
+    </section>
+
+    <!-- REFERENCIAS -->
+    <div class="references-section">
+      <h3>Referencias científicas</h3>
+      <ol class="ref-list">
+        <li class="ref-item">
+          <span class="ref-num">[1]</span>
+          <span>Schoenfeld, B.J., Ogborn, D., & Krieger, J.W. (2017). Dose-response relationship between weekly resistance training volume and increases in muscle mass: A systematic review and meta-analysis. <em>Journal of Sports Sciences</em>, 35(11), 1073–1082.</span>
+        </li>
+        <li class="ref-item">
+          <span class="ref-num">[2]</span>
+          <span>Kraemer, W.J., & Ratamess, N.A. (2004). Fundamentals of resistance training: Progression and exercise prescription. <em>Medicine & Science in Sports & Exercise</em>, 36(4), 674–688.</span>
+        </li>
+        <li class="ref-item">
+          <span class="ref-num">[3]</span>
+          <span>Krieger, J.W. (2010). Single vs. multiple sets of resistance exercise for muscle hypertrophy: A meta-analysis. <em>Journal of Strength and Conditioning Research</em>, 24(4), 1150–1159.</span>
+        </li>
+        <li class="ref-item">
+          <span class="ref-num">[4]</span>
+          <span>Schoenfeld, B.J., Grgic, J., Ogborn, D., & Krieger, J.W. (2017). Strength and hypertrophy adaptations between low- vs. high-load resistance training: A systematic review and meta-analysis. <em>Journal of Strength and Conditioning Research</em>, 31(12), 3508–3523.</span>
+        </li>
+        <li class="ref-item">
+          <span class="ref-num">[5]</span>
+          <span>Schoenfeld, B.J., Ogborn, D., & Krieger, J.W. (2016). Effects of resistance training frequency on measures of muscle hypertrophy: A systematic review and meta-analysis. <em>Sports Medicine</em>, 46(11), 1689–1697.</span>
+        </li>
+        <li class="ref-item">
+          <span class="ref-num">[6]</span>
+          <span>Bompa, T.O., & Haff, G.G. (2009). <em>Periodization: Theory and Methodology of Training</em> (5.ª ed.). Human Kinetics.</span>
+        </li>
+      </ol>
+    </div>
+
+  </article>
+
+  <!-- STICKY SIDEBAR -->
+  <aside class="sticky-sidebar">
+    <div class="sidebar-block">
+      <div class="sidebar-label">Categorías relacionadas</div>
+      <ul class="toc-list">
+        <li><a href="aula.html"><span class="toc-num">→</span> Fundamentos del entrenamiento</a></li>
+        <li><a href="aula.html"><span class="toc-num">→</span> Fuerza e hipertrofia</a></li>
+        <li><a href="laboratorio.html"><span class="toc-num">→</span> Laboratorio de Rutinas</a></li>
+      </ul>
+    </div>
+    <div class="sidebar-block">
+      <div class="sidebar-label">Artículos relacionados</div>
+      <ul class="toc-list">
+        <li><a href="articulo-sobrecarga-progresiva.html"><span class="toc-num">→</span> Sobrecarga progresiva: el principio que lo explica todo</a></li>
+        <li><a href="#"><span class="toc-num">→</span> El papel del descanso en las adaptaciones</a></li>
+        <li><a href="#"><span class="toc-num">→</span> Periodización: por qué necesitas un plan</a></li>
+      </ul>
+    </div>
+    <div class="sidebar-block">
+      <div class="sidebar-label">Nivel de evidencia</div>
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="height: 4px; flex: 1; background: var(--color-accent); border-radius: 2px;"></div>
+          <span style="font-size: 11px; color: var(--color-accent); font-weight: 500; min-width: 60px;">Alto</span>
+        </div>
+        <p style="font-size: 12px; color: var(--color-muted); line-height: 1.5;">Respaldado por múltiples metaanálisis y revisiones sistemáticas recientes en fisiología del ejercicio.</p>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- SIGUIENTE ARTÍCULO -->
+<div class="next-article">
+  <div>
+    <div class="next-label">Siguiente artículo</div>
+    <a class="next-title" href="#">El papel del descanso en las adaptaciones musculares →</a>
+  </div>
+</div>
+
+<footer>
+  <p>© 2025 Atlas Method — Contenido educativo basado en evidencia científica.</p>
+  <p>No constituye asesoramiento médico ni nutricional.</p>
+</footer>
+
+<script>
+  window.addEventListener('scroll', () => {
+    const doc = document.documentElement;
+    const scrollTop = doc.scrollTop || document.body.scrollTop;
+    const scrollHeight = doc.scrollHeight - doc.clientHeight;
+    const progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
+    document.getElementById('progressBar').style.width = progress + '%';
+  });
+</script>
+
+</body>
+</html>
