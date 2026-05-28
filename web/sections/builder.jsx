@@ -78,157 +78,200 @@ function useWidth() {
 function BodyMap({ view, selected, onPick }) {
   const [hov, setHov] = React.useState(null);
 
+  // on/off/idle opacity system — non-selected zones dim when there's a selection
   function zone(id) {
-    const sel  = selected === id;
-    const hovr = hov === id;
+    const sel    = selected === id;
+    const hovr   = hov === id;
+    const hasSel = selected !== null;
+    const opacity = sel              ? 1
+                  : hasSel && hovr   ? 0.22
+                  : hasSel           ? 0.07
+                  : hovr             ? 0.92
+                  :                    0.55;
     return {
-      fill:        sel  ? 'rgba(59,130,246,0.50)'
-                 : hovr ? 'rgba(59,130,246,0.18)'
-                 :        'rgba(255,255,255,0.04)',
-      stroke:      sel  ? 'rgba(147,197,253,0.90)'
-                 : hovr ? 'rgba(147,197,253,0.45)'
-                 :        'rgba(255,255,255,0.10)',
-      strokeWidth: sel ? 1.2 : hovr ? 0.7 : 0.4,
-      filter:      sel ? 'url(#glow-sel)' : hovr ? 'url(#glow-hov)' : undefined,
-      style:       { cursor: 'pointer', transition: 'fill .22s, stroke .22s, stroke-width .22s' },
+      opacity,
+      filter: sel ? 'url(#glow-sel)' : hovr ? 'url(#glow-hov)' : undefined,
+      style: { cursor: 'pointer', transition: 'opacity .22s ease' },
       onMouseEnter: () => setHov(id),
       onMouseLeave: () => setHov(null),
-      onClick:      () => onPick(id),
+      onClick: () => onPick(id),
     };
   }
 
-  // static body fill
-  const bf = { fill: 'url(#bGrad)', stroke: 'rgba(255,255,255,0.07)', strokeWidth: 0.4 };
-  // muscle-definition lines (decorative only)
-  const ml  = { fill: 'none', stroke: 'rgba(255,255,255,0.09)', strokeWidth: 0.5, strokeLinecap: 'round' };
-  const ml2 = { fill: 'none', stroke: 'rgba(255,255,255,0.05)', strokeWidth: 0.35, strokeLinecap: 'round' };
+  const bf = { fill: 'url(#bGrad)', stroke: 'rgba(255,255,255,0.06)', strokeWidth: 0.5 };
+  const B  = '#3B82F6'; // zone fill colour
 
   return (
     <div>
-      <svg viewBox="0 0 200 460" style={{ width: '100%', maxWidth: 260, display: 'block', margin: '0 auto' }}>
+      <svg viewBox="0 0 200 440"
+        style={{ width: '100%', maxWidth: 260, display: 'block', margin: '0 auto', overflow: 'visible' }}>
         <defs>
-          {/* Central radial gradient — gives depth to silhouette */}
-          <radialGradient id="bGrad" cx="100" cy="120" r="165" gradientUnits="userSpaceOnUse">
+          <radialGradient id="bGrad" cx="100" cy="110" r="160" gradientUnits="userSpaceOnUse">
             <stop offset="0%"   stopColor="#28304a" />
             <stop offset="50%"  stopColor="#151c2c" />
             <stop offset="100%" stopColor="#0c1018" />
           </radialGradient>
-          {/* Subtle specular highlight */}
+          <radialGradient id="shadowGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"   stopColor="rgba(0,0,0,0.55)" />
+            <stop offset="100%" stopColor="rgba(0,0,0,0)" />
+          </radialGradient>
           <radialGradient id="specGrad" cx="50%" cy="40%" r="55%">
-            <stop offset="0%"   stopColor="rgba(255,255,255,0.08)" />
+            <stop offset="0%"   stopColor="rgba(255,255,255,0.07)" />
             <stop offset="100%" stopColor="rgba(255,255,255,0)" />
           </radialGradient>
-          {/* Hover glow */}
           <filter id="glow-hov" x="-30%" y="-30%" width="160%" height="160%">
             <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="b" />
             <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
           </filter>
-          {/* Selected glow — stronger */}
           <filter id="glow-sel" x="-40%" y="-40%" width="180%" height="180%">
             <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b" />
             <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
           </filter>
         </defs>
 
-        {/* ── SILHOUETTE ─────────────────────────────────────────── */}
-        {/* Head + ears */}
-        <circle cx="100" cy="28" r="19" {...bf} />
-        <ellipse cx="81.5" cy="28" rx="2.5" ry="3.5" {...bf} />
-        <ellipse cx="118.5" cy="28" rx="2.5" ry="3.5" {...bf} />
-        {/* Neck */}
-        <path d="M 93 46 L 107 46 L 109 61 L 91 61 Z" {...bf} />
-        {/* Trap wedge at base of neck */}
-        <path d="M 79 62 Q 100 57 121 62 L 116 70 Q 100 66 84 70 Z" {...bf} />
-        {/* Torso */}
-        <path d="M 58 65 C 43 68 35 80 34 96 L 32 172 C 32 184 39 193 51 197 L 67 203 L 88 209 L 100 211 L 112 209 L 133 203 L 149 197 C 161 193 168 184 168 172 L 166 96 C 165 80 157 68 142 65 C 130 62 116 60 100 60 C 84 60 70 62 58 65 Z" {...bf} />
-        {/* Left upper arm */}
-        <path d="M 35 70 C 23 75 17 91 17 111 L 17 168 C 17 179 22 187 31 189 L 42 189 C 51 189 55 181 55 170 L 55 111 C 55 91 49 75 40 70 Z" {...bf} />
-        {/* Right upper arm */}
-        <path d="M 165 70 C 177 75 183 91 183 111 L 183 168 C 183 179 178 187 169 189 L 158 189 C 149 189 145 181 145 170 L 145 111 C 145 91 151 75 160 70 Z" {...bf} />
-        {/* Left forearm */}
-        <path d="M 18 168 C 14 173 13 183 13 194 L 15 242 C 16 253 21 259 29 260 L 38 260 C 46 259 49 252 48 241 L 46 194 C 46 183 44 173 42 170 Z" {...bf} />
-        {/* Right forearm */}
-        <path d="M 182 168 C 186 173 187 183 187 194 L 185 242 C 184 253 179 259 171 260 L 162 260 C 154 259 151 252 152 241 L 154 194 C 154 183 156 173 158 170 Z" {...bf} />
-        {/* Hands */}
-        <ellipse cx="30"  cy="264" rx="10" ry="7" {...bf} />
-        <ellipse cx="170" cy="264" rx="10" ry="7" {...bf} />
-        {/* Left thigh */}
-        <path d="M 63 207 C 55 215 50 235 50 265 L 50 316 C 50 333 57 343 70 344 L 83 344 C 96 343 99 332 98 315 L 97 265 C 96 235 91 215 84 207 Z" {...bf} />
-        {/* Right thigh */}
-        <path d="M 137 207 C 145 215 150 235 150 265 L 150 316 C 150 333 143 343 130 344 L 117 344 C 104 343 101 332 102 315 L 103 265 C 104 235 109 215 116 207 Z" {...bf} />
-        {/* Left shin */}
-        <path d="M 52 318 C 48 328 46 348 47 376 L 49 411 C 50 423 57 431 65 432 L 76 432 C 85 431 88 422 87 410 L 85 376 C 84 348 83 328 80 318 Z" {...bf} />
-        {/* Right shin */}
-        <path d="M 148 318 C 152 328 154 348 153 376 L 151 411 C 150 423 143 431 135 432 L 124 432 C 115 431 112 422 113 410 L 115 376 C 116 348 117 328 120 318 Z" {...bf} />
-        {/* Feet */}
-        <path d="M 47 430 C 42 432 38 437 40 441 L 84 441 C 86 437 84 431 80 430 Z" {...bf} />
-        <path d="M 153 430 C 158 432 162 437 160 441 L 116 441 C 114 437 116 431 120 430 Z" {...bf} />
+        {/* Ground shadow */}
+        <ellipse cx="100" cy="432" rx="38" ry="5" fill="url(#shadowGrad)" />
 
-        {/* Specular highlight — top-left light source */}
-        <ellipse cx="85"  cy="82" rx="13" ry="19" fill="url(#specGrad)" style={{ pointerEvents:'none' }} />
-        <ellipse cx="115" cy="82" rx="13" ry="19" fill="url(#specGrad)" style={{ pointerEvents:'none' }} />
+        {/* ── SILHOUETTE (paths ported from reference, dark-adapted) ── */}
+        <ellipse cx="100" cy="28" rx="18" ry="22" {...bf} />
+        <path d="M84 40 Q84 52 100 56 Q116 52 116 40"                                                       {...bf} />
+        <path d="M93 54 Q93 66 95 68 L105 68 Q107 66 107 54 Z"                                              {...bf} />
+        <path d="M72 70 Q64 74 60 84 L62 108 Q68 104 80 100 L80 78 Z"                                       {...bf} />
+        <path d="M128 70 Q136 74 140 84 L138 108 Q132 104 120 100 L120 78 Z"                                {...bf} />
+        <path d="M80 68 Q72 70 68 80 L66 130 Q66 148 72 156 L84 160 L100 162 L116 160 L128 156 Q134 148 134 130 L132 80 Q128 70 120 68 Z" {...bf} />
+        <path d="M68 78 Q58 82 54 98 L52 136 Q52 146 58 150 L68 152 L72 108 L72 80 Z"                      {...bf} />
+        <path d="M132 78 Q142 82 146 98 L148 136 Q148 146 142 150 L132 152 L128 108 L128 80 Z"              {...bf} />
+        <path d="M52 134 Q48 156 50 176 Q52 182 58 184 L64 184 L68 152 Z"                                   {...bf} />
+        <path d="M148 134 Q152 156 150 176 Q148 182 142 184 L136 184 L132 152 Z"                            {...bf} />
+        <path d="M50 174 Q46 182 48 192 Q50 198 57 198 L63 198 Q66 194 64 184 Z"                            {...bf} />
+        <path d="M150 174 Q154 182 152 192 Q150 198 143 198 L137 198 Q134 194 136 184 Z"                    {...bf} />
+        <path d="M72 156 L84 160 L100 162 L116 160 L128 156 Q132 164 130 174 L70 174 Q68 164 72 156 Z"      {...bf} />
+        <path d="M70 172 Q64 178 62 196 L60 240 Q60 252 66 258 L78 260 L82 198 L82 172 Z"                   {...bf} />
+        <path d="M130 172 Q136 178 138 196 L140 240 Q140 252 134 258 L122 260 L118 198 L118 172 Z"          {...bf} />
+        <path d="M60 238 Q58 268 60 296 Q62 308 68 310 L78 310 Q80 306 80 296 L78 258 Z"                    {...bf} />
+        <path d="M140 238 Q142 268 140 296 Q138 308 132 310 L122 310 Q120 306 120 296 L122 258 Z"           {...bf} />
+        <path d="M60 306 Q56 316 58 322 Q62 328 74 328 L80 328 Q82 322 80 310 Z"                            {...bf} />
+        <path d="M140 306 Q144 316 142 322 Q138 328 126 328 L120 328 Q118 322 120 310 Z"                    {...bf} />
 
-        {/* ── MUSCLE DEFINITION LINES ─────────────────────────────── */}
+        {/* Specular highlight */}
+        <ellipse cx="86"  cy="85" rx="12" ry="17" fill="url(#specGrad)" style={{ pointerEvents:'none' }} />
+        <ellipse cx="114" cy="85" rx="12" ry="17" fill="url(#specGrad)" style={{ pointerEvents:'none' }} />
+
+        {/* Clavicle lines (front) */}
         {view === 'front' && (
-          <g style={{ pointerEvents:'none' }}>
-            <line x1="100" y1="64" x2="100" y2="113" {...ml} />
-            <path d="M 68 72 Q 85 80 99 92"   {...ml2} />
-            <path d="M 132 72 Q 115 80 101 92" {...ml2} />
-            <path d="M 66 68 Q 100 63 134 68"  {...ml} />
-            <line x1="100" y1="113" x2="100" y2="170" {...ml} />
-            <path d="M 84 122 Q 100 120 116 122" {...ml2} />
-            <path d="M 83 135 Q 100 133 117 135" {...ml2} />
-            <path d="M 83 148 Q 100 146 117 148" {...ml2} />
-            <path d="M 72 220 C 71 250 71 272 73 290"  {...ml2} />
-            <path d="M 128 220 C 129 250 129 272 127 290" {...ml2} />
+          <g fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth=".8" strokeLinecap="round" style={{ pointerEvents:'none' }}>
+            <path d="M95 70 Q88 72 80 76" />
+            <path d="M105 70 Q112 72 120 76" />
+            <path d="M86 172 L88 258" />
+            <path d="M114 172 L112 258" />
           </g>
         )}
+        {/* Spine dashes (back) */}
         {view === 'back' && (
-          <g style={{ pointerEvents:'none' }}>
-            <line x1="100" y1="65" x2="100" y2="178" {...ml} />
-            <path d="M 72 68 Q 100 62 128 68"     {...ml} />
-            <path d="M 100 77 C 96 102 90 130 82 157"  {...ml2} />
-            <path d="M 100 77 C 104 102 110 130 118 157" {...ml2} />
-            <line x1="100" y1="198" x2="100" y2="236" {...ml} />
-            <path d="M 62 231 Q 80 240 100 237 Q 120 240 138 231" {...ml2} />
-            <path d="M 72 258 C 71 280 71 300 72 318"  {...ml2} />
-            <path d="M 128 258 C 129 280 129 300 128 318" {...ml2} />
-          </g>
+          <path d="M100 72 L100 156" fill="none" stroke="rgba(255,255,255,0.08)"
+            strokeWidth=".7" strokeLinecap="round" strokeDasharray="2 3"
+            style={{ pointerEvents:'none' }} />
         )}
 
-        {/* ── INTERACTIVE ZONES ───────────────────────────────────── */}
-        {view === 'front' ? (
-          <React.Fragment>
-            <ellipse cx="38"  cy="78"  rx="14" ry="11" {...zone('hombro')} />
-            <ellipse cx="162" cy="78"  rx="14" ry="11" {...zone('hombro')} />
-            <path d="M 66 70 C 61 71 58 80 59 93 C 60 105 68 113 79 114 L 99 114 L 99 70 Z"   {...zone('pecho')} />
-            <path d="M 134 70 C 139 71 142 80 141 93 C 140 105 132 113 121 114 L 101 114 L 101 70 Z" {...zone('pecho')} />
-            <ellipse cx="21"  cy="121" rx="7"  ry="23" {...zone('biceps')} />
-            <ellipse cx="179" cy="121" rx="7"  ry="23" {...zone('biceps')} />
-            <path d="M 83 114 L 117 114 L 116 171 L 84 171 Z" {...zone('core')} />
-            <ellipse cx="68"  cy="273" rx="17" ry="44" {...zone('piernas')} />
-            <ellipse cx="132" cy="273" rx="17" ry="44" {...zone('piernas')} />
-          </React.Fragment>
-        ) : (
-          <React.Fragment>
-            <ellipse cx="38"  cy="78"  rx="14" ry="11" {...zone('hombro')} />
-            <ellipse cx="162" cy="78"  rx="14" ry="11" {...zone('hombro')} />
-            <path d="M 68 65 L 100 73 L 132 65 C 122 59 78 59 68 65 Z"                                {...zone('espalda')} />
-            <path d="M 59 82 C 51 95 49 117 51 139 C 53 159 63 169 76 172 L 99 173 L 99 79 Z"         {...zone('espalda')} />
-            <path d="M 141 82 C 149 95 151 117 149 139 C 147 159 137 169 124 172 L 101 173 L 101 79 Z" {...zone('espalda')} />
-            <ellipse cx="21"  cy="121" rx="7"  ry="23" {...zone('triceps')} />
-            <ellipse cx="179" cy="121" rx="7"  ry="23" {...zone('triceps')} />
-            <ellipse cx="100" cy="178" rx="18" ry="12" {...zone('core')} />
-            <ellipse cx="77"  cy="217" rx="21" ry="22" {...zone('gluteos')} />
-            <ellipse cx="123" cy="217" rx="21" ry="22" {...zone('gluteos')} />
-            <ellipse cx="68"  cy="284" rx="17" ry="40" {...zone('piernas')} />
-            <ellipse cx="132" cy="284" rx="17" ry="40" {...zone('piernas')} />
-          </React.Fragment>
+        {/* ── FRONT ZONES ── */}
+        {view === 'front' && (
+          <>
+            {/* Chest — two pec shapes */}
+            <g {...zone('pecho')}>
+              <path d="M82 84 Q78 86 76 96 L76 116 Q80 122 90 122 L98 120 L98 84 Q90 82 82 84 Z"            fill={B} opacity=".78" />
+              <path d="M118 84 Q122 86 124 96 L124 116 Q120 122 110 122 L102 120 L102 84 Q110 82 118 84 Z"  fill={B} opacity=".78" />
+            </g>
+            {/* Shoulders */}
+            <g {...zone('hombro')}>
+              <ellipse cx="70"  cy="84" rx="10" ry="11" fill={B} opacity=".72" />
+              <ellipse cx="130" cy="84" rx="10" ry="11" fill={B} opacity=".72" />
+            </g>
+            {/* Biceps */}
+            <g {...zone('biceps')}>
+              <path d="M56 90 Q52 96 52 114 L58 120 L66 118 L68 96 Q66 88 60 88 Z"              fill={B} opacity=".72" />
+              <path d="M144 90 Q148 96 148 114 L142 120 L134 118 L132 96 Q134 88 140 88 Z"      fill={B} opacity=".72" />
+            </g>
+            {/* Triceps (ghost — visible from front at low opacity) */}
+            <g {...zone('triceps')}>
+              <path d="M56 102 Q52 114 54 130 L60 134 L66 132 L66 110 Z"   fill={B} opacity=".38" />
+              <path d="M144 102 Q148 114 146 130 L140 134 L134 132 L134 110 Z" fill={B} opacity=".38" />
+            </g>
+            {/* Core — individual ab cells */}
+            <g {...zone('core')}>
+              <rect x="86"  y="126" width="12" height="9"  rx="3" fill={B} opacity=".70" />
+              <rect x="102" y="126" width="12" height="9"  rx="3" fill={B} opacity=".70" />
+              <rect x="86"  y="139" width="12" height="9"  rx="3" fill={B} opacity=".66" />
+              <rect x="102" y="139" width="12" height="9"  rx="3" fill={B} opacity=".66" />
+              <rect x="87"  y="152" width="11" height="7"  rx="3" fill={B} opacity=".52" />
+              <rect x="102" y="152" width="11" height="7"  rx="3" fill={B} opacity=".52" />
+            </g>
+            {/* Quads + calves — both part of piernas */}
+            <g {...zone('piernas')}>
+              <path d="M64 180 Q60 196 60 220 L66 228 L78 224 L80 196 L80 178 Q72 176 64 180 Z"            fill={B} opacity=".72" />
+              <path d="M136 180 Q140 196 140 220 L134 228 L122 224 L120 196 L120 178 Q128 176 136 180 Z"   fill={B} opacity=".72" />
+              <path d="M62 248 Q60 268 62 286 L68 292 L76 290 L76 266 L72 248 Z"                           fill={B} opacity=".62" />
+              <path d="M138 248 Q140 268 138 286 L132 292 L124 290 L124 266 L128 248 Z"                    fill={B} opacity=".62" />
+            </g>
+            {/* Glutes (ghost from front) */}
+            <g {...zone('gluteos')}>
+              <path d="M72 162 Q68 170 70 178 L86 178 L86 160 Z"    fill={B} opacity=".38" />
+              <path d="M128 162 Q132 170 130 178 L114 178 L114 160 Z" fill={B} opacity=".38" />
+            </g>
+            {/* Back (ghost from front) */}
+            <g {...zone('espalda')}>
+              <ellipse cx="100" cy="100" rx="22" ry="14" fill={B} opacity=".11" />
+            </g>
+          </>
         )}
 
-        {/* Floating muscle label */}
+        {/* ── BACK ZONES ── */}
+        {view === 'back' && (
+          <>
+            {/* Lats + traps */}
+            <g {...zone('espalda')}>
+              <path d="M82 74 Q76 78 74 90 L76 108 Q84 112 100 112 Q116 112 124 108 L126 90 Q124 78 118 74 Q110 70 100 70 Q90 70 82 74 Z" fill={B} opacity=".76" />
+            </g>
+            {/* Shoulders */}
+            <g {...zone('hombro')}>
+              <ellipse cx="70"  cy="84" rx="10" ry="11" fill={B} opacity=".72" />
+              <ellipse cx="130" cy="84" rx="10" ry="11" fill={B} opacity=".72" />
+            </g>
+            {/* Triceps */}
+            <g {...zone('triceps')}>
+              <path d="M56 88 Q52 102 54 124 L62 128 L68 124 L68 100 L62 86 Z"              fill={B} opacity=".76" />
+              <path d="M144 88 Q148 102 146 124 L138 128 L132 124 L132 100 L138 86 Z"       fill={B} opacity=".76" />
+            </g>
+            {/* Biceps (ghost from back) */}
+            <g {...zone('biceps')}>
+              <path d="M56 90 Q52 104 54 118 L60 122 L66 120 L66 100 Z"   fill={B} opacity=".22" />
+              <path d="M144 90 Q148 104 146 118 L140 122 L134 120 L134 100 Z" fill={B} opacity=".22" />
+            </g>
+            {/* Core — lumbar */}
+            <g {...zone('core')}>
+              <path d="M84 130 Q80 138 82 150 L100 152 L118 150 Q120 138 116 130 Z" fill={B} opacity=".60" />
+            </g>
+            {/* Glutes */}
+            <g {...zone('gluteos')}>
+              <ellipse cx="79"  cy="170" rx="11" ry="12" fill={B} opacity=".76" />
+              <ellipse cx="121" cy="170" rx="11" ry="12" fill={B} opacity=".76" />
+            </g>
+            {/* Hamstrings + calves — both part of piernas */}
+            <g {...zone('piernas')}>
+              <path d="M64 180 Q60 198 60 222 L68 230 L80 226 L80 198 L78 178 Q72 176 64 180 Z"            fill={B} opacity=".76" />
+              <path d="M136 180 Q140 198 140 222 L132 230 L120 226 L120 198 L122 178 Q128 176 136 180 Z"   fill={B} opacity=".76" />
+              <path d="M62 248 Q58 270 62 290 L70 298 L78 294 L76 268 L72 248 Z"                           fill={B} opacity=".62" />
+              <path d="M138 248 Q142 270 138 290 L130 298 L122 294 L124 268 L128 248 Z"                    fill={B} opacity=".62" />
+            </g>
+            {/* Chest (ghost from back) */}
+            <g {...zone('pecho')}>
+              <ellipse cx="100" cy="96" rx="18" ry="10" fill={B} opacity=".10" />
+            </g>
+          </>
+        )}
+
+        {/* Floating label */}
         {(hov || selected) && (
-          <text x="100" y="453" textAnchor="middle"
+          <text x="100" y="436" textAnchor="middle"
             fill="rgba(232,237,248,0.48)" fontSize="8.5"
             fontFamily="Inter,system-ui" fontWeight="700" letterSpacing="1.8">
             {MUSCLES[hov || selected]?.label.toUpperCase()}
@@ -237,7 +280,7 @@ function BodyMap({ view, selected, onPick }) {
       </svg>
 
       <div style={{ display:'flex', gap:'8px 14px', marginTop:12, justifyContent:'center', flexWrap:'wrap' }}>
-        {[['rgba(255,255,255,0.10)','Inactivo'],['rgba(59,130,246,0.50)','Seleccionado']].map(([c,l]) => (
+        {[['rgba(59,130,246,0.22)','Inactivo'],['rgba(59,130,246,0.65)','Seleccionado']].map(([c,l]) => (
           <span key={l} style={{ display:'flex', alignItems:'center', gap:5 }}>
             <span style={{ width:7, height:7, borderRadius:2, background:c, display:'inline-block' }} />
             <span style={{ fontFamily:'Inter,system-ui', fontSize:10, color:BD.muted }}>{l}</span>
