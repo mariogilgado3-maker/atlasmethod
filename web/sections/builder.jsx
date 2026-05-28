@@ -51,6 +51,13 @@ const LVL_LABEL = {
   avanzado:     'Avanzado',
 };
 
+// equipment can be a string or array in the data
+function exEquipment(ex) {
+  const eq = ex.equipment;
+  if (!eq) return [];
+  return Array.isArray(eq) ? eq : [eq];
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function exGroup(ex) {
   if (ex.group) return ex.group;
@@ -342,7 +349,7 @@ function SearchBar({ query, onQuery, muscle, onMuscle }) {
 function ExerciseCard({ ex, inSession, onDetail, onQuickAdd }) {
   const [hov, setHov] = React.useState(false);
   const g = exGroup(ex);
-  const eq = (ex.equipment || [])[0];
+  const eq = exEquipment(ex)[0];
   const eqMeta = EQ_META[eq];
   const lvlColor = LVL_COLOR[ex.level] || BD.muted;
 
@@ -420,7 +427,7 @@ function ExerciseDetail({ ex, inSession, onAdd, onBack }) {
           <div style={{ fontFamily:'"Space Grotesk",system-ui', fontSize:22, fontWeight:700,
             color:BD.text, lineHeight:1.2, marginBottom:10 }}>{ex.name}</div>
           <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-            {(ex.equipment || []).map(eq => {
+            {exEquipment(ex).map(eq => {
               const m = EQ_META[eq];
               if (!m) return null;
               return (
