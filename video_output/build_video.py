@@ -83,9 +83,13 @@ segments = [
 
 # Text overlays: (text, start_sec, end_sec)
 TEXT = [
-    ("Every second, a new stimulus.",         15.5, 19.5),
-    ("Attention became the product.",          28.0, 32.5),
-    ("Atlas Method",                           53.0, 59.5),
+    ("Every second, a new stimulus.",  15.5, 19.5),
+    ("Attention became the product.",  28.0, 32.5),
+    # Resolución — "mejor rutina" x3 rápido, luego Atlas Method
+    ("mejor rutina",                   50.5, 51.8),
+    ("mejor rutina",                   52.1, 53.4),
+    ("mejor rutina",                   53.7, 55.0),
+    ("Atlas Method",                   56.5, 59.5),
 ]
 
 def grade_filter(grade: str) -> str:
@@ -180,8 +184,9 @@ def build():
     for j, (txt, ts, te) in enumerate(TEXT):
         lo = f"t{j}"
         is_atlas = "Atlas" in txt
-        fontsize = 52 if is_atlas else 34
-        y_expr = "(h*0.78)" if not is_atlas else "(h*0.75)"
+        is_rutina = "rutina" in txt
+        fontsize = 58 if is_atlas else (30 if is_rutina else 34)
+        y_expr = "h*0.50" if is_atlas else ("h*0.50" if is_rutina else "h*0.78")
         # Escape text for drawtext
         safe = txt.replace("'", "\\'").replace(":", "\\:")
         dt = (
