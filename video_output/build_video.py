@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Atlas Method - Cinematic Edit
-60s | B&W | High contrast | Grain | Minimal text
+Atlas Method – Cinematic Intro v2
+60s | 4 acts | 70% slow / 30% tension | Narrative arc
 """
 import subprocess, os
 
@@ -13,89 +13,114 @@ CLIPS = {
     "c4": f"{BASE}/b0ff6a9f-Download_3.mp4",     # 70s
     "c5": f"{BASE}/d88d0d35-Download_4.mp4",     # 87s
 }
-OUT = f"{BASE}/atlas_method.mp4"
+OUT = f"{BASE}/atlas_method_v2.mp4"
 FPS = 30
 W, H = 576, 1024
 
-# Each segment: (clip_key, start_sec, duration_sec)
-# Structure:
-#   INTRO      0-10s  → slow, sparse, fade in
-#   ESCALADA  10-35s  → increasing rhythm
-#   CLIMAX    35-50s  → rapid fire 0.5s cuts
-#   RESOLUCIÓN 50-60s → one clean shot, fade out
+# Each segment: (clip_key, start_sec, duration_sec, grade)
+# grade: "color" | "bw" | "bw_flash" | "bright"
+# "color"    = full color, warm, normal life
+# "bw"       = desaturated, high contrast, tension
+# "bw_flash" = B&W + ultra fast + boost contrast
+# "bright"   = desaturated but lifted brightness, clarity
+
 segments = [
-    # INTRO – slow, breathing
-    ("c2", 2.0,  4.5),   # 0–4.5s   first human shot
-    ("c1", 1.0,  3.0),   # 4.5–7.5s
-    ("c3", 0.5,  2.5),   # 7.5–10s
+    # ── ACT 1: NORMALIDAD (0–14s) ────────────────────────────────────────────
+    # Color. Slow. Normal life. People with phones but unbothered.
+    ("c2",  1.0,  5.0, "color"),   #  0– 5s  slow establishing
+    ("c1",  2.0,  4.5, "color"),   #  5– 9.5s
+    ("c4",  4.0,  4.5, "color"),   #  9.5–14s
 
-    # ESCALADA – increasing cuts
-    ("c4", 3.0,  3.0),   # 10–13s
-    ("c5", 8.0,  2.5),   # 13–15.5s
-    ("c1", 12.0, 2.0),   # 15.5–17.5s
-    ("c2", 10.0, 2.0),   # 17.5–19.5s
-    ("c4", 15.0, 1.5),   # 19.5–21s
-    ("c5", 22.0, 1.5),   # 21–22.5s
-    ("c3", 8.0,  1.5),   # 22.5–24s
-    ("c1", 20.0, 1.5),   # 24–25.5s
-    ("c2", 20.0, 1.5),   # 25.5–27s
-    ("c5", 35.0, 1.2),   # 27–28.2s
-    ("c4", 25.0, 1.2),   # 28.2–29.4s
-    ("c1", 28.0, 1.2),   # 29.4–30.6s
-    ("c3", 12.0, 1.2),   # 30.6–31.8s
-    ("c2", 30.0, 1.0),   # 31.8–32.8s
-    ("c5", 45.0, 1.0),   # 32.8–33.8s
-    ("c4", 35.0, 1.0),   # 33.8–34.8s
-    ("c1", 35.0, 0.2),   # 34.8–35s
+    # ── ACT 2: SOBRECARGA (14–34s) ───────────────────────────────────────────
+    # B&W enters. Rhythm accelerates. Distraction, multitasking, speed.
+    ("c5", 10.0,  3.5, "bw"),      # 14–17.5s  first B&W shock
+    ("c3",  1.0,  2.5, "bw"),      # 17.5–20s
+    ("c2", 15.0,  2.5, "bw"),      # 20–22.5s
+    ("c4", 18.0,  2.0, "bw"),      # 22.5–24.5s
+    ("c1", 15.0,  2.0, "bw"),      # 24.5–26.5s
+    ("c5", 25.0,  1.5, "bw"),      # 26.5–28s
+    ("c3",  8.0,  1.5, "bw"),      # 28–29.5s
+    ("c2", 22.0,  1.2, "bw"),      # 29.5–30.7s
+    ("c4", 28.0,  1.2, "bw"),      # 30.7–31.9s
+    ("c1", 25.0,  1.0, "bw"),      # 31.9–32.9s
+    ("c5", 38.0,  1.0, "bw"),      # 32.9–33.9s
+    ("c3", 12.0,  0.1, "bw"),      # 33.9–34s
 
-    # CLIMAX – rapid fire
-    ("c5", 50.0, 0.5),   # 35–35.5s
-    ("c2", 38.0, 0.5),   # 35.5–36s
-    ("c4", 40.0, 0.5),   # 36–36.5s
-    ("c1", 40.0, 0.5),   # 36.5–37s
-    ("c3", 15.0, 0.5),   # 37–37.5s
-    ("c5", 55.0, 0.5),   # 37.5–38s
-    ("c2", 42.0, 0.5),   # 38–38.5s
-    ("c4", 45.0, 0.5),   # 38.5–39s
-    ("c1", 42.0, 0.5),   # 39–39.5s
-    ("c5", 60.0, 0.5),   # 39.5–40s
-    ("c3", 18.0, 0.5),   # 40–40.5s
-    ("c2", 44.0, 0.5),   # 40.5–41s
-    ("c4", 48.0, 0.5),   # 41–41.5s
-    ("c1", 44.0, 0.5),   # 41.5–42s
-    ("c5", 65.0, 0.5),   # 42–42.5s
-    ("c4", 50.0, 0.5),   # 42.5–43s
-    ("c2", 46.0, 0.5),   # 43–43.5s
-    ("c1", 45.0, 0.5),   # 43.5–44s
-    ("c3", 20.0, 0.5),   # 44–44.5s
-    ("c5", 70.0, 0.5),   # 44.5–45s
-    ("c4", 55.0, 0.5),   # 45–45.5s
-    ("c2", 48.0, 0.5),   # 45.5–46s
-    ("c1", 46.0, 0.5),   # 46–46.5s
-    ("c5", 75.0, 0.5),   # 46.5–47s
-    ("c3", 22.0, 0.5),   # 47–47.5s
-    ("c4", 60.0, 0.5),   # 47.5–48s
-    ("c2", 49.0, 0.5),   # 48–48.5s
-    ("c5", 80.0, 0.5),   # 48.5–49s
-    ("c1", 47.0, 0.5),   # 49–49.5s
-    ("c4", 65.0, 0.5),   # 49.5–50s
+    # ── ACT 3: SATURACIÓN (34–50s) ───────────────────────────────────────────
+    # Mechanical, addictive, repetitive. Rapid flashes. Peak chaos.
+    ("c5", 45.0,  0.8, "bw_flash"),# 34–34.8s
+    ("c2", 30.0,  0.8, "bw_flash"),# 34.8–35.6s
+    ("c4", 38.0,  0.8, "bw_flash"),# 35.6–36.4s
+    ("c1", 32.0,  0.8, "bw_flash"),# 36.4–37.2s
+    ("c3", 18.0,  0.8, "bw_flash"),# 37.2–38s
+    ("c5", 52.0,  0.6, "bw_flash"),# 38–38.6s
+    ("c2", 36.0,  0.6, "bw_flash"),# 38.6–39.2s
+    ("c4", 44.0,  0.6, "bw_flash"),# 39.2–39.8s
+    ("c1", 38.0,  0.6, "bw_flash"),# 39.8–40.4s
+    ("c5", 58.0,  0.5, "bw_flash"),# 40.4–40.9s
+    ("c3", 21.0,  0.5, "bw_flash"),# 40.9–41.4s
+    ("c2", 40.0,  0.5, "bw_flash"),# 41.4–41.9s
+    ("c4", 50.0,  0.5, "bw_flash"),# 41.9–42.4s
+    ("c1", 42.0,  0.5, "bw_flash"),# 42.4–42.9s
+    ("c5", 64.0,  0.5, "bw_flash"),# 42.9–43.4s
+    ("c3", 23.0,  0.5, "bw_flash"),# 43.4–43.9s
+    ("c4", 55.0,  0.5, "bw_flash"),# 43.9–44.4s
+    ("c2", 43.0,  0.5, "bw_flash"),# 44.4–44.9s
+    ("c5", 70.0,  0.5, "bw_flash"),# 44.9–45.4s
+    ("c1", 44.0,  0.5, "bw_flash"),# 45.4–45.9s
+    ("c4", 60.0,  0.5, "bw_flash"),# 45.9–46.4s
+    ("c5", 75.0,  0.5, "bw_flash"),# 46.4–46.9s
+    ("c2", 45.0,  0.5, "bw_flash"),# 46.9–47.4s
+    ("c3", 24.0,  0.3, "bw_flash"),# 47.4–47.7s
+    ("c4", 62.0,  0.3, "bw_flash"),# 47.7–48s
+    # Hard cut to black implied by the drop in act 4
+    ("c1", 46.0,  2.0, "bw"),      # 48–50s  deceleration
 
-    # RESOLUCIÓN – slow, clean, silence
-    ("c2", 5.0,  10.0),  # 50–60s   final clean shot
+    # ── ACT 4: CLARIDAD (50–60s) ─────────────────────────────────────────────
+    # Everything drops. Slower. Lifted, almost bright. Silence. Atlas Method.
+    ("c2",  5.0, 10.0, "bright"),  # 50–60s  clean, calm, resolution
 ]
 
-# Text overlays: (text, start_sec, end_sec, y_position_ratio)
+# Text overlays: (text, start_sec, end_sec)
 TEXT = [
-    ("We were not designed\nfor infinite stimulation.", 5.0, 9.5, 0.72),
-    ("Attention became the product.", 22.0, 26.0, 0.72),
-    ("Atlas Method", 52.5, 59.0, 0.75),
+    ("Every second, a new stimulus.",         15.5, 19.5),
+    ("Attention became the product.",          28.0, 32.5),
+    ("Atlas Method",                           53.0, 59.5),
 ]
 
-def build_filter_complex(segments, text_overlays):
-    inputs_map = {}  # clip_key -> input index
-    input_files = []
+def grade_filter(grade: str) -> str:
+    """Return ffmpeg video filters for the given grade (no brackets)."""
+    if grade == "color":
+        return (
+            "eq=contrast=1.1:brightness=0.02:saturation=1.1,"
+            "unsharp=luma_msize_x=3:luma_msize_y=3:luma_amount=0.15"
+        )
+    elif grade == "bw":
+        return (
+            "hue=s=0,"
+            "eq=contrast=1.45:brightness=-0.06:gamma=0.92,"
+            "unsharp=luma_msize_x=5:luma_msize_y=5:luma_amount=0.25,"
+            "noise=alls=6:allf=t+u"
+        )
+    elif grade == "bw_flash":
+        return (
+            "hue=s=0,"
+            "eq=contrast=1.7:brightness=-0.1:gamma=0.85,"
+            "unsharp=luma_msize_x=7:luma_msize_y=7:luma_amount=0.4,"
+            "noise=alls=12:allf=t+u"
+        )
+    elif grade == "bright":
+        return (
+            "hue=s=0,"
+            "eq=contrast=1.1:brightness=0.12:gamma=1.15,"
+            "unsharp=luma_msize_x=3:luma_msize_y=3:luma_amount=0.1"
+        )
+    return ""
 
-    # Map unique clips to input indices
+
+def build():
+    inputs_map = {}
+    input_files = []
     for seg in segments:
         key = seg[0]
         if key not in inputs_map:
@@ -103,21 +128,23 @@ def build_filter_complex(segments, text_overlays):
             input_files.append(CLIPS[key])
 
     filter_lines = []
-    seg_labels = []
+    seg_video_labels = []
+    seg_audio_labels = []
 
-    for i, (key, start, dur) in enumerate(segments):
+    for i, (key, start, dur, grade) in enumerate(segments):
         idx = inputs_map[key]
-        vl = f"[seg{i}v]"
-        al = f"[seg{i}a]"
+        vl = f"[s{i}v]"
+        al = f"[s{i}a]"
+        gf = grade_filter(grade)
 
-        # Trim, set fps, scale to exact size
         v_filter = (
             f"[{idx}:v]"
             f"trim=start={start}:duration={dur},"
             f"setpts=PTS-STARTPTS,"
             f"fps={FPS},"
             f"scale={W}:{H}:force_original_aspect_ratio=increase,"
-            f"crop={W}:{H}"
+            f"crop={W}:{H},"
+            + gf +
             f"{vl}"
         )
         a_filter = (
@@ -128,87 +155,72 @@ def build_filter_complex(segments, text_overlays):
         )
         filter_lines.append(v_filter)
         filter_lines.append(a_filter)
-        seg_labels.append((vl, al))
+        seg_video_labels.append(vl)
+        seg_audio_labels.append(al)
 
-    # Concatenate all segments
     n = len(segments)
-    concat_in = "".join(v + a for v, a in seg_labels)
-    filter_lines.append(f"{concat_in}concat=n={n}:v=1:a=1[rawv][rawa]")
-
-    # Color grading: B&W + high contrast + grain
-    grading = (
-        "[rawv]"
-        "hue=s=0,"                          # desaturate to B&W
-        "eq=contrast=1.45:brightness=-0.05:gamma=0.95,"  # high contrast
-        "unsharp=luma_msize_x=5:luma_msize_y=5:luma_amount=0.3,"  # subtle sharpening
-        "noise=alls=8:allf=t+u"             # film grain
-        "[graded]"
+    # concat expects interleaved [v0][a0][v1][a1]...[vN][aN]
+    interleaved = "".join(v + a for v, a in zip(seg_video_labels, seg_audio_labels))
+    filter_lines.append(
+        f"{interleaved}concat=n={n}:v=1:a=1[rawv][rawa]"
     )
-    filter_lines.append(grading)
 
-    # Fade in / fade out on video
     total_dur = sum(s[2] for s in segments)
-    fade_filter = (
-        f"[graded]"
-        f"fade=t=in:st=0:d=1.5:color=black,"
-        f"fade=t=out:st={total_dur - 2.0}:d=2.0:color=black"
+
+    # Global fade in/out
+    filter_lines.append(
+        f"[rawv]"
+        f"fade=t=in:st=0:d=2.0:color=black,"
+        f"fade=t=out:st={total_dur - 2.5}:d=2.5:color=black"
         "[faded]"
     )
-    filter_lines.append(fade_filter)
 
-    # Text overlays – build chain
+    # Text overlays
     prev = "faded"
-    for j, (txt, ts, te, yr) in enumerate(text_overlays):
-        y_px = int(H * yr)
-        label_out = f"txt{j}"
-        # Escape colons/apostrophes for drawtext
-        safe_txt = txt.replace("'", "’").replace(":", r"\:")
-        lines = safe_txt.split("\n")
-
-        current = prev
-        for li, line in enumerate(lines):
-            y_offset = y_px + li * 48
-            lo = f"{label_out}_l{li}"
-            dt = (
-                f"[{current}]drawtext="
-                f"text='{line}':"
-                f"fontcolor=white:"
-                f"fontsize=36:"
-                f"font=Arial:"
-                f"x=(w-text_w)/2:"
-                f"y={y_offset}:"
-                f"alpha='if(gte(t,{ts})*lte(t,{te}),"
-                f"if(lt(t,{ts+0.6}),(t-{ts})/{0.6},"
-                f"if(gt(t,{te-0.6}),({te}-t)/{0.6},1)),0)':"
-                f"bordercolor=black:borderw=2"
-                f"[{lo}]"
-            )
-            filter_lines.append(dt)
-            current = lo
-        prev = current
+    for j, (txt, ts, te) in enumerate(TEXT):
+        lo = f"t{j}"
+        is_atlas = "Atlas" in txt
+        fontsize = 52 if is_atlas else 34
+        y_expr = "(h*0.78)" if not is_atlas else "(h*0.75)"
+        # Escape text for drawtext
+        safe = txt.replace("'", "\\'").replace(":", "\\:")
+        dt = (
+            f"[{prev}]drawtext="
+            f"text='{safe}':"
+            f"fontcolor=white:"
+            f"fontsize={fontsize}:"
+            f"font=Arial:"
+            f"x=(w-text_w)/2:"
+            f"y={y_expr}:"
+            f"enable='between(t,{ts},{te})':"
+            f"bordercolor=black:borderw=2"
+            f"[{lo}]"
+        )
+        filter_lines.append(dt)
+        prev = lo
 
     # Audio fade
     filter_lines.append(
-        f"[rawa]afade=t=in:ss=0:d=1.5,"
-        f"afade=t=out:st={total_dur - 2.0}:d=2.0"
+        f"[rawa]"
+        f"afade=t=in:ss=0:d=2.0,"
+        f"afade=t=out:st={total_dur - 2.5}:d=2.5"
         "[outa]"
     )
 
-    return input_files, filter_lines, f"[{prev}]", "[outa]"
+    filter_str = ";\n".join(filter_lines)
 
-
-def main():
-    input_files, filter_lines, vout, aout = build_filter_complex(segments, TEXT)
+    # Write filter to file to avoid shell-escaping issues
+    script_path = f"{BASE}/filter.txt"
+    with open(script_path, "w") as fh:
+        fh.write(filter_str)
 
     cmd = ["ffmpeg", "-y"]
     for f in input_files:
         cmd += ["-i", f]
-
-    filter_str = ";\n".join(filter_lines)
     cmd += [
-        "-filter_complex", filter_str,
-        "-map", vout,
-        "-map", aout,
+        "-filter_complex_script", script_path,
+        "-map", f"[{prev}]",
+        "-map", "[outa]",
         "-c:v", "libx264",
         "-preset", "medium",
         "-crf", "20",
@@ -216,27 +228,17 @@ def main():
         "-b:a", "192k",
         "-pix_fmt", "yuv420p",
         "-movflags", "+faststart",
-        OUT
+        OUT,
     ]
 
-    # Write command for debug
-    with open(f"{BASE}/ffmpeg_cmd.sh", "w") as fh:
-        fh.write("ffmpeg -y \\\n")
-        for f in input_files:
-            fh.write(f"  -i '{f}' \\\n")
-        fh.write(f"  -filter_complex '\n{filter_str}\n' \\\n")
-        fh.write(f"  -map '{vout}' -map '{aout}' \\\n")
-        fh.write(f"  -c:v libx264 -preset medium -crf 20 \\\n")
-        fh.write(f"  -c:a aac -b:a 192k -pix_fmt yuv420p \\\n")
-        fh.write(f"  '{OUT}'\n")
-
-    print("Running FFmpeg...")
+    print("Rendering Atlas Method v2…")
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        print("STDERR:", result.stderr[-3000:])
+        print("ERROR:\n", result.stderr[-4000:])
     else:
         size = os.path.getsize(OUT) / 1e6
-        print(f"Done! {OUT} ({size:.1f} MB)")
+        print(f"Done → {OUT} ({size:.1f} MB, {total_dur:.1f}s)")
+
 
 if __name__ == "__main__":
-    main()
+    build()
