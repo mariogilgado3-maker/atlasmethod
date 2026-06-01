@@ -1,6 +1,6 @@
-// Atlas Builder v6 — search-first experience
+// Atlas Builder v7 — muscle priority system
 
-// ── Tokens ────────────────────────────────────────────────────────────────────
+// ── Design tokens ─────────────────────────────────────────────────────────────
 const BD = {
   page:    '#060D18',
   panel:   '#0A1422',
@@ -17,19 +17,57 @@ const BD = {
   red:     '#EF4444',
 };
 
-// ── Grupos musculares ─────────────────────────────────────────────────────────
+// ── 19-zone muscle map ────────────────────────────────────────────────────────
+// view: 'front' | 'back' | 'both'
+// group: functional category for grouping in UI
 const MUSCLES = {
-  pecho:   { label: 'Pecho',   view: 'front' },
-  espalda: { label: 'Espalda', view: 'back'  },
-  hombro:  { label: 'Hombros', view: 'both'  },
-  biceps:  { label: 'Bíceps',  view: 'front' },
-  triceps: { label: 'Tríceps', view: 'back'  },
-  piernas: { label: 'Piernas', view: 'front' },
-  gluteos: { label: 'Glúteos', view: 'back'  },
-  core:    { label: 'Core',    view: 'both'  },
+  // ─ Front ─
+  pecho:      { label: 'Pecho',              view: 'front', group: 'torso'   },
+  delt_ant:   { label: 'Deltoides anterior', view: 'front', group: 'hombros' },
+  delt_lat:   { label: 'Deltoides lateral',  view: 'both',  group: 'hombros' },
+  biceps:     { label: 'Bíceps',             view: 'front', group: 'brazos'  },
+  antebrazo:  { label: 'Antebrazo',          view: 'both',  group: 'brazos'  },
+  core:       { label: 'Abdominales',        view: 'both',  group: 'core'    },
+  oblicuos:   { label: 'Oblicuos',           view: 'front', group: 'core'    },
+  cuadriceps: { label: 'Cuádriceps',         view: 'front', group: 'piernas' },
+  aductores:  { label: 'Aductores',          view: 'front', group: 'piernas' },
+  gemelos:    { label: 'Gemelos',            view: 'both',  group: 'piernas' },
+  tibial:     { label: 'Tibial anterior',    view: 'front', group: 'piernas' },
+  // ─ Back ─
+  trapecio:   { label: 'Trapecio',           view: 'back',  group: 'torso'   },
+  dorsal:     { label: 'Dorsal ancho',       view: 'back',  group: 'torso'   },
+  delt_post:  { label: 'Deltoides posterior',view: 'back',  group: 'hombros' },
+  triceps:    { label: 'Tríceps',            view: 'back',  group: 'brazos'  },
+  lumbar:     { label: 'Lumbar',             view: 'back',  group: 'core'    },
+  gluteos:    { label: 'Glúteos',            view: 'back',  group: 'gluteos' },
+  isquio:     { label: 'Isquiotibiales',     view: 'back',  group: 'piernas' },
+  abductores: { label: 'Abductores',         view: 'back',  group: 'piernas' },
 };
 
-// ── Equipment display meta ────────────────────────────────────────────────────
+// ── Science data (Israetel MEV/MAV/MRV — sets per week) ──────────────────────
+const MUSCLE_SCIENCE = {
+  pecho:      { mev: 10, mav: 16, mrv: 22, freq: 2, sti: 0.80 },
+  delt_ant:   { mev: 4,  mav: 8,  mrv: 14, freq: 2, sti: 0.70 },
+  delt_lat:   { mev: 8,  mav: 14, mrv: 20, freq: 2, sti: 0.75 },
+  delt_post:  { mev: 10, mav: 16, mrv: 22, freq: 2, sti: 0.70 },
+  biceps:     { mev: 8,  mav: 14, mrv: 20, freq: 2, sti: 0.65 },
+  antebrazo:  { mev: 6,  mav: 12, mrv: 18, freq: 3, sti: 0.60 },
+  triceps:    { mev: 8,  mav: 14, mrv: 20, freq: 2, sti: 0.75 },
+  core:       { mev: 8,  mav: 16, mrv: 24, freq: 3, sti: 0.65 },
+  oblicuos:   { mev: 6,  mav: 12, mrv: 18, freq: 2, sti: 0.60 },
+  trapecio:   { mev: 8,  mav: 14, mrv: 20, freq: 2, sti: 0.70 },
+  dorsal:     { mev: 10, mav: 16, mrv: 22, freq: 2, sti: 0.80 },
+  lumbar:     { mev: 6,  mav: 10, mrv: 14, freq: 2, sti: 0.70 },
+  cuadriceps: { mev: 8,  mav: 14, mrv: 20, freq: 2, sti: 0.80 },
+  aductores:  { mev: 6,  mav: 10, mrv: 16, freq: 2, sti: 0.60 },
+  gluteos:    { mev: 8,  mav: 16, mrv: 24, freq: 2, sti: 0.75 },
+  isquio:     { mev: 8,  mav: 14, mrv: 20, freq: 2, sti: 0.75 },
+  gemelos:    { mev: 10, mav: 16, mrv: 22, freq: 3, sti: 0.60 },
+  abductores: { mev: 6,  mav: 10, mrv: 16, freq: 2, sti: 0.60 },
+  tibial:     { mev: 4,  mav: 8,  mrv: 12, freq: 3, sti: 0.50 },
+};
+
+// ── Equipment display ─────────────────────────────────────────────────────────
 const EQ_META = {
   barra:      { label: 'Barra',      color: '#F59E0B', bg: 'rgba(245,158,11,0.14)' },
   mancuernas: { label: 'Mancuernas', color: '#3B82F6', bg: 'rgba(59,130,246,0.14)' },
@@ -37,55 +75,57 @@ const EQ_META = {
   polea:      { label: 'Polea',      color: '#A855F7', bg: 'rgba(168,85,247,0.14)' },
   máquina:    { label: 'Máquina',    color: '#94A3B8', bg: 'rgba(148,163,184,0.14)'},
   kettlebell: { label: 'Kettlebell', color: '#EF4444', bg: 'rgba(239,68,68,0.14)'  },
-  rueda:      { label: 'Rueda',      color: '#EC4899', bg: 'rgba(236,72,153,0.14)' },
 };
 
-const LVL_COLOR = {
-  principiante: '#22C55E',
-  intermedio:   '#F59E0B',
-  avanzado:     '#EF4444',
-};
-const LVL_LABEL = {
-  principiante: 'Básico',
-  intermedio:   'Intermedio',
-  avanzado:     'Avanzado',
-};
+const LVL_COLOR = { principiante:'#22C55E', intermedio:'#F59E0B', avanzado:'#EF4444' };
+const LVL_LABEL = { principiante:'Básico', intermedio:'Intermedio', avanzado:'Avanzado' };
 
-// equipment can be a string or array in the data
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function exEquipment(ex) {
   const eq = ex.equipment;
   if (!eq) return [];
   return Array.isArray(eq) ? eq : [eq];
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function exGroup(ex) {
   if (ex.group) return ex.group;
-  const p = ex.pattern || '';
-  if (p === 'empuje-horizontal') return 'pecho';
-  if (p === 'empuje-vertical')
-    return (ex.muscles.primary[0] || '').includes('Tríceps') ? 'triceps' : 'hombro';
-  if (p === 'traccion-horizontal')
-    return (ex.muscles.primary[0] || '').includes('Deltoides') ? 'hombro' : 'espalda';
-  if (p === 'traccion-vertical') {
-    const pm = ex.muscles.primary[0] || '';
-    return (pm.includes('Bíceps') || pm.includes('Braquial')) ? 'biceps' : 'espalda';
+  const p   = ex.pattern || '';
+  const pm0 = (ex.muscles?.primary[0] || '').toLowerCase();
+
+  if (p === 'empuje-horizontal') {
+    if (pm0.includes('tríceps') || pm0.includes('triceps')) return 'triceps';
+    return 'pecho';
   }
-  if (p === 'sentadilla' || p === 'bisagra' || p === 'aislamiento-pantorrilla') return 'pierna';
+  if (p === 'empuje-vertical') {
+    if (pm0.includes('medial') || pm0.includes('lateral')) return 'delt_lat';
+    if (pm0.includes('tríceps') || pm0.includes('triceps')) return 'triceps';
+    return 'delt_ant';
+  }
+  if (p === 'traccion-horizontal') {
+    if (pm0.includes('post')) return 'delt_post';
+    if (pm0.includes('trapecio')) return 'trapecio';
+    return 'dorsal';
+  }
+  if (p === 'traccion-vertical') {
+    if (pm0.includes('bíceps') || pm0.includes('braquial')) return 'biceps';
+    return 'dorsal';
+  }
+  if (p === 'sentadilla') return 'cuadriceps';
+  if (p === 'bisagra')    return 'isquio';
+  if (p === 'aislamiento-pantorrilla') return 'gemelos';
   if (p.startsWith('core')) return 'core';
   return 'core';
 }
 
 function exsForMuscle(id, all) {
-  if (id === 'pecho')   return all.filter(e => exGroup(e) === 'pecho');
-  if (id === 'espalda') return all.filter(e => exGroup(e) === 'espalda');
-  if (id === 'hombro')  return all.filter(e => exGroup(e) === 'hombro');
-  if (id === 'biceps')  return all.filter(e => exGroup(e) === 'biceps');
-  if (id === 'triceps') return all.filter(e => exGroup(e) === 'triceps');
-  if (id === 'piernas') return all.filter(e => e.pattern === 'sentadilla' || e.pattern === 'aislamiento-pantorrilla');
-  if (id === 'gluteos') return all.filter(e => e.pattern === 'bisagra');
-  if (id === 'core')    return all.filter(e => exGroup(e) === 'core');
-  return [];
+  const g = id;
+  // Special cases with multiple patterns
+  if (id === 'dorsal')     return all.filter(e => exGroup(e) === 'dorsal' || (e.pattern === 'traccion-vertical' && exGroup(e) === 'dorsal'));
+  if (id === 'gluteos')    return all.filter(e => e.group === 'gluteos' || (e.pattern === 'bisagra' && (e.muscles?.primary[0]||'').toLowerCase().includes('glút')));
+  if (id === 'isquio')     return all.filter(e => exGroup(e) === 'isquio' && e.group !== 'gluteos');
+  if (id === 'core')       return all.filter(e => exGroup(e) === 'core' && !['oblicuos'].includes(e.group));
+  if (id === 'cuadriceps') return all.filter(e => (e.pattern === 'sentadilla' || exGroup(e) === 'cuadriceps') && !['aductores'].includes(e.group));
+  return all.filter(e => exGroup(e) === g);
 }
 
 function sessionDuration(workout) {
@@ -103,36 +143,64 @@ function useWidth() {
   return w;
 }
 
-// ── Mapa corporal premium ─────────────────────────────────────────────────────
-function BodyMap({ view, selected, onPick }) {
+// ── Weekly volume helper ──────────────────────────────────────────────────────
+function setsThisWeek(muscleId, log) {
+  const now  = Date.now();
+  const week = 7 * 24 * 60 * 60 * 1000;
+  let total  = 0;
+  for (const session of (log || [])) {
+    if (now - (session.dateTs || 0) > week) continue;
+    for (const ex of (session.exercises || [])) {
+      if (ex.group === muscleId || exGroup(ex) === muscleId) {
+        total += (ex.sets || []).length;
+      }
+    }
+  }
+  return total;
+}
+
+// ── Mapa corporal 19 zonas ────────────────────────────────────────────────────
+function BodyMap({ view, selected, onPick, priorities }) {
   const [hov, setHov] = React.useState(null);
 
   function zone(id) {
     const sel    = selected === id;
     const hovr   = hov === id;
     const hasSel = selected !== null;
-    const opacity = sel            ? 1
-                : hasSel && hovr   ? 0.22
-                : hasSel           ? 0.07
-                : hovr             ? 0.92
-                :                    0.55;
+    const prio   = priorities[id] === 'priority';
+    const maint  = priorities[id] === 'maintain';
+
+    const opacity = sel                         ? 1
+                  : hasSel && hovr              ? 0.24
+                  : hasSel && prio              ? 0.32
+                  : hasSel                      ? 0.08
+                  : hovr                        ? 0.90
+                  : prio                        ? 0.78
+                  : maint                       ? 0.50
+                  :                               0.36;
+
+    const filter = sel               ? 'url(#glow-sel)'
+                 : prio && !hasSel   ? 'url(#glow-prio)'
+                 : hovr && !hasSel   ? 'url(#glow-hov)'
+                 : undefined;
+
     return {
       opacity,
-      filter: sel ? 'url(#glow-sel)' : hovr ? 'url(#glow-hov)' : undefined,
-      style: { cursor: 'pointer', transition: 'opacity .22s ease' },
+      filter,
+      style: { cursor:'pointer', transition:'opacity .22s ease' },
       onMouseEnter: () => setHov(id),
       onMouseLeave: () => setHov(null),
       onClick: () => onPick(id),
     };
   }
 
-  const bf = { fill: 'url(#bGrad)', stroke: 'rgba(255,255,255,0.06)', strokeWidth: 0.5 };
+  const bf = { fill:'url(#bGrad)', stroke:'rgba(255,255,255,0.06)', strokeWidth:0.5 };
   const B  = '#3B82F6';
 
   return (
     <div>
       <svg viewBox="0 0 200 440"
-        style={{ width: '100%', maxWidth: 260, display: 'block', margin: '0 auto', overflow: 'visible' }}>
+        style={{ width:'100%', maxWidth:260, display:'block', margin:'0 auto', overflow:'visible' }}>
         <defs>
           <radialGradient id="bGrad" cx="100" cy="110" r="160" gradientUnits="userSpaceOnUse">
             <stop offset="0%"   stopColor="#28304a" />
@@ -155,10 +223,16 @@ function BodyMap({ view, selected, onPick }) {
             <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b" />
             <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
           </filter>
+          <filter id="glow-prio" x="-25%" y="-25%" width="150%" height="150%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b" />
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
         </defs>
 
+        {/* Ground shadow */}
         <ellipse cx="100" cy="432" rx="38" ry="5" fill="url(#shadowGrad)" />
 
+        {/* ── Body silhouette ── */}
         <ellipse cx="100" cy="28" rx="18" ry="22" {...bf} />
         <path d="M84 40 Q84 52 100 56 Q116 52 116 40"                                                       {...bf} />
         <path d="M93 54 Q93 66 95 68 L105 68 Q107 66 107 54 Z"                                              {...bf} />
@@ -179,101 +253,193 @@ function BodyMap({ view, selected, onPick }) {
         <path d="M60 306 Q56 316 58 322 Q62 328 74 328 L80 328 Q82 322 80 310 Z"                            {...bf} />
         <path d="M140 306 Q144 316 142 322 Q138 328 126 328 L120 328 Q118 322 120 310 Z"                    {...bf} />
 
-        <ellipse cx="86"  cy="85" rx="12" ry="17" fill="url(#specGrad)" style={{ pointerEvents:'none' }} />
-        <ellipse cx="114" cy="85" rx="12" ry="17" fill="url(#specGrad)" style={{ pointerEvents:'none' }} />
+        {/* Specular */}
+        <ellipse cx="86"  cy="85" rx="12" ry="17" fill="url(#specGrad)" style={{pointerEvents:'none'}} />
+        <ellipse cx="114" cy="85" rx="12" ry="17" fill="url(#specGrad)" style={{pointerEvents:'none'}} />
 
+        {/* Decorative lines */}
         {view === 'front' && (
-          <g fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth=".8" strokeLinecap="round" style={{ pointerEvents:'none' }}>
-            <path d="M95 70 Q88 72 80 76" />
-            <path d="M105 70 Q112 72 120 76" />
-            <path d="M86 172 L88 258" />
-            <path d="M114 172 L112 258" />
+          <g fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth=".8" strokeLinecap="round" style={{pointerEvents:'none'}}>
+            <path d="M95 70 Q88 72 80 76" /><path d="M105 70 Q112 72 120 76" />
+            <path d="M86 172 L88 258" /><path d="M114 172 L112 258" />
           </g>
         )}
         {view === 'back' && (
           <path d="M100 72 L100 156" fill="none" stroke="rgba(255,255,255,0.08)"
-            strokeWidth=".7" strokeLinecap="round" strokeDasharray="2 3"
-            style={{ pointerEvents:'none' }} />
+            strokeWidth=".7" strokeLinecap="round" strokeDasharray="2 3" style={{pointerEvents:'none'}} />
         )}
 
+        {/* ══════════════ FRONT ZONES ══════════════ */}
         {view === 'front' && (
           <>
+            {/* Pecho */}
             <g {...zone('pecho')}>
-              <path d="M82 84 Q78 86 76 96 L76 116 Q80 122 90 122 L98 120 L98 84 Q90 82 82 84 Z"            fill={B} opacity=".78" />
-              <path d="M118 84 Q122 86 124 96 L124 116 Q120 122 110 122 L102 120 L102 84 Q110 82 118 84 Z"  fill={B} opacity=".78" />
+              <path d="M82 84 Q78 86 76 96 L76 116 Q80 122 90 122 L98 120 L98 84 Q90 82 82 84 Z"           fill={B} opacity=".78" />
+              <path d="M118 84 Q122 86 124 96 L124 116 Q120 122 110 122 L102 120 L102 84 Q110 82 118 84 Z" fill={B} opacity=".78" />
             </g>
-            <g {...zone('hombro')}>
-              <ellipse cx="70"  cy="84" rx="10" ry="11" fill={B} opacity=".72" />
-              <ellipse cx="130" cy="84" rx="10" ry="11" fill={B} opacity=".72" />
+            {/* Deltoides lateral */}
+            <g {...zone('delt_lat')}>
+              <ellipse cx="67"  cy="83" rx="8" ry="10" fill={B} opacity=".72" />
+              <ellipse cx="133" cy="83" rx="8" ry="10" fill={B} opacity=".72" />
             </g>
+            {/* Deltoides anterior */}
+            <g {...zone('delt_ant')}>
+              <ellipse cx="74"  cy="75" rx="5" ry="6" fill={B} opacity=".68" />
+              <ellipse cx="126" cy="75" rx="5" ry="6" fill={B} opacity=".68" />
+            </g>
+            {/* Bíceps */}
             <g {...zone('biceps')}>
-              <path d="M56 90 Q52 96 52 114 L58 120 L66 118 L68 96 Q66 88 60 88 Z"              fill={B} opacity=".72" />
-              <path d="M144 90 Q148 96 148 114 L142 120 L134 118 L132 96 Q134 88 140 88 Z"      fill={B} opacity=".72" />
+              <path d="M56 90 Q52 96 52 114 L58 120 L66 118 L68 96 Q66 88 60 88 Z"             fill={B} opacity=".72" />
+              <path d="M144 90 Q148 96 148 114 L142 120 L134 118 L132 96 Q134 88 140 88 Z"     fill={B} opacity=".72" />
             </g>
+            {/* Antebrazo */}
+            <g {...zone('antebrazo')}>
+              <path d="M54 136 Q50 156 52 174 L60 176 L64 158 L62 136 Z"                        fill={B} opacity=".65" />
+              <path d="M146 136 L138 136 L136 158 L140 176 L148 174 Q150 156 146 136 Z"        fill={B} opacity=".65" />
+            </g>
+            {/* Tríceps ghost */}
             <g {...zone('triceps')}>
-              <path d="M56 102 Q52 114 54 130 L60 134 L66 132 L66 110 Z"       fill={B} opacity=".38" />
-              <path d="M144 102 Q148 114 146 130 L140 134 L134 132 L134 110 Z" fill={B} opacity=".38" />
+              <path d="M56 102 Q52 114 54 130 L60 134 L66 132 L66 110 Z"                        fill={B} opacity=".32" />
+              <path d="M144 102 Q148 114 146 130 L140 134 L134 132 L134 110 Z"                  fill={B} opacity=".32" />
             </g>
+            {/* Core / Abdominales */}
             <g {...zone('core')}>
-              <rect x="86"  y="126" width="12" height="9" rx="3" fill={B} opacity=".70" />
-              <rect x="102" y="126" width="12" height="9" rx="3" fill={B} opacity=".70" />
-              <rect x="86"  y="139" width="12" height="9" rx="3" fill={B} opacity=".66" />
-              <rect x="102" y="139" width="12" height="9" rx="3" fill={B} opacity=".66" />
-              <rect x="87"  y="152" width="11" height="7" rx="3" fill={B} opacity=".52" />
-              <rect x="102" y="152" width="11" height="7" rx="3" fill={B} opacity=".52" />
+              <rect x="86"  y="126" width="11" height="8"  rx="3" fill={B} opacity=".70" />
+              <rect x="101" y="126" width="11" height="8"  rx="3" fill={B} opacity=".70" />
+              <rect x="86"  y="138" width="11" height="8"  rx="3" fill={B} opacity=".66" />
+              <rect x="101" y="138" width="11" height="8"  rx="3" fill={B} opacity=".66" />
+              <rect x="87"  y="150" width="10" height="6"  rx="3" fill={B} opacity=".52" />
+              <rect x="101" y="150" width="10" height="6"  rx="3" fill={B} opacity=".52" />
             </g>
-            <g {...zone('piernas')}>
-              <path d="M64 180 Q60 196 60 220 L66 228 L78 224 L80 196 L80 178 Q72 176 64 180 Z"            fill={B} opacity=".72" />
-              <path d="M136 180 Q140 196 140 220 L134 228 L122 224 L120 196 L120 178 Q128 176 136 180 Z"   fill={B} opacity=".72" />
-              <path d="M62 248 Q60 268 62 286 L68 292 L76 290 L76 266 L72 248 Z"                           fill={B} opacity=".62" />
-              <path d="M138 248 Q140 268 138 286 L132 292 L124 290 L124 266 L128 248 Z"                    fill={B} opacity=".62" />
+            {/* Oblicuos */}
+            <g {...zone('oblicuos')}>
+              <path d="M76 128 Q73 142 74 160 L82 164 L84 160 L84 128 Z"                        fill={B} opacity=".60" />
+              <path d="M116 128 L116 160 L118 164 L126 160 Q127 142 124 128 Z"                  fill={B} opacity=".60" />
             </g>
+            {/* Cuádriceps */}
+            <g {...zone('cuadriceps')}>
+              <path d="M66 182 Q62 198 62 220 L68 228 L80 224 L82 196 L80 178 Q72 176 66 182 Z"            fill={B} opacity=".72" />
+              <path d="M134 182 Q138 198 138 220 L132 228 L120 224 L118 196 L120 178 Q128 176 134 182 Z"   fill={B} opacity=".72" />
+            </g>
+            {/* Aductores */}
+            <g {...zone('aductores')}>
+              <path d="M84 182 Q85 200 85 220 L90 224 L90 196 L86 180 Z"                        fill={B} opacity=".60" />
+              <path d="M116 180 L110 196 L110 224 L115 220 Q115 200 116 182 Z"                  fill={B} opacity=".60" />
+            </g>
+            {/* Gemelos (front) */}
+            <g {...zone('gemelos')}>
+              <path d="M62 250 Q60 270 62 288 L68 292 L72 268 L70 248 Z"                        fill={B} opacity=".62" />
+              <path d="M130 248 L128 268 L132 292 L138 288 Q140 270 138 250 Z"                  fill={B} opacity=".62" />
+            </g>
+            {/* Tibial anterior */}
+            <g {...zone('tibial')}>
+              <path d="M70 252 L70 290 L76 290 L76 252 Z"                                        fill={B} opacity=".55" />
+              <path d="M124 252 L124 290 L130 290 L130 252 Z"                                    fill={B} opacity=".55" />
+            </g>
+            {/* Glúteos ghost */}
             <g {...zone('gluteos')}>
-              <path d="M72 162 Q68 170 70 178 L86 178 L86 160 Z"     fill={B} opacity=".38" />
-              <path d="M128 162 Q132 170 130 178 L114 178 L114 160 Z" fill={B} opacity=".38" />
+              <path d="M72 162 Q68 170 70 178 L86 178 L86 160 Z"                                 fill={B} opacity=".30" />
+              <path d="M128 162 Q132 170 130 178 L114 178 L114 160 Z"                            fill={B} opacity=".30" />
             </g>
-            <g {...zone('espalda')}>
-              <ellipse cx="100" cy="100" rx="22" ry="14" fill={B} opacity=".11" />
+            {/* Dorsal ghost */}
+            <g {...zone('dorsal')}>
+              <ellipse cx="100" cy="100" rx="20" ry="12" fill={B} opacity=".09" />
             </g>
           </>
         )}
 
+        {/* ══════════════ BACK ZONES ══════════════ */}
         {view === 'back' && (
           <>
-            <g {...zone('espalda')}>
-              <path d="M82 74 Q76 78 74 90 L76 108 Q84 112 100 112 Q116 112 124 108 L126 90 Q124 78 118 74 Q110 70 100 70 Q90 70 82 74 Z" fill={B} opacity=".76" />
+            {/* Trapecio */}
+            <g {...zone('trapecio')}>
+              <path d="M90 70 Q86 68 78 74 L70 84 L76 90 L86 84 Q92 80 100 78 Q108 80 114 84 L124 90 L130 84 L122 74 Q114 68 110 70 Z" fill={B} opacity=".74" />
             </g>
-            <g {...zone('hombro')}>
-              <ellipse cx="70"  cy="84" rx="10" ry="11" fill={B} opacity=".72" />
-              <ellipse cx="130" cy="84" rx="10" ry="11" fill={B} opacity=".72" />
+            {/* Dorsal ancho */}
+            <g {...zone('dorsal')}>
+              <path d="M76 90 Q72 100 74 112 Q84 118 100 118 Q116 118 126 112 Q128 100 124 90 L114 84 Q108 80 100 78 Q92 80 86 84 Z" fill={B} opacity=".76" />
             </g>
+            {/* Deltoides posterior */}
+            <g {...zone('delt_post')}>
+              <path d="M63 78 Q60 84 62 92 L70 92 L72 86 L68 78 Z"                               fill={B} opacity=".74" />
+              <path d="M137 78 L132 78 L128 86 L130 92 L138 92 Q140 84 137 78 Z"                 fill={B} opacity=".74" />
+            </g>
+            {/* Deltoides lateral (back ghost) */}
+            <g {...zone('delt_lat')}>
+              <ellipse cx="67"  cy="83" rx="6" ry="8" fill={B} opacity=".40" />
+              <ellipse cx="133" cy="83" rx="6" ry="8" fill={B} opacity=".40" />
+            </g>
+            {/* Tríceps */}
             <g {...zone('triceps')}>
-              <path d="M56 88 Q52 102 54 124 L62 128 L68 124 L68 100 L62 86 Z"        fill={B} opacity=".76" />
-              <path d="M144 88 Q148 102 146 124 L138 128 L132 124 L132 100 L138 86 Z" fill={B} opacity=".76" />
+              <path d="M56 88 Q52 102 54 124 L62 128 L68 124 L68 100 L62 86 Z"                   fill={B} opacity=".76" />
+              <path d="M144 88 Q148 102 146 124 L138 128 L132 124 L132 100 L138 86 Z"            fill={B} opacity=".76" />
             </g>
+            {/* Antebrazo (back) */}
+            <g {...zone('antebrazo')}>
+              <path d="M54 136 Q50 156 52 174 L60 176 L64 158 L62 136 Z"                         fill={B} opacity=".60" />
+              <path d="M146 136 L138 136 L136 158 L140 176 L148 174 Q150 156 146 136 Z"         fill={B} opacity=".60" />
+            </g>
+            {/* Bíceps ghost */}
             <g {...zone('biceps')}>
-              <path d="M56 90 Q52 104 54 118 L60 122 L66 120 L66 100 Z"    fill={B} opacity=".22" />
-              <path d="M144 90 Q148 104 146 118 L140 122 L134 120 L134 100 Z" fill={B} opacity=".22" />
+              <path d="M56 90 Q52 104 54 118 L60 122 L66 120 L66 100 Z"                           fill={B} opacity=".20" />
+              <path d="M144 90 Q148 104 146 118 L140 122 L134 120 L134 100 Z"                     fill={B} opacity=".20" />
             </g>
-            <g {...zone('core')}>
-              <path d="M84 130 Q80 138 82 150 L100 152 L118 150 Q120 138 116 130 Z" fill={B} opacity=".60" />
+            {/* Lumbar / Core posterior */}
+            <g {...zone('lumbar')}>
+              <path d="M84 128 Q80 138 82 150 L100 152 L118 150 Q120 138 116 128 Z"               fill={B} opacity=".62" />
             </g>
+            {/* Oblicuos (back) */}
+            <g {...zone('oblicuos')}>
+              <path d="M76 128 Q73 142 74 160 L82 164 L84 128 Z"                                  fill={B} opacity=".38" />
+              <path d="M116 128 L116 164 L126 160 Q127 142 124 128 Z"                             fill={B} opacity=".38" />
+            </g>
+            {/* Abductores */}
+            <g {...zone('abductores')}>
+              <path d="M62 162 Q60 170 62 178 L70 178 L72 170 L70 162 Z"                          fill={B} opacity=".68" />
+              <path d="M130 162 L128 170 L130 178 L138 178 Q140 170 138 162 Z"                    fill={B} opacity=".68" />
+            </g>
+            {/* Glúteos */}
             <g {...zone('gluteos')}>
               <ellipse cx="79"  cy="170" rx="11" ry="12" fill={B} opacity=".76" />
               <ellipse cx="121" cy="170" rx="11" ry="12" fill={B} opacity=".76" />
             </g>
-            <g {...zone('piernas')}>
-              <path d="M64 180 Q60 198 60 222 L68 230 L80 226 L80 198 L78 178 Q72 176 64 180 Z"            fill={B} opacity=".76" />
-              <path d="M136 180 Q140 198 140 222 L132 230 L120 226 L120 198 L122 178 Q128 176 136 180 Z"   fill={B} opacity=".76" />
-              <path d="M62 248 Q58 270 62 290 L70 298 L78 294 L76 268 L72 248 Z"                           fill={B} opacity=".62" />
-              <path d="M138 248 Q142 270 138 290 L130 298 L122 294 L124 268 L128 248 Z"                    fill={B} opacity=".62" />
+            {/* Isquiotibiales */}
+            <g {...zone('isquio')}>
+              <path d="M66 182 Q62 200 62 222 L70 230 L80 226 L80 198 L78 178 Q72 176 66 182 Z"            fill={B} opacity=".76" />
+              <path d="M134 182 Q138 200 138 222 L130 230 L120 226 L120 198 L122 178 Q128 176 134 182 Z"   fill={B} opacity=".76" />
             </g>
+            {/* Aductores ghost */}
+            <g {...zone('aductores')}>
+              <path d="M84 182 Q85 200 85 220 L90 224 L90 196 L86 180 Z"                          fill={B} opacity=".22" />
+              <path d="M116 180 L110 196 L110 224 L115 220 Q115 200 116 182 Z"                    fill={B} opacity=".22" />
+            </g>
+            {/* Gemelos (back) */}
+            <g {...zone('gemelos')}>
+              <path d="M62 250 Q58 272 62 292 L70 298 L76 294 L74 268 L70 248 Z"                  fill={B} opacity=".62" />
+              <path d="M130 248 L126 268 L124 294 L130 298 L138 292 Q142 272 138 250 Z"           fill={B} opacity=".62" />
+            </g>
+            {/* Pecho ghost */}
             <g {...zone('pecho')}>
-              <ellipse cx="100" cy="96" rx="18" ry="10" fill={B} opacity=".10" />
+              <ellipse cx="100" cy="96" rx="18" ry="10" fill={B} opacity=".09" />
             </g>
           </>
         )}
 
+        {/* Priority badges */}
+        {Object.entries(priorities).map(([id, state]) => {
+          if (state !== 'priority') return null;
+          const def = MUSCLES[id];
+          if (!def) return null;
+          const showFront = view === 'front' && (def.view === 'front' || def.view === 'both');
+          const showBack  = view === 'back'  && (def.view === 'back'  || def.view === 'both');
+          if (!showFront && !showBack) return null;
+          return (
+            <circle key={id} cx="8" cy="8" r="4" fill="rgba(59,130,246,0.55)"
+              style={{ pointerEvents:'none' }} />
+          );
+        })}
+
+        {/* Floating label */}
         {(hov || selected) && (
           <text x="100" y="436" textAnchor="middle"
             fill="rgba(232,237,248,0.48)" fontSize="8.5"
@@ -283,8 +449,8 @@ function BodyMap({ view, selected, onPick }) {
         )}
       </svg>
 
-      <div style={{ display:'flex', gap:'8px 14px', marginTop:12, justifyContent:'center', flexWrap:'wrap' }}>
-        {[['rgba(59,130,246,0.22)','Inactivo'],['rgba(59,130,246,0.65)','Seleccionado']].map(([c,l]) => (
+      <div style={{ display:'flex', gap:'8px 14px', marginTop:10, justifyContent:'center', flexWrap:'wrap' }}>
+        {[['rgba(59,130,246,0.28)','Sin prioridad'],['rgba(59,130,246,0.75)','Prioridad activa']].map(([c,l]) => (
           <span key={l} style={{ display:'flex', alignItems:'center', gap:5 }}>
             <span style={{ width:7, height:7, borderRadius:2, background:c, display:'inline-block' }} />
             <span style={{ fontFamily:'Inter,system-ui', fontSize:10, color:BD.muted }}>{l}</span>
@@ -295,16 +461,66 @@ function BodyMap({ view, selected, onPick }) {
   );
 }
 
+// ── Panel de volumen semanal ──────────────────────────────────────────────────
+function WeeklyVolumePanel({ priorities, log, sessionSets }) {
+  const priorityMuscles = Object.entries(priorities).filter(([, s]) => s === 'priority' || s === 'maintain');
+  if (priorityMuscles.length === 0) return null;
+
+  return (
+    <div style={{ background:BD.card, borderRadius:14, padding:'14px 16px', marginBottom:20,
+      border:`1px solid ${BD.border}` }}>
+      <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8.5, fontWeight:700,
+        color:BD.muted, letterSpacing:1.5, marginBottom:12 }}>OBJETIVOS SEMANALES</div>
+      {priorityMuscles.map(([id, state]) => {
+        const def  = MUSCLES[id];
+        const sci  = MUSCLE_SCIENCE[id];
+        if (!def || !sci) return null;
+        const isPrio  = state === 'priority';
+        const target  = isPrio ? sci.mav : sci.mev;
+        const done    = setsThisWeek(id, log) + (sessionSets[id] || 0);
+        const pct     = Math.min(100, Math.round((done / target) * 100));
+        const color   = pct >= 100 ? BD.green : pct >= 60 ? BD.amber : BD.blue;
+        return (
+          <div key={id} style={{ marginBottom:10 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <span style={{ fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700, color:BD.text }}>
+                  {def.label}
+                </span>
+                {isPrio && (
+                  <span style={{ fontSize:8, padding:'1px 5px', borderRadius:999, fontWeight:700,
+                    background:'rgba(59,130,246,0.18)', color:'#93C5FD', fontFamily:'Inter,system-ui' }}>
+                    PRIORIDAD
+                  </span>
+                )}
+              </div>
+              <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:10, color }}>
+                {done}/{target} sets · {sci.freq}×/sem
+              </span>
+            </div>
+            <div style={{ height:4, borderRadius:999, background:'rgba(255,255,255,0.06)', overflow:'hidden' }}>
+              <div style={{ height:'100%', width:`${pct}%`, borderRadius:999, background:color,
+                transition:'width .4s ease', boxShadow: pct >= 100 ? `0 0 8px ${color}60` : 'none' }} />
+            </div>
+          </div>
+        );
+      })}
+      <div style={{ marginTop:8, fontFamily:'Inter,system-ui', fontSize:10, color:BD.muted }}>
+        Basado en protocolos de hipertrofia (Israetel / Schoenfeld)
+      </div>
+    </div>
+  );
+}
+
 // ── Barra de búsqueda global ──────────────────────────────────────────────────
 function SearchBar({ query, onQuery, muscle, onMuscle }) {
   const [focused, setFocused] = React.useState(false);
   return (
-    <div style={{ marginBottom: 24 }}>
-      <div style={{ position: 'relative' }}>
+    <div style={{ marginBottom:22 }}>
+      <div style={{ position:'relative' }}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
           style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)',
-            stroke: focused ? '#93C5FD' : BD.muted, strokeWidth:2.5, pointerEvents:'none',
-            transition:'stroke .15s' }}>
+            stroke: focused ? '#93C5FD' : BD.muted, strokeWidth:2.5, pointerEvents:'none', transition:'stroke .15s' }}>
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
         </svg>
         <input value={query} onChange={e => onQuery(e.target.value)}
@@ -313,8 +529,7 @@ function SearchBar({ query, onQuery, muscle, onMuscle }) {
           style={{ width:'100%', padding:'13px 42px 13px 42px', borderRadius:14, boxSizing:'border-box',
             background:'rgba(255,255,255,0.04)',
             border:`1.5px solid ${focused ? 'rgba(59,130,246,0.50)' : 'rgba(255,255,255,0.09)'}`,
-            fontFamily:'Inter,system-ui', fontSize:14, color:BD.text,
-            transition:'border-color .15s', outline:'none' }} />
+            fontFamily:'Inter,system-ui', fontSize:14, color:BD.text, transition:'border-color .15s', outline:'none' }} />
         {query && (
           <button onClick={() => onQuery('')}
             style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)',
@@ -334,8 +549,7 @@ function SearchBar({ query, onQuery, muscle, onMuscle }) {
               style={{ flexShrink:0, padding:'5px 13px', borderRadius:999, border:'none', cursor:'pointer',
                 background: active ? BD.blue : 'rgba(255,255,255,0.06)',
                 color: active ? '#fff' : BD.muted,
-                fontFamily:'Inter,system-ui', fontSize:11, fontWeight:600,
-                transition:'background .14s, color .14s' }}>
+                fontFamily:'Inter,system-ui', fontSize:11, fontWeight:600, transition:'background .14s, color .14s' }}>
               {def.label}
             </button>
           );
@@ -387,16 +601,12 @@ function ExerciseCard({ ex, inSession, onDetail, onQuickAdd }) {
           {eqMeta && (
             <span style={{ padding:'2px 7px', borderRadius:999,
               background:eqMeta.bg, color:eqMeta.color,
-              fontFamily:'Inter,system-ui', fontSize:9, fontWeight:700 }}>
-              {eqMeta.label}
-            </span>
+              fontFamily:'Inter,system-ui', fontSize:9, fontWeight:700 }}>{eqMeta.label}</span>
           )}
           {ex.compound && (
             <span style={{ padding:'2px 7px', borderRadius:999,
               background:'rgba(245,158,11,0.12)', color:'#FCD34D',
-              fontFamily:'Inter,system-ui', fontSize:9, fontWeight:700 }}>
-              Compuesto
-            </span>
+              fontFamily:'Inter,system-ui', fontSize:9, fontWeight:700 }}>Comp.</span>
           )}
         </div>
       </div>
@@ -406,9 +616,8 @@ function ExerciseCard({ ex, inSession, onDetail, onQuickAdd }) {
 
 // ── Detalle de ejercicio ──────────────────────────────────────────────────────
 function ExerciseDetail({ ex, inSession, onAdd, onBack }) {
-  const g = exGroup(ex);
+  const g    = exGroup(ex);
   const cues = ex.cues || [];
-
   return (
     <div style={{ animation:'fadeIn .18s ease', display:'flex', flexDirection:'column', height:'100%' }}>
       <button onClick={onBack}
@@ -417,12 +626,10 @@ function ExerciseDetail({ ex, inSession, onAdd, onBack }) {
           fontFamily:'Inter,system-ui', fontSize:12, color:BD.sub, fontWeight:600, flexShrink:0 }}>
         ← Volver
       </button>
-
       <div style={{ flex:1, overflowY:'auto', paddingBottom:8 }}>
         <div style={{ borderRadius:14, overflow:'hidden', marginBottom:16 }}>
           <ExerciseMedia.Thumbnail exercise={ex} group={g} isAdded={false} height={160} />
         </div>
-
         <div style={{ marginBottom:14 }}>
           <div style={{ fontFamily:'"Space Grotesk",system-ui', fontSize:22, fontWeight:700,
             color:BD.text, lineHeight:1.2, marginBottom:10 }}>{ex.name}</div>
@@ -430,13 +637,8 @@ function ExerciseDetail({ ex, inSession, onAdd, onBack }) {
             {exEquipment(ex).map(eq => {
               const m = EQ_META[eq];
               if (!m) return null;
-              return (
-                <span key={eq} style={{ padding:'4px 10px', borderRadius:999,
-                  background:m.bg, color:m.color,
-                  fontFamily:'Inter,system-ui', fontSize:10, fontWeight:700 }}>
-                  {m.label}
-                </span>
-              );
+              return <span key={eq} style={{ padding:'4px 10px', borderRadius:999,
+                background:m.bg, color:m.color, fontFamily:'Inter,system-ui', fontSize:10, fontWeight:700 }}>{m.label}</span>;
             })}
             {ex.level && (
               <span style={{ padding:'4px 10px', borderRadius:999,
@@ -448,13 +650,10 @@ function ExerciseDetail({ ex, inSession, onAdd, onBack }) {
             {ex.compound && (
               <span style={{ padding:'4px 10px', borderRadius:999,
                 background:'rgba(245,158,11,0.12)', color:'#FCD34D',
-                fontFamily:'Inter,system-ui', fontSize:10, fontWeight:700 }}>
-                ⚡ Compuesto
-              </span>
+                fontFamily:'Inter,system-ui', fontSize:10, fontWeight:700 }}>⚡ Compuesto</span>
             )}
           </div>
         </div>
-
         <div style={{ marginBottom:18 }}>
           <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8.5, fontWeight:700,
             color:BD.muted, letterSpacing:1.5, marginBottom:8 }}>MÚSCULOS</div>
@@ -467,11 +666,10 @@ function ExerciseDetail({ ex, inSession, onAdd, onBack }) {
             {(ex.muscles.secondary || []).map(m => (
               <span key={m} style={{ padding:'4px 10px', borderRadius:999,
                 background:'rgba(255,255,255,0.05)', color:BD.muted,
-                fontFamily:'Inter,system-ui', fontSize:10, fontWeight:500 }}>{m}</span>
+                fontFamily:'Inter,system-ui', fontSize:10 }}>{m}</span>
             ))}
           </div>
         </div>
-
         {cues.length > 0 && (
           <div style={{ marginBottom:22 }}>
             <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8.5, fontWeight:700,
@@ -480,17 +678,12 @@ function ExerciseDetail({ ex, inSession, onAdd, onBack }) {
               <div key={i} style={{ display:'flex', gap:10, marginBottom:9 }}>
                 <span style={{ width:20, height:20, borderRadius:7, background:BD.blueDim,
                   color:'#93C5FD', fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700,
-                  display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:1 }}>
-                  {i + 1}
-                </span>
-                <span style={{ fontFamily:'Inter,system-ui', fontSize:12.5, color:BD.sub, lineHeight:1.55 }}>
-                  {cue}
-                </span>
+                  display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:1 }}>{i+1}</span>
+                <span style={{ fontFamily:'Inter,system-ui', fontSize:12.5, color:BD.sub, lineHeight:1.55 }}>{cue}</span>
               </div>
             ))}
           </div>
         )}
-
         {(ex.variants || []).length > 0 && (
           <div style={{ marginBottom:18 }}>
             <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8.5, fontWeight:700,
@@ -505,7 +698,6 @@ function ExerciseDetail({ ex, inSession, onAdd, onBack }) {
           </div>
         )}
       </div>
-
       <div style={{ paddingTop:14, flexShrink:0 }}>
         <button onClick={onAdd}
           style={{ width:'100%', padding:'14px 20px', borderRadius:13, cursor:'pointer',
@@ -522,20 +714,41 @@ function ExerciseDetail({ ex, inSession, onAdd, onBack }) {
 }
 
 // ── Panel de resultados ───────────────────────────────────────────────────────
-function ResultsPanel({ filteredExs, sessionIds, workout, muscle, query, onDetail, onQuickAdd, onRemoveEx, onEditEx }) {
+function ResultsPanel({ filteredExs, sessionIds, workout, muscle, query, priorities, onDetail, onQuickAdd, onRemoveEx, onEditEx, onTogglePriority }) {
   const sessionExsInView = workout.filter(e => filteredExs.some(f => f.id === e.id));
   const remainingExs     = filteredExs.filter(e => !sessionIds.has(e.id));
+  const prio             = muscle ? priorities[muscle] : null;
 
   return (
     <div style={{ animation:'fadeIn .18s ease', display:'flex', flexDirection:'column', height:'100%' }}>
-      <div style={{ marginBottom:18, flexShrink:0 }}>
-        <div style={{ fontFamily:'Inter,system-ui', fontSize:28, fontWeight:900,
-          color:BD.text, letterSpacing:-1.5, lineHeight:1 }}>
-          {muscle ? MUSCLES[muscle].label : 'Resultados'}
-        </div>
-        <div style={{ fontFamily:'Inter,system-ui', fontSize:11, color:BD.muted, marginTop:4 }}>
-          {filteredExs.length} ejercicio{filteredExs.length !== 1 ? 's' : ''}
-          {query.trim() ? ` · "${query.trim()}"` : ''}
+      <div style={{ marginBottom:16, flexShrink:0 }}>
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+          <div>
+            <div style={{ fontFamily:'Inter,system-ui', fontSize:26, fontWeight:900,
+              color:BD.text, letterSpacing:-1.5, lineHeight:1 }}>
+              {muscle ? MUSCLES[muscle].label : 'Resultados'}
+            </div>
+            <div style={{ fontFamily:'Inter,system-ui', fontSize:11, color:BD.muted, marginTop:4 }}>
+              {filteredExs.length} ejercicio{filteredExs.length !== 1 ? 's' : ''}
+              {query.trim() ? ` · "${query.trim()}"` : ''}
+            </div>
+          </div>
+          {muscle && (
+            <button onClick={() => onTogglePriority(muscle)}
+              style={{ flexShrink:0, padding:'7px 14px', borderRadius:999, border:'none', cursor:'pointer',
+                background: prio === 'priority' ? BD.blue
+                           : prio === 'maintain' ? 'rgba(34,197,94,0.15)'
+                           : 'rgba(255,255,255,0.06)',
+                color: prio === 'priority' ? '#fff'
+                      : prio === 'maintain' ? BD.green
+                      : BD.muted,
+                fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700, transition:'all .15s',
+                boxShadow: prio === 'priority' ? '0 4px 16px -4px rgba(59,130,246,0.50)' : 'none' }}>
+              {prio === 'priority' ? '🎯 Priorizado'
+               : prio === 'maintain' ? '✓ Mantenimiento'
+               : '+ Priorizar'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -545,13 +758,10 @@ function ResultsPanel({ filteredExs, sessionIds, workout, muscle, query, onDetai
             <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8.5, fontWeight:700,
               color:BD.muted, letterSpacing:1, marginBottom:10 }}>EN TU SESIÓN</div>
             {sessionExsInView.map(ex => (
-              <ExRow key={ex.id} ex={ex}
-                onRemove={() => onRemoveEx(ex.id)}
-                onEdit={() => onEditEx(ex)} />
+              <ExRow key={ex.id} ex={ex} onRemove={() => onRemoveEx(ex.id)} onEdit={() => onEditEx(ex)} />
             ))}
           </div>
         )}
-
         {remainingExs.length > 0 && (
           <div>
             {sessionExsInView.length > 0 && (
@@ -567,12 +777,10 @@ function ResultsPanel({ filteredExs, sessionIds, workout, muscle, query, onDetai
             </div>
           </div>
         )}
-
         {filteredExs.length === 0 && (
           <div style={{ padding:'52px 0', textAlign:'center',
             fontFamily:'Inter,system-ui', fontSize:13, color:BD.muted, lineHeight:1.65 }}>
-            Sin resultados
-            <br />
+            Sin resultados<br/>
             <span style={{ fontSize:11 }}>Prueba con otro término o grupo muscular</span>
           </div>
         )}
@@ -599,7 +807,7 @@ function ExRow({ ex, onRemove, onEdit }) {
           overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ex.name}</div>
         <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:BD.muted, marginTop:2 }}>
           {ex.sets.length} serie{ex.sets.length !== 1 ? 's' : ''}
-          {ex.sets[0] && ex.sets[0].kg ? ` · ${ex.sets[0].kg} kg` : ''}
+          {ex.sets[0]?.kg ? ` · ${ex.sets[0].kg} kg` : ''}
         </div>
       </div>
       <div style={{ display:'flex', alignItems:'center', gap:8, paddingRight:10 }}>
@@ -620,15 +828,15 @@ function SetConfig({ ex, initSets, onConfirm, onBack }) {
   const [sets, setSets] = React.useState(() =>
     initSets && initSets.length > 0
       ? initSets.map(s => ({ kg: s.kg || '', reps: s.reps || '10' }))
-      : [{ kg: '', reps: '10' }, { kg: '', reps: '10' }, { kg: '', reps: '10' }]
+      : [{ kg:'', reps:'10' }, { kg:'', reps:'10' }, { kg:'', reps:'10' }]
   );
-  const upd = (i, f, v) => setSets(p => p.map((s, idx) => idx === i ? { ...s, [f]: v } : s));
-  const add = () => setSets(p => [...p, { kg: '', reps: '10' }]);
-  const rem = i => setSets(p => p.filter((_, idx) => idx !== i));
+  const upd = (i,f,v) => setSets(p => p.map((s,idx) => idx===i ? {...s,[f]:v} : s));
+  const add = () => setSets(p => [...p, { kg:'', reps:'10' }]);
+  const rem = i => setSets(p => p.filter((_,idx) => idx!==i));
   const g = exGroup(ex);
   const inp = {
-    type: 'number', min: 0,
-    style: { width:'100%', padding:'10px 6px', borderRadius:9, boxSizing:'border-box',
+    type:'number', min:0,
+    style:{ width:'100%', padding:'10px 6px', borderRadius:9, boxSizing:'border-box',
       border:`1px solid ${BD.border}`, background:'rgba(255,255,255,0.04)',
       fontFamily:'ui-monospace,Menlo,monospace', fontSize:14, color:BD.text, textAlign:'center' },
   };
@@ -651,21 +859,20 @@ function SetConfig({ ex, initSets, onConfirm, onBack }) {
       </div>
       <div style={{ flex:1, overflowY:'auto' }}>
         <div style={{ display:'grid', gridTemplateColumns:'20px 1fr 1fr 20px', gap:6, marginBottom:8 }}>
-          {['', 'Kg', 'Reps', ''].map((h, i) => (
+          {['','Kg','Reps',''].map((h,i) => (
             <span key={i} style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8,
               color:BD.muted, fontWeight:700, textAlign:'center', letterSpacing:0.5 }}>{h}</span>
           ))}
         </div>
         {sets.map((set, i) => (
           <div key={i} style={{ display:'grid', gridTemplateColumns:'20px 1fr 1fr 20px', gap:6, alignItems:'center', marginBottom:7 }}>
-            <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:10, color:BD.muted, textAlign:'center' }}>{i + 1}</span>
-            <input {...inp} value={set.kg}   placeholder="—"  step={0.5} onChange={e => upd(i, 'kg',   e.target.value)} />
-            <input {...inp} value={set.reps} placeholder="10" step={1}   onChange={e => upd(i, 'reps', e.target.value)} />
+            <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:10, color:BD.muted, textAlign:'center' }}>{i+1}</span>
+            <input {...inp} value={set.kg}   placeholder="—"  step={0.5} onChange={e => upd(i,'kg',  e.target.value)} />
+            <input {...inp} value={set.reps} placeholder="10" step={1}   onChange={e => upd(i,'reps',e.target.value)} />
             {sets.length > 1
-              ? <button onClick={() => rem(i)}
-                  style={{ width:20, height:20, border:'none', background:'rgba(239,68,68,0.14)',
-                    color:'rgba(239,68,68,0.80)', borderRadius:5, cursor:'pointer', fontSize:10,
-                    display:'flex', alignItems:'center', justifyContent:'center', padding:0 }}>✕</button>
+              ? <button onClick={() => rem(i)} style={{ width:20, height:20, border:'none', background:'rgba(239,68,68,0.14)',
+                  color:'rgba(239,68,68,0.80)', borderRadius:5, cursor:'pointer', fontSize:10,
+                  display:'flex', alignItems:'center', justifyContent:'center', padding:0 }}>✕</button>
               : <div />}
           </div>
         ))}
@@ -688,29 +895,41 @@ function SetConfig({ ex, initSets, onConfirm, onBack }) {
 }
 
 // ── Panel vacío ───────────────────────────────────────────────────────────────
-function EmptyPanel({ onPick }) {
+function EmptyPanel({ onPick, priorities }) {
+  const hasPrios = Object.values(priorities).some(v => v === 'priority');
   return (
     <div style={{ paddingTop:8 }}>
       <div style={{ fontFamily:'"Space Grotesk",system-ui', fontWeight:600,
-        fontSize:24, color:BD.sub, marginBottom:10, lineHeight:1.2 }}>
-        Busca o toca un músculo
+        fontSize:22, color:BD.sub, marginBottom:10, lineHeight:1.2 }}>
+        {hasPrios ? 'Tu plan de desarrollo' : 'Construye tu físico'}
       </div>
       <p style={{ fontFamily:'Inter,system-ui', fontSize:13, color:BD.muted,
-        lineHeight:1.65, margin:'0 0 24px', maxWidth:300 }}>
-        Usa el buscador de arriba o selecciona un grupo muscular para ver los ejercicios disponibles.
+        lineHeight:1.65, margin:'0 0 22px', maxWidth:300 }}>
+        {hasPrios
+          ? 'Toca un músculo del mapa o busca un ejercicio. Tu perfil de prioridades guía las recomendaciones.'
+          : 'Selecciona músculos en el mapa para priorizar su desarrollo. Después busca o añade ejercicios.'}
       </p>
-      <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-        {Object.entries(MUSCLES).map(([id, def]) => (
-          <button key={id} onClick={() => onPick(id)}
-            style={{ padding:'7px 14px', borderRadius:999,
-              background:'rgba(255,255,255,0.04)', border:`1px solid ${BD.border}`,
-              fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600, color:BD.muted,
-              cursor:'pointer', transition:'background .12s, color .12s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = BD.blueDim; e.currentTarget.style.color = '#93C5FD'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = BD.muted; }}>
-            {def.label}
-          </button>
-        ))}
+      <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
+        {Object.entries(MUSCLES).map(([id, def]) => {
+          const prio = priorities[id];
+          return (
+            <button key={id} onClick={() => onPick(id)}
+              style={{ padding:'6px 13px', borderRadius:999,
+                background: prio === 'priority' ? BD.blueDim
+                           : prio === 'maintain' ? 'rgba(34,197,94,0.08)'
+                           : 'rgba(255,255,255,0.04)',
+                border: prio === 'priority' ? '1px solid rgba(59,130,246,0.40)'
+                       : prio === 'maintain' ? '1px solid rgba(34,197,94,0.28)'
+                       : `1px solid ${BD.border}`,
+                fontFamily:'Inter,system-ui', fontSize:11, fontWeight:600,
+                color: prio === 'priority' ? '#93C5FD'
+                      : prio === 'maintain' ? BD.green
+                      : BD.muted,
+                cursor:'pointer', transition:'all .12s' }}>
+              {prio === 'priority' ? '🎯 ' : prio === 'maintain' ? '✓ ' : ''}{def.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -733,7 +952,7 @@ function WorkoutBar({ workout, saved, duration, onSave, mobile }) {
               background:'rgba(255,255,255,0.06)', border:`1px solid ${BD.border}`,
               fontFamily:'Inter,system-ui', fontSize:11, fontWeight:600, color:BD.sub,
               maxWidth:140, overflow:'hidden' }}>
-              <span style={{ width:6, height:6, borderRadius:'50%', background:gs.to, flexShrink:0 }} />
+              <span style={{ width:6, height:6, borderRadius:'50%', background:gs?.to||BD.blue, flexShrink:0 }} />
               <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ex.name}</span>
             </span>
           );
@@ -764,9 +983,9 @@ function WorkoutBar({ workout, saved, duration, onSave, mobile }) {
 
 // ── Componente principal ──────────────────────────────────────────────────────
 function BuilderSection() {
-  const { actions }  = useStore();
-  const { navigate } = useRoute();
-  const mobile       = useWidth() < 680;
+  const { state, actions } = useStore();
+  const { navigate }       = useRoute();
+  const mobile             = useWidth() < 680;
 
   const [view,       setView]      = React.useState('front');
   const [muscle,     setMuscle]    = React.useState(null);
@@ -779,6 +998,25 @@ function BuilderSection() {
   const [workout,    setWorkout]   = React.useState([]);
   const [saved,      setSaved]     = React.useState(false);
   const [flash,      setFlash]     = React.useState(false);
+
+  // Priorities persist in localStorage
+  const [priorities, setPrioritiesRaw] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem('atlas.priorities') || '{}'); } catch { return {}; }
+  });
+  function setPriorities(next) {
+    setPrioritiesRaw(next);
+    try { localStorage.setItem('atlas.priorities', JSON.stringify(next)); } catch {}
+  }
+
+  function togglePriority(id) {
+    setPriorities(prev => {
+      const cur = prev[id];
+      const next = cur === 'priority' ? 'maintain' : cur === 'maintain' ? null : 'priority';
+      const copy = { ...prev };
+      if (next === null) delete copy[id]; else copy[id] = next;
+      return copy;
+    });
+  }
 
   const allExs = React.useMemo(() => ExerciseService.getAll(), []);
 
@@ -809,6 +1047,16 @@ function BuilderSection() {
     return exs;
   }, [allExs, muscle, query]);
 
+  // Sets per muscle in current workout session
+  const sessionSets = React.useMemo(() => {
+    const acc = {};
+    for (const ex of workout) {
+      const g = exGroup(ex);
+      acc[g] = (acc[g] || 0) + (ex.sets?.length || 0);
+    }
+    return acc;
+  }, [workout]);
+
   const sessionIds = React.useMemo(() => new Set(workout.map(e => e.id)), [workout]);
   const duration   = React.useMemo(() => sessionDuration(workout), [workout]);
   const hasFilter  = muscle !== null || query.trim() !== '';
@@ -824,9 +1072,7 @@ function BuilderSection() {
   function handleMuscleChip(id) {
     if (id === null) {
       setMuscle(null);
-      if (mode !== 'detail' && mode !== 'config') {
-        setMode(query.trim() ? 'results' : 'empty');
-      }
+      if (mode !== 'detail' && mode !== 'config') setMode(query.trim() ? 'results' : 'empty');
     } else {
       pickMuscle(id);
     }
@@ -839,10 +1085,7 @@ function BuilderSection() {
     }
   }
 
-  function openDetail(ex) {
-    setDetailEx(ex);
-    setMode('detail');
-  }
+  function openDetail(ex) { setDetailEx(ex); setMode('detail'); }
 
   function openConfig(ex, fromDetail) {
     setCfgEx(ex);
@@ -861,19 +1104,17 @@ function BuilderSection() {
   }
 
   function removeEx(id) { setWorkout(prev => prev.filter(e => e.id !== id)); }
-
   function editEx(ex) { openConfig(ex, false); }
 
   function save() {
     if (!workout.length) return;
     actions.logSession(workout.map(ex => ({
-      name: ex.name, muscles: ex.muscles.primary, sets: ex.sets,
+      id: ex.id, name: ex.name, group: exGroup(ex),
+      muscles: ex.muscles.primary, sets: ex.sets,
     })));
     setSaved(true); setFlash(true);
     setTimeout(() => setFlash(false), 2500);
-    setTimeout(() => {
-      setSaved(false); setWorkout([]); setMuscle(null); setQuery(''); setMode('empty');
-    }, 3000);
+    setTimeout(() => { setSaved(false); setWorkout([]); setMuscle(null); setQuery(''); setMode('empty'); }, 3000);
   }
 
   const renderMode = mode === 'empty' && hasFilter ? 'results' : mode;
@@ -891,28 +1132,27 @@ function BuilderSection() {
           </div>
         )}
 
-        <div style={{ marginBottom: mobile ? 20 : 32 }}>
+        <div style={{ marginBottom: mobile ? 20 : 28 }}>
           <h1 style={{ fontFamily:'Inter,system-ui', fontWeight:900,
-            fontSize: mobile ? 28 : 40, color:BD.text, letterSpacing:-2,
+            fontSize: mobile ? 26 : 38, color:BD.text, letterSpacing:-2,
             lineHeight:1, margin:0 }}>
-            Tu sesión.{' '}
-            <span style={{ fontFamily:'"Space Grotesk",system-ui',
-              fontWeight:400, color:BD.sub, letterSpacing:-0.5 }}>
-              Toca o busca.
+            Construye tu físico.{' '}
+            <span style={{ fontFamily:'"Space Grotesk",system-ui', fontWeight:400, color:BD.sub, letterSpacing:-0.5 }}>
+              De forma inteligente.
             </span>
           </h1>
         </div>
 
         <SearchBar query={query} onQuery={handleQuery} muscle={muscle} onMuscle={handleMuscleChip} />
 
-        <div style={{ display:'flex', gap: mobile ? 0 : 48,
+        <div style={{ display:'flex', gap: mobile ? 0 : 44,
           alignItems:'flex-start', flexDirection: mobile ? 'column' : 'row' }}>
 
-          {/* Mapa corporal */}
-          <div style={{ width: mobile ? '100%' : 280, flexShrink:0, marginBottom: mobile ? 32 : 0 }}>
-            <div style={{ display:'flex', gap:3, marginBottom:18,
+          {/* ── Mapa corporal ── */}
+          <div style={{ width: mobile ? '100%' : 288, flexShrink:0, marginBottom: mobile ? 28 : 0 }}>
+            <div style={{ display:'flex', gap:3, marginBottom:16,
               background:'rgba(255,255,255,0.04)', borderRadius:10, padding:3 }}>
-              {[['front','Frontal'],['back','Posterior']].map(([v, lbl]) => (
+              {[['front','Frontal'],['back','Posterior']].map(([v,lbl]) => (
                 <button key={v} onClick={() => setView(v)}
                   style={{ flex:1, padding:'8px 0', borderRadius:7, border:'none', cursor:'pointer',
                     background: view === v ? BD.blue : 'transparent',
@@ -922,12 +1162,18 @@ function BuilderSection() {
                 </button>
               ))}
             </div>
-            <div style={{ maxWidth: mobile ? 220 : 'none', margin: mobile ? '0 auto' : '0' }}>
-              <BodyMap view={view} selected={muscle} onPick={pickMuscle} />
+            <div style={{ maxWidth: mobile ? 210 : 'none', margin: mobile ? '0 auto' : '0' }}>
+              <BodyMap view={view} selected={muscle} onPick={pickMuscle} priorities={priorities} />
             </div>
+
+            {/* Volume panel below map */}
+            <div style={{ marginTop:16 }}>
+              <WeeklyVolumePanel priorities={priorities} log={state.log} sessionSets={sessionSets} />
+            </div>
+
             {workout.length > 0 && (
               <button onClick={() => navigate('/coach')}
-                style={{ marginTop:18, width:'100%', padding:'10px 0', borderRadius:10,
+                style={{ marginTop:10, width:'100%', padding:'10px 0', borderRadius:10,
                   border:'1px solid rgba(59,130,246,0.30)', background:'rgba(59,130,246,0.08)',
                   color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:12, fontWeight:700,
                   cursor:'pointer' }}>
@@ -936,11 +1182,13 @@ function BuilderSection() {
             )}
           </div>
 
-          {/* Panel contextual */}
+          {/* ── Panel contextual ── */}
           <div style={{ flex:1, minWidth:0, width: mobile ? '100%' : undefined,
             maxHeight: mobile ? 'none' : 700, overflowY: mobile ? 'visible' : 'auto' }}>
 
-            {renderMode === 'empty' && <EmptyPanel onPick={pickMuscle} />}
+            {renderMode === 'empty' && (
+              <EmptyPanel onPick={pickMuscle} priorities={priorities} />
+            )}
 
             {renderMode === 'results' && (
               <ResultsPanel
@@ -949,10 +1197,12 @@ function BuilderSection() {
                 workout={workout}
                 muscle={muscle}
                 query={query}
+                priorities={priorities}
                 onDetail={openDetail}
                 onQuickAdd={ex => openConfig(ex, false)}
                 onRemoveEx={removeEx}
                 onEditEx={editEx}
+                onTogglePriority={togglePriority}
               />
             )}
 
