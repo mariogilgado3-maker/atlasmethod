@@ -194,7 +194,7 @@ function BodyMap({ view, selected, onPick, priorities }) {
     };
   }
 
-  const bf = { fill:'url(#bGrad)', stroke:'rgba(255,255,255,0.06)', strokeWidth:0.5 };
+  const bf = { fill:'url(#bGrad)', stroke:'rgba(255,255,255,0.06)', strokeWidth:0.5, style:{ pointerEvents:'none' } };
   const B  = '#3B82F6';
 
   return (
@@ -279,28 +279,28 @@ function BodyMap({ view, selected, onPick, priorities }) {
             </g>
             {/* Deltoides lateral */}
             <g {...zone('delt_lat')}>
-              <ellipse cx="67"  cy="83" rx="8" ry="10" fill={B} opacity=".72" />
-              <ellipse cx="133" cy="83" rx="8" ry="10" fill={B} opacity=".72" />
+              <ellipse cx="67"  cy="84" rx="10" ry="13" fill={B} opacity=".72" />
+              <ellipse cx="133" cy="84" rx="10" ry="13" fill={B} opacity=".72" />
             </g>
             {/* Deltoides anterior */}
             <g {...zone('delt_ant')}>
-              <ellipse cx="74"  cy="75" rx="5" ry="6" fill={B} opacity=".68" />
-              <ellipse cx="126" cy="75" rx="5" ry="6" fill={B} opacity=".68" />
+              <ellipse cx="74"  cy="76" rx="7" ry="8" fill={B} opacity=".72" />
+              <ellipse cx="126" cy="76" rx="7" ry="8" fill={B} opacity=".72" />
             </g>
             {/* Bíceps */}
             <g {...zone('biceps')}>
               <path d="M56 90 Q52 96 52 114 L58 120 L66 118 L68 96 Q66 88 60 88 Z"             fill={B} opacity=".72" />
               <path d="M144 90 Q148 96 148 114 L142 120 L134 118 L132 96 Q134 88 140 88 Z"     fill={B} opacity=".72" />
             </g>
-            {/* Antebrazo */}
-            <g {...zone('antebrazo')}>
-              <path d="M54 136 Q50 156 52 174 L60 176 L64 158 L62 136 Z"                        fill={B} opacity=".65" />
-              <path d="M146 136 L138 136 L136 158 L140 176 L148 174 Q150 156 146 136 Z"        fill={B} opacity=".65" />
-            </g>
-            {/* Tríceps ghost */}
+            {/* Tríceps ghost — antes de antebrazo para que antebrazo quede encima en solapamiento */}
             <g {...zone('triceps')}>
               <path d="M56 102 Q52 114 54 130 L60 134 L66 132 L66 110 Z"                        fill={B} opacity=".32" />
               <path d="M144 102 Q148 114 146 130 L140 134 L134 132 L134 110 Z"                  fill={B} opacity=".32" />
+            </g>
+            {/* Antebrazo — paths ampliados (~20px) para zona click usable */}
+            <g {...zone('antebrazo')}>
+              <path d="M54 120 Q48 148 50 170 L60 180 L68 176 L66 148 L62 120 Z"               fill={B} opacity=".65" />
+              <path d="M146 120 Q152 148 150 170 L140 180 L132 176 L134 148 L138 120 Z"        fill={B} opacity=".65" />
             </g>
             {/* Core / Abdominales */}
             <g {...zone('core')}>
@@ -326,23 +326,23 @@ function BodyMap({ view, selected, onPick, priorities }) {
               <path d="M84 182 Q85 200 85 220 L90 224 L90 196 L86 180 Z"                        fill={B} opacity=".60" />
               <path d="M116 180 L110 196 L110 224 L115 220 Q115 200 116 182 Z"                  fill={B} opacity=".60" />
             </g>
-            {/* Gemelos (front) */}
-            <g {...zone('gemelos')}>
-              <path d="M62 250 Q60 270 62 288 L68 292 L72 268 L70 248 Z"                        fill={B} opacity=".62" />
-              <path d="M130 248 L128 268 L132 292 L138 288 Q140 270 138 250 Z"                  fill={B} opacity=".62" />
-            </g>
-            {/* Tibial anterior */}
+            {/* Tibial anterior — renderizado antes que gemelos; gemelos gana en el borde */}
             <g {...zone('tibial')}>
-              <path d="M70 252 L70 290 L76 290 L76 252 Z"                                        fill={B} opacity=".55" />
-              <path d="M124 252 L124 290 L130 290 L130 252 Z"                                    fill={B} opacity=".55" />
+              <path d="M73 250 L73 298 L80 296 L80 252 Z"                                        fill={B} opacity=".58" />
+              <path d="M120 252 L120 296 L127 298 L127 250 Z"                                    fill={B} opacity=".58" />
+            </g>
+            {/* Gemelos (front) — zona ampliada, adyacente al tibial */}
+            <g {...zone('gemelos')}>
+              <path d="M60 250 Q56 276 58 296 L73 302 L73 272 L66 250 Z"                        fill={B} opacity=".65" />
+              <path d="M140 250 Q144 276 140 296 L127 302 L127 272 L134 250 Z"                  fill={B} opacity=".65" />
             </g>
             {/* Glúteos ghost */}
             <g {...zone('gluteos')}>
               <path d="M72 162 Q68 170 70 178 L86 178 L86 160 Z"                                 fill={B} opacity=".30" />
               <path d="M128 162 Q132 170 130 178 L114 178 L114 160 Z"                            fill={B} opacity=".30" />
             </g>
-            {/* Dorsal ghost */}
-            <g {...zone('dorsal')}>
+            {/* Dorsal ghost — visual únicamente; sin interacción para no tapar pecho */}
+            <g {...zone('dorsal')} style={{ pointerEvents:'none' }}>
               <ellipse cx="100" cy="100" rx="20" ry="12" fill={B} opacity=".09" />
             </g>
           </>
@@ -359,28 +359,28 @@ function BodyMap({ view, selected, onPick, priorities }) {
             <g {...zone('dorsal')}>
               <path d="M76 90 Q72 100 74 112 Q84 118 100 118 Q116 118 126 112 Q128 100 124 90 L114 84 Q108 80 100 78 Q92 80 86 84 Z" fill={B} opacity=".76" />
             </g>
-            {/* Deltoides posterior */}
-            <g {...zone('delt_post')}>
-              <path d="M63 78 Q60 84 62 92 L70 92 L72 86 L68 78 Z"                               fill={B} opacity=".74" />
-              <path d="M137 78 L132 78 L128 86 L130 92 L138 92 Q140 84 137 78 Z"                 fill={B} opacity=".74" />
-            </g>
-            {/* Deltoides lateral (back ghost) */}
+            {/* Deltoides lateral (back ghost) — renderizado antes que delt_post; delt_post gana en solapamiento */}
             <g {...zone('delt_lat')}>
-              <ellipse cx="67"  cy="83" rx="6" ry="8" fill={B} opacity=".40" />
-              <ellipse cx="133" cy="83" rx="6" ry="8" fill={B} opacity=".40" />
+              <ellipse cx="67"  cy="84" rx="9" ry="11" fill={B} opacity=".42" />
+              <ellipse cx="133" cy="84" rx="9" ry="11" fill={B} opacity=".42" />
+            </g>
+            {/* Deltoides posterior — zona ampliada, encima de delt_lat en solapamiento */}
+            <g {...zone('delt_post')}>
+              <path d="M58 72 Q53 84 56 96 L70 96 L75 86 L70 72 Z"                               fill={B} opacity=".76" />
+              <path d="M142 72 L130 72 L125 86 L130 96 L144 96 Q147 84 142 72 Z"                 fill={B} opacity=".76" />
             </g>
             {/* Tríceps */}
             <g {...zone('triceps')}>
               <path d="M56 88 Q52 102 54 124 L62 128 L68 124 L68 100 L62 86 Z"                   fill={B} opacity=".76" />
               <path d="M144 88 Q148 102 146 124 L138 128 L132 124 L132 100 L138 86 Z"            fill={B} opacity=".76" />
             </g>
-            {/* Antebrazo (back) */}
+            {/* Antebrazo (back) — zona ampliada ~22px; tríceps termina en y≈128, aquí empieza en y≈126 */}
             <g {...zone('antebrazo')}>
-              <path d="M54 136 Q50 156 52 174 L60 176 L64 158 L62 136 Z"                         fill={B} opacity=".60" />
-              <path d="M146 136 L138 136 L136 158 L140 176 L148 174 Q150 156 146 136 Z"         fill={B} opacity=".60" />
+              <path d="M54 128 Q46 152 48 172 L58 180 L68 176 L66 150 L60 126 Z"               fill={B} opacity=".65" />
+              <path d="M146 126 Q154 152 152 172 L142 180 L132 176 L134 150 L140 128 Z"        fill={B} opacity=".65" />
             </g>
-            {/* Bíceps ghost */}
-            <g {...zone('biceps')}>
+            {/* Bíceps ghost — visual únicamente; sin interacción para no tapar tríceps */}
+            <g {...zone('biceps')} style={{ pointerEvents:'none' }}>
               <path d="M56 90 Q52 104 54 118 L60 122 L66 120 L66 100 Z"                           fill={B} opacity=".20" />
               <path d="M144 90 Q148 104 146 118 L140 122 L134 120 L134 100 Z"                     fill={B} opacity=".20" />
             </g>
@@ -393,10 +393,10 @@ function BodyMap({ view, selected, onPick, priorities }) {
               <path d="M76 128 Q73 142 74 160 L82 164 L84 128 Z"                                  fill={B} opacity=".38" />
               <path d="M116 128 L116 164 L126 160 Q127 142 124 128 Z"                             fill={B} opacity=".38" />
             </g>
-            {/* Abductores */}
+            {/* Abductores — zona ampliada; glúteos (renderizado después) gana en solapamiento central */}
             <g {...zone('abductores')}>
-              <path d="M62 162 Q60 170 62 178 L70 178 L72 170 L70 162 Z"                          fill={B} opacity=".68" />
-              <path d="M130 162 L128 170 L130 178 L138 178 Q140 170 138 162 Z"                    fill={B} opacity=".68" />
+              <path d="M58 158 Q54 172 58 184 L70 188 L76 176 L72 162 L62 158 Z"                  fill={B} opacity=".70" />
+              <path d="M138 158 L128 162 L124 176 L130 188 L142 184 Q146 172 142 158 Z"           fill={B} opacity=".70" />
             </g>
             {/* Glúteos */}
             <g {...zone('gluteos')}>
@@ -413,13 +413,13 @@ function BodyMap({ view, selected, onPick, priorities }) {
               <path d="M84 182 Q85 200 85 220 L90 224 L90 196 L86 180 Z"                          fill={B} opacity=".22" />
               <path d="M116 180 L110 196 L110 224 L115 220 Q115 200 116 182 Z"                    fill={B} opacity=".22" />
             </g>
-            {/* Gemelos (back) */}
+            {/* Gemelos (back) — zona ampliada, cubre gastrocnemio completo visible desde atrás */}
             <g {...zone('gemelos')}>
-              <path d="M62 250 Q58 272 62 292 L70 298 L76 294 L74 268 L70 248 Z"                  fill={B} opacity=".62" />
-              <path d="M130 248 L126 268 L124 294 L130 298 L138 292 Q142 272 138 250 Z"           fill={B} opacity=".62" />
+              <path d="M60 248 Q54 274 58 296 L70 304 L80 298 L78 270 L72 248 Z"                  fill={B} opacity=".68" />
+              <path d="M128 248 L122 270 L120 298 L130 304 L142 296 Q146 274 140 248 Z"           fill={B} opacity=".68" />
             </g>
-            {/* Pecho ghost */}
-            <g {...zone('pecho')}>
+            {/* Pecho ghost — visual únicamente; sin interacción para no tapar trapecio/dorsal */}
+            <g {...zone('pecho')} style={{ pointerEvents:'none' }}>
               <ellipse cx="100" cy="96" rx="18" ry="10" fill={B} opacity=".09" />
             </g>
           </>
