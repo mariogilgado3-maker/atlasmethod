@@ -42,6 +42,7 @@ const MUSCLES = {
   gluteos:    { label: 'Glúteos',            view: 'back',  group: 'gluteos' },
   isquio:     { label: 'Isquiotibiales',     view: 'back',  group: 'piernas' },
   abductores: { label: 'Abductores',         view: 'back',  group: 'piernas' },
+  erectores:  { label: 'Erectores espinales',view: 'back',  group: 'core'    },
 };
 
 // ── Science data (Israetel MEV/MAV/MRV — sets per week) ──────────────────────
@@ -65,6 +66,7 @@ const MUSCLE_SCIENCE = {
   gemelos:    { mev: 10, mav: 16, mrv: 22, freq: 3, sti: 0.60 },
   abductores: { mev: 6,  mav: 10, mrv: 16, freq: 2, sti: 0.60 },
   tibial:     { mev: 4,  mav: 8,  mrv: 12, freq: 3, sti: 0.50 },
+  erectores:  { mev: 6,  mav: 10, mrv: 14, freq: 2, sti: 0.70 },
 };
 
 // ── Pares antagonistas para análisis de equilibrio ────────────────────────────
@@ -396,15 +398,20 @@ function BodyMap({ view, selected, onPick, priorities }) {
             <g {...zone('dorsal')}>
               <path d="M76 90 Q72 100 74 112 Q84 118 100 118 Q116 118 126 112 Q128 100 124 90 L114 84 Q108 80 100 78 Q92 80 86 84 Z" fill={B} opacity=".76" />
             </g>
-            {/* Deltoides lateral (back ghost) — renderizado antes que delt_post; delt_post gana en solapamiento */}
-            <g {...zone('delt_lat')}>
-              <ellipse cx="67"  cy="84" rx="9" ry="11" fill={B} opacity=".42" />
-              <ellipse cx="133" cy="84" rx="9" ry="11" fill={B} opacity=".42" />
+            {/* Erectores espinales — dos tiras paravertebrales entre dorsal y lumbar */}
+            <g {...zone('erectores')}>
+              <path d="M93 96 L93 130 L99 128 L99 96 Z"                                           fill={B} opacity=".62" />
+              <path d="M101 96 L101 128 L107 130 L107 96 Z"                                        fill={B} opacity=".62" />
             </g>
-            {/* Deltoides posterior — zona ampliada, encima de delt_lat en solapamiento */}
+            {/* Deltoides posterior — renderizado ANTES de delt_lat; su zona medial queda accesible */}
             <g {...zone('delt_post')}>
-              <path d="M58 72 Q53 84 56 96 L70 96 L75 86 L70 72 Z"                               fill={B} opacity=".76" />
-              <path d="M142 72 L130 72 L125 86 L130 96 L144 96 Q147 84 142 72 Z"                 fill={B} opacity=".76" />
+              <path d="M58 72 Q53 84 56 96 L68 96 L72 87 L68 72 Z"                               fill={B} opacity=".76" />
+              <path d="M142 72 L132 72 L128 87 L132 96 L144 96 Q147 84 142 72 Z"                 fill={B} opacity=".76" />
+            </g>
+            {/* Deltoides lateral (back) — renderizado DESPUÉS de delt_post; gana en la cúpula lateral */}
+            <g {...zone('delt_lat')}>
+              <ellipse cx="70"  cy="80" rx="7" ry="9" fill={B} opacity=".58" />
+              <ellipse cx="130" cy="80" rx="7" ry="9" fill={B} opacity=".58" />
             </g>
             {/* Tríceps */}
             <g {...zone('triceps')}>
