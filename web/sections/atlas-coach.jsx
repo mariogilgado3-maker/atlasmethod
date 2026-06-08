@@ -765,6 +765,134 @@ function acWelcomeMessage(state, profile, memory) {
 
 // ── UI Components ─────────────────────────────────────────────────────────────
 
+function AcDashboard({ ctx, profile }) {
+  const OBJ_L = { hipertrofia:'Hipertrofia', fuerza:'Fuerza', recomp:'Recomp', rendimiento:'Rendimiento' };
+  const NIV_L = { principiante:'Principiante', intermedio:'Intermedio', avanzado:'Avanzado' };
+
+  const objetivo      = OBJ_L[profile?.objetivo] || profile?.objetivo || '—';
+  const nivel         = NIV_L[profile?.nivel]    || profile?.nivel    || '—';
+  const adherPct      = ctx.totalSessions > 0 ? Math.min(Math.round(ctx.adherenceRate * 100), 100) : null;
+  const adherencia    = adherPct !== null ? `${adherPct}%` : '—';
+  const ultimoEntreno = ctx.daysSinceLast === 0 ? 'Hoy'
+    : ctx.daysSinceLast === 1 ? 'Ayer'
+    : ctx.daysSinceLast < 99 ? `Hace ${ctx.daysSinceLast}d` : '—';
+
+  // Estimated lean mass gain — rough literature-based projection
+  const gainKg = React.useMemo(() => {
+    if (!profile || ctx.totalSessions < 4) return null;
+    const rate     = { principiante:0.70, intermedio:0.45, avanzado:0.25 }[profile.nivel] || 0.45;
+    const months   = ctx.totalSessions / Math.max((profile.dias || 3) * 4.3, 1);
+    const pf       = (ctx.progressions?.length || 0) > 3 ? 1 : (ctx.progressions?.length || 0) > 0 ? 0.8 : 0.5;
+    const gain     = Math.min(months * rate * Math.min(ctx.adherenceRate, 1) * pf, 8);
+    return gain > 0.1 ? gain.toFixed(1) : null;
+  }, [ctx, profile]);
+
+  // Volume per group via regex on weekMuscleVol keys
+  const GP_RE = {
+    pecho:   /pectoral/i,
+    hombro:  /deltoides/i,
+    espalda: /dorsal|trapecio|romboides/i,
+    biceps:  /b[íi]ceps|braquial/i,
+    triceps: /tr[íi]ceps/i,
+    piernas: /cu[áa]dricep|isquio|gemelo|tibial/i,
+    gluteos: /gl[úu]teo/i,
+    core:    /core|transverso|oblicuo|recto abdominal/i,
+  };
+  const GP_LABEL  = { pecho:'Pecho', hombro:'Hombros', espalda:'Espalda', biceps:'Bíceps', triceps:'Tríceps', piernas:'Piernas', gluteos:'Glúteos', core:'Core' };
+  const GP_CANON  = { pecho:'pecho', hombro:'delt_lat', espalda:'dorsal', biceps:'biceps', triceps:'triceps', piernas:'cuadriceps', gluteos:'gluteos', core:'core' };
+  const GP_DFLT   = { pecho:14, hombro:10, espalda:14, biceps:10, triceps:10, piernas:14, gluteos:14, core:10 };
+
+  function gVol(g) {
+    const re = GP_RE[g];
+    return Object.entries(ctx.weekMuscleVol || {}).reduce((t,[k,v]) => t + (re?.test(k) ? v : 0), 0);
+  }
+  function gTarget(g) {
+    const state = ctx.builderGroupPriorities?.[g];
+    if (state && window.AtlasEngine?.SCIENCE?.[GP_CANON[g]]) {
+      const sci = window.AtlasEngine.SCIENCE[GP_CANON[g]];
+      return state === 'priority' ? sci.mav : state === 'maintain' ? sci.mev : Math.round(sci.mev * 0.5);
+    }
+    return GP_DFLT[g] || 12;
+  }
+
+  const bars = Object.keys(GP_LABEL).map(g => ({
+    g, label:GP_LABEL[g], sets:gVol(g), target:gTarget(g),
+    priority: ctx.builderGroupPriorities?.[g] || null,
+  })).filter(b => b.sets > 0 || (b.priority && b.priority !== 'off'));
+
+  const stats = [
+    { k:'OBJETIVO',       v:objetivo,   c:null },
+    { k:'NIVEL',          v:nivel,      c:null },
+    { k:'ADHERENCIA',     v:adherencia, c: adherPct >= 80 ? AC.green : adherPct >= 50 ? AC.amber : adherPct !== null ? AC.red : null },
+    { k:'ÚLTIMO ENTRENO', v:ultimoEntreno, c: ctx.daysSinceLast > 5 ? AC.amber : null },
+    { k:'PROGRESO',       v: gainKg ? `+${gainKg} kg` : '—', c: gainKg ? AC.green : null, sub: gainKg ? 'masa estimada' : null },
+    { k:'SESIONES',       v: ctx.totalSessions || '—', c: ctx.totalSessions >= 10 ? AC.green : null },
+  ];
+
+  const STATE_C = { priority:AC.blue, maintain:AC.green, reducir:AC.amber };
+
+  return (
+    <div style={{ marginBottom:28, animation:'fadeIn .3s ease' }}>
+      <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:7.5, fontWeight:700, color:AC.muted, letterSpacing:1.8, marginBottom:10 }}>ESTADO ACTUAL</div>
+
+      {/* ── Stats grid 3×2 ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', borderRadius:12, overflow:'hidden', border:`1px solid ${AC.border}` }}>
+        {stats.map(({ k, v, c, sub }, i) => (
+          <div key={k} style={{
+            padding:'13px 14px',
+            background: AC.card2,
+            borderRight: (i+1) % 3 !== 0 ? `1px solid ${AC.border}` : 'none',
+            borderTop:   i >= 3 ? `1px solid ${AC.border}` : 'none',
+          }}>
+            <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:6.5, fontWeight:700, color:AC.muted, letterSpacing:1, marginBottom:5 }}>{k}</div>
+            <div style={{ fontFamily:'Inter,system-ui', fontSize:15, fontWeight:800, color: c || AC.text, letterSpacing:-0.4, lineHeight:1.1 }}>{v}</div>
+            {sub && <div style={{ fontFamily:'Inter,system-ui', fontSize:9, color:AC.muted, marginTop:2 }}>{sub}</div>}
+          </div>
+        ))}
+      </div>
+
+      {/* ── Volume bars ── */}
+      {bars.length > 0 && (
+        <div style={{ marginTop:10, borderRadius:12, overflow:'hidden', border:`1px solid ${AC.border}`, background:AC.card2 }}>
+          <div style={{ padding:'7px 14px', borderBottom:`1px solid ${AC.border}` }}>
+            <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:7, fontWeight:700, color:AC.muted, letterSpacing:1.4 }}>VOLUMEN SEMANAL · SERIES</div>
+          </div>
+          <div style={{ padding:'4px 0' }}>
+            {bars.map(({ g, label, sets, target, priority }) => {
+              const pct      = target > 0 ? Math.min(sets / target, 1) : 0;
+              const barColor = pct >= 0.85 ? AC.green : pct >= 0.5 ? AC.blue : pct > 0 ? AC.amber : 'rgba(239,68,68,0.35)';
+              const dot      = priority ? STATE_C[priority] : null;
+              return (
+                <div key={g} style={{ padding:'8px 14px' }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:5 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                      {dot && <div style={{ width:5, height:5, borderRadius:'50%', background:dot, flexShrink:0 }} />}
+                      <span style={{ fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600, color:AC.sub }}>{label}</span>
+                    </div>
+                    <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:10 }}>
+                      <span style={{ fontWeight:800, color: sets > 0 ? barColor : AC.muted }}>{sets}</span>
+                      <span style={{ color:AC.muted }}>/{target}</span>
+                    </span>
+                  </div>
+                  <div style={{ height:3, background:'rgba(255,255,255,0.07)', borderRadius:2 }}>
+                    <div style={{ height:'100%', width:`${pct*100}%`, background:barColor, borderRadius:2, transition:'width .5s ease' }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {ctx.totalSessions === 0 && (
+        <div style={{ marginTop:10, padding:'12px 16px', borderRadius:10, border:`1px solid ${AC.border}`, background:AC.card2, fontFamily:'Inter,system-ui', fontSize:12, color:AC.muted, textAlign:'center', lineHeight:1.55 }}>
+          Registra tu primera sesión en el Laboratorio para ver tu progreso aquí.
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AcTypingIndicator() {
   return (
     <div style={{ display:'flex', alignItems:'flex-end', gap:8, marginBottom:20 }}>
@@ -1200,6 +1328,7 @@ function AtlasCoachSection() {
   }
 
   const isMobile = window.innerWidth < 680;
+  const hasUserMessages = messages.some(m => m.role === 'user');
 
   return (
     <section style={{ height:'100vh', paddingTop:64, boxSizing:'border-box', display:'flex', flexDirection:'column', background:AC.page, overflow:'hidden' }}>
@@ -1228,6 +1357,8 @@ function AtlasCoachSection() {
           {/* Messages */}
           <div style={{ flex:1, overflowY:'auto', padding: isMobile ? '20px 16px' : '28px 32px', minHeight:0 }}>
             <div style={{ maxWidth:700, margin:'0 auto' }}>
+              {/* Dashboard: visible before the user sends the first message */}
+              {!hasUserMessages && <AcDashboard ctx={ctx} profile={profile} />}
               {messages.map(msg => (
                 <AcMessageBubble key={msg.id} msg={msg} onSendToBuilder={sendToBuilder} />
               ))}
