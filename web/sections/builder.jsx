@@ -766,6 +766,201 @@ function BalancePanel({ log, sessionSets }) {
   );
 }
 
+// ── Atlas Score ───────────────────────────────────────────────────────────────
+function computeAtlasScore(priorities, log, sessionSets) {
+  const active = Object.entries(priorities).filter(([,s]) => s === 'priority' || s === 'maintain');
+
+  // 1. Equilibrio (25 pts) — balance antagonista
+  const pairsEval = BALANCE_PAIRS.filter(p => {
+    const a = p.idsA.reduce((n,id) => n + setsThisWeek(id,log) + (sessionSets[id]||0), 0);
+    const b = p.idsB.reduce((n,id) => n + setsThisWeek(id,log) + (sessionSets[id]||0), 0);
+    return (a + b) >= 4;
+  });
+  let imbalancedPairs = [];
+  pairsEval.forEach(p => {
+    const a = p.idsA.reduce((n,id) => n + setsThisWeek(id,log) + (sessionSets[id]||0), 0);
+    const b = p.idsB.reduce((n,id) => n + setsThisWeek(id,log) + (sessionSets[id]||0), 0);
+    const r = b === 0 ? (a > 0 ? Infinity : 1) : a / b;
+    if ((p.maxRatio && r > p.maxRatio) || (p.minRatio && r < p.minRatio)) imbalancedPairs.push(p);
+  });
+  const eqPts = pairsEval.length === 0
+    ? 18
+    : Math.max(0, 25 - imbalancedPairs.length * 9);
+
+  // 2. Volumen óptimo (30 pts) — series en rango MEV–MAV
+  let volPts = 0;
+  if (active.length > 0) {
+    let sum = 0;
+    active.forEach(([id, state]) => {
+      const sci = MUSCLE_SCIENCE[id]; if (!sci) return;
+      const done = setsThisWeek(id,log) + (sessionSets[id]||0);
+      if (done === 0)           sum += 0;
+      else if (done < sci.mev)  sum += 0.35 * (done / sci.mev);
+      else if (done <= sci.mav) sum += 0.35 + 0.65 * ((done - sci.mev) / Math.max(1, sci.mav - sci.mev));
+      else if (done <= sci.mrv) sum += 1.0;
+      else                      sum += 0.70;
+    });
+    volPts = Math.round(30 * (sum / active.length));
+  }
+
+  // 3. Sin excesos (20 pts) — penaliza por superar MRV
+  let excesoPts = 20;
+  const excesoMuscles = [];
+  Object.entries(MUSCLE_SCIENCE).forEach(([id, sci]) => {
+    const done = setsThisWeek(id,log) + (sessionSets[id]||0);
+    if (done > sci.mrv) { excesoPts -= 5; excesoMuscles.push(MUSCLES[id]?.label || id); }
+  });
+  excesoPts = Math.max(0, excesoPts);
+
+  // 4. Cobertura muscular (15 pts) — prioridades en grupos principales
+  const CGROUPS = ['torso', 'hombros', 'brazos', 'piernas', 'core'];
+  const coveredCount = CGROUPS.filter(g =>
+    active.some(([id]) => MUSCLES[id]?.group === g || (g === 'piernas' && MUSCLES[id]?.group === 'gluteos'))
+  ).length;
+  const coverPts = Math.round(15 * (coveredCount / CGROUPS.length));
+
+  // 5. Frecuencia semanal (10 pts) — músculos prioritarios activos esta semana
+  const freqPts = active.length === 0 ? 0
+    : Math.round(10 * (active.filter(([id]) => setsThisWeek(id,log) + (sessionSets[id]||0) > 0).length / active.length));
+
+  const total = eqPts + volPts + excesoPts + coverPts + freqPts;
+
+  // Insight principal
+  let insight;
+  if (active.length === 0) {
+    insight = 'Selecciona músculos en el mapa para empezar a evaluar tu entrenamiento.';
+  } else if (excesoMuscles.length > 0) {
+    insight = `${excesoMuscles[0]} supera el MRV. El exceso sostenido frena el progreso y acumula fatiga.`;
+  } else if (imbalancedPairs.length > 0) {
+    const p = imbalancedPairs[0];
+    insight = (p.adviceHigh || p.advice).split('.')[0] + '.';
+  } else if (volPts < 12) {
+    insight = 'El volumen semanal está aún por debajo del mínimo efectivo en varios grupos prioritarios.';
+  } else if (coverPts < 9) {
+    insight = 'Diversifica las prioridades. Un programa completo cubre torso, tren inferior, brazos y core.';
+  } else if (total >= 85) {
+    insight = 'Entrenamiento muy bien estructurado. Volumen, equilibrio y frecuencia en zona óptima.';
+  } else if (total >= 70) {
+    insight = 'Buen programa. Ajusta el volumen de los grupos prioritarios para acercarte al rango MAV.';
+  } else {
+    insight = 'Programa en desarrollo. Acumula series y distribuye el volumen entre grupos antagonistas.';
+  }
+
+  return {
+    total,
+    insight,
+    pillars: [
+      { key:'equilibrio', label:'Equilibrio muscular', pts:eqPts,     max:25, icon:'⚖' },
+      { key:'volumen',    label:'Volumen adecuado',    pts:volPts,    max:30, icon:'📊' },
+      { key:'exceso',     label:'Sin excesos',         pts:excesoPts, max:20, icon:'🛡' },
+      { key:'cobertura',  label:'Cobertura',           pts:coverPts,  max:15, icon:'🗺' },
+      { key:'frecuencia', label:'Frecuencia',          pts:freqPts,   max:10, icon:'📅' },
+    ],
+  };
+}
+
+function AtlasScoreCard({ priorities, log, sessionSets }) {
+  const [open, setOpen] = React.useState(false);
+  const sc = computeAtlasScore(priorities, log, sessionSets);
+
+  const color = sc.total >= 80 ? BD.green
+              : sc.total >= 65 ? BD.amber
+              : sc.total >= 45 ? '#F97316'
+              : BD.red;
+
+  const qualLabel = sc.total >= 80 ? 'Excelente'
+                  : sc.total >= 65 ? 'Bueno'
+                  : sc.total >= 45 ? 'Mejorable'
+                  : 'Atención';
+
+  const R  = 30;
+  const C  = 2 * Math.PI * R;
+  const offset = C * (1 - sc.total / 100);
+
+  return (
+    <div style={{ background:BD.card, borderRadius:14, padding:'14px 16px',
+      border:`1px solid ${BD.border}`, marginBottom:14 }}>
+
+      <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+
+        {/* Anillo SVG */}
+        <div style={{ position:'relative', width:68, height:68, flexShrink:0 }}>
+          <svg width="68" height="68" viewBox="0 0 76 76">
+            <circle cx="38" cy="38" r={R} fill="none"
+              stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
+            <circle cx="38" cy="38" r={R} fill="none"
+              stroke={color} strokeWidth="6" strokeLinecap="round"
+              strokeDasharray={C} strokeDashoffset={offset}
+              transform="rotate(-90 38 38)"
+              style={{ transition:'stroke-dashoffset .9s ease, stroke .4s' }} />
+          </svg>
+          <div style={{ position:'absolute', inset:0, display:'flex',
+            flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+            <span style={{ fontFamily:'"Space Grotesk",system-ui', fontSize:19,
+              fontWeight:800, color, lineHeight:1 }}>{sc.total}</span>
+            <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:7.5,
+              color:BD.muted, marginTop:1 }}>/100</span>
+          </div>
+        </div>
+
+        {/* Texto */}
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:5 }}>
+            <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:7.5,
+              fontWeight:700, color:BD.muted, letterSpacing:1.6 }}>ATLAS SCORE</span>
+            <span style={{ padding:'2px 7px', borderRadius:999,
+              background:`${color}1A`, color,
+              fontFamily:'Inter,system-ui', fontSize:9, fontWeight:700 }}>{qualLabel}</span>
+          </div>
+          <p style={{ fontFamily:'Inter,system-ui', fontSize:11, color:BD.sub,
+            lineHeight:1.55, margin:0 }}>{sc.insight}</p>
+        </div>
+
+        <button onClick={() => setOpen(o => !o)}
+          style={{ background:'none', border:'none', cursor:'pointer',
+            color:BD.muted, padding:'4px 2px', flexShrink:0, lineHeight:0 }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            {open ? <path d="M18 15l-6-6-6 6"/> : <path d="M6 9l6 6 6-6"/>}
+          </svg>
+        </button>
+      </div>
+
+      {open && (
+        <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${BD.border}` }}>
+          {sc.pillars.map(p => {
+            const pct   = p.pts / p.max;
+            const pc    = pct >= 0.8 ? BD.green : pct >= 0.5 ? BD.amber : BD.red;
+            return (
+              <div key={p.key} style={{ marginBottom:9 }}>
+                <div style={{ display:'flex', justifyContent:'space-between',
+                  alignItems:'center', marginBottom:3 }}>
+                  <span style={{ fontFamily:'Inter,system-ui', fontSize:10.5, color:BD.sub }}>
+                    {p.label}
+                  </span>
+                  <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, color:pc }}>
+                    {p.pts}/{p.max}
+                  </span>
+                </div>
+                <div style={{ height:3, borderRadius:999,
+                  background:'rgba(255,255,255,0.06)', overflow:'hidden' }}>
+                  <div style={{ height:'100%', borderRadius:999,
+                    width:`${pct * 100}%`, background:pc,
+                    transition:'width .5s ease' }} />
+                </div>
+              </div>
+            );
+          })}
+          <div style={{ marginTop:10, fontFamily:'Inter,system-ui', fontSize:10,
+            color:BD.muted, textAlign:'right' }}>
+            Basado en protocolos Israetel · Schoenfeld
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Barra de búsqueda global ──────────────────────────────────────────────────
 function SearchBar({ query, onQuery, muscle, onMuscle }) {
   const [focused, setFocused] = React.useState(false);
@@ -1413,6 +1608,10 @@ function BuilderSection() {
 
           {/* ── Mapa corporal ── */}
           <div style={{ width: mobile ? '100%' : 288, flexShrink:0, marginBottom: mobile ? 28 : 0 }}>
+
+            {/* Atlas Score — siempre visible en cabecera de columna */}
+            <AtlasScoreCard priorities={priorities} log={state.log} sessionSets={sessionSets} />
+
             <div style={{ display:'flex', gap:3, marginBottom:16,
               background:'rgba(255,255,255,0.04)', borderRadius:10, padding:3 }}>
               {[['front','Frontal'],['back','Posterior']].map(([v,lbl]) => (
