@@ -67,6 +67,39 @@ const MUSCLE_SCIENCE = {
   tibial:     { mev: 4,  mav: 8,  mrv: 12, freq: 3, sti: 0.50 },
 };
 
+// ── Pares antagonistas para análisis de equilibrio ────────────────────────────
+const BALANCE_PAIRS = [
+  {
+    id: 'push-pull',
+    labelA: 'Pecho + Empuje', idsA: ['pecho', 'delt_ant', 'triceps'],
+    labelB: 'Espalda + Tracción', idsB: ['dorsal', 'trapecio', 'delt_post', 'biceps'],
+    maxRatio: 1.35,
+    advice: 'Dominio de empuje sobre tracción. Añade remos, jalones o face pulls. La ratio ideal es ~1:1 o más tracción.',
+  },
+  {
+    id: 'quad-post',
+    labelA: 'Cuádriceps', idsA: ['cuadriceps'],
+    labelB: 'Isquio + Glúteos', idsB: ['isquio', 'gluteos'],
+    maxRatio: 2.2,
+    advice: 'Cuádriceps mucho más trabajado que la cadena posterior. Incluye sentadillas rumanas, peso muerto y hip thrust para proteger la rodilla.',
+  },
+  {
+    id: 'biceps-triceps',
+    labelA: 'Bíceps', idsA: ['biceps'],
+    labelB: 'Tríceps', idsB: ['triceps'],
+    maxRatio: 2.5, minRatio: 0.4,
+    adviceHigh: 'Mucho más bíceps que tríceps. El tríceps constituye 2/3 del volumen del brazo.',
+    adviceLow: 'Mucho más tríceps que bíceps. Añade trabajo de curls para equilibrar.',
+  },
+  {
+    id: 'delt-ant-post',
+    labelA: 'Deltoides anterior', idsA: ['delt_ant'],
+    labelB: 'Deltoides posterior', idsB: ['delt_post'],
+    maxRatio: 1.8,
+    advice: 'Deltoides anterior dominante. El deltoides posterior —el más olvidado— es clave para la salud del manguito rotador.',
+  },
+];
+
 // ── Equipment display ─────────────────────────────────────────────────────────
 const EQ_META = {
   barra:      { label: 'Barra',      color: '#F59E0B', bg: 'rgba(245,158,11,0.14)' },
@@ -646,6 +679,82 @@ function SciencePanel({ muscleId, priorities, log, sessionSets, onTogglePriority
           {statusText}
         </span>
       </div>
+    </div>
+  );
+}
+
+// ── Panel de equilibrio muscular ──────────────────────────────────────────────
+function BalancePanel({ log, sessionSets }) {
+  const imbalances = BALANCE_PAIRS.map(pair => {
+    const setsA = pair.idsA.reduce((acc, id) => acc + setsThisWeek(id, log) + (sessionSets[id] || 0), 0);
+    const setsB = pair.idsB.reduce((acc, id) => acc + setsThisWeek(id, log) + (sessionSets[id] || 0), 0);
+    const totalSets = setsA + setsB;
+    if (totalSets < 4) return null;
+    if (setsB === 0 && setsA === 0) return null;
+
+    const ratio = setsB === 0 ? (setsA > 0 ? Infinity : 1) : setsA / setsB;
+
+    let alert = null;
+    if (pair.maxRatio && ratio > pair.maxRatio) {
+      alert = { label: pair.labelA, dominator: true, advice: pair.adviceHigh || pair.advice, ratio };
+    } else if (pair.minRatio && ratio < pair.minRatio) {
+      alert = { label: pair.labelB, dominator: false, advice: pair.adviceLow || pair.advice, ratio: setsB / setsA };
+    }
+
+    return alert ? { ...alert, setsA, setsB, pair } : null;
+  }).filter(Boolean);
+
+  if (imbalances.length === 0) return null;
+
+  return (
+    <div style={{ marginTop:12 }}>
+      {imbalances.map(({ pair, setsA, setsB, advice, ratio }) => {
+        const ratioStr = isFinite(ratio) ? ratio.toFixed(1) + ':1' : '∞:1';
+        return (
+          <div key={pair.id} style={{
+            padding:'10px 12px', borderRadius:10, marginBottom:8,
+            background:'rgba(245,158,11,0.07)',
+            border:'1px solid rgba(245,158,11,0.22)',
+          }}>
+            <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:5 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ flexShrink:0 }}>
+                <path d="M12 2L2 19h20L12 2z" stroke={BD.amber} strokeWidth="2" strokeLinejoin="round"/>
+                <path d="M12 9v5M12 16v1" stroke={BD.amber} strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              <span style={{ fontFamily:'Inter,system-ui', fontSize:10, fontWeight:700, color:BD.amber, letterSpacing:'0.05em' }}>
+                DESEQUILIBRIO POTENCIAL
+              </span>
+            </div>
+            <div style={{ display:'flex', gap:8, marginBottom:6, alignItems:'center' }}>
+              <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, color:BD.sub,
+                padding:'2px 6px', borderRadius:4, background:'rgba(255,255,255,0.05)' }}>
+                {pair.labelA}: {setsA} series
+              </span>
+              <span style={{ color:BD.muted, fontSize:9 }}>vs</span>
+              <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, color:BD.sub,
+                padding:'2px 6px', borderRadius:4, background:'rgba(255,255,255,0.05)' }}>
+                {pair.labelB}: {setsB} series
+              </span>
+              <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9,
+                color:BD.amber, marginLeft:'auto' }}>
+                {ratioStr}
+              </span>
+            </div>
+            {/* Mini ratio bar */}
+            <div style={{ height:4, borderRadius:999, background:'rgba(255,255,255,0.06)', marginBottom:6, overflow:'hidden' }}>
+              <div style={{
+                height:'100%', borderRadius:999,
+                width:`${Math.min(100, (setsA / (setsA + setsB)) * 100)}%`,
+                background:`linear-gradient(90deg, ${BD.blue}, ${BD.amber})`,
+                transition:'width .4s ease',
+              }} />
+            </div>
+            <p style={{ fontFamily:'Inter,system-ui', fontSize:10, color:BD.sub, lineHeight:1.5, margin:0 }}>
+              {advice}
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1330,6 +1439,9 @@ function BuilderSection() {
             <div style={{ marginTop:12 }}>
               <WeeklyVolumePanel priorities={priorities} log={state.log} sessionSets={sessionSets} />
             </div>
+
+            {/* Balance panel — desequilibrios musculares */}
+            <BalancePanel log={state.log} sessionSets={sessionSets} />
 
             {workout.length > 0 && (
               <button onClick={() => navigate('/coach')}
