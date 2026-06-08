@@ -766,6 +766,151 @@ function BalancePanel({ log, sessionSets }) {
   );
 }
 
+}
+
+// ── Panel: Recomendación Atlas Coach ─────────────────────────────────────────
+function CoachRecommendationPanel({ priorities, log, sessionSets }) {
+  const [open,    setOpen]    = React.useState(true);
+  const [dayOpen, setDayOpen] = React.useState(false);
+  const { navigate } = useRoute();
+
+  const plan = React.useMemo(() => {
+    if (!window.AtlasEngine) return null;
+    const hasAny = Object.values(priorities).some(s => s === 'priority' || s === 'maintain' || s === 'reducir');
+    if (!hasAny) return null;
+    return window.AtlasEngine.exportBuilderPlan(priorities, 4);
+  }, [priorities]);
+
+  if (!plan || !plan.volumePlan.length) return null;
+
+  const split = plan.split;
+  const splitStyle = {
+    fullbody:    { color:BD.green,  bg:'rgba(34,197,94,0.10)',   border:'rgba(34,197,94,0.22)'   },
+    upper_lower: { color:BD.blue,   bg:'rgba(59,130,246,0.10)',  border:'rgba(59,130,246,0.22)'  },
+    ppl:         { color:BD.amber,  bg:'rgba(245,158,11,0.10)',  border:'rgba(245,158,11,0.22)'  },
+  }[split.key] || { color:BD.blue, bg:'rgba(59,130,246,0.10)', border:'rgba(59,130,246,0.22)' };
+
+  function handleSendToCoach() {
+    window.AtlasEngine.saveBuilderPlan(plan);
+    navigate('/coach');
+  }
+
+  return (
+    <div style={{ background:BD.card, borderRadius:14, padding:'14px 16px',
+      border:`1px solid ${BD.border}`, marginBottom:14 }}>
+
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: open ? 12 : 0 }}>
+        <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:7.5,
+          fontWeight:700, color:BD.muted, letterSpacing:1.6 }}>RECOMENDACIÓN ATLAS COACH</span>
+        <button onClick={() => setOpen(o=>!o)}
+          style={{ background:'none', border:'none', cursor:'pointer', color:BD.muted, padding:'4px 2px', lineHeight:0 }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            {open ? <path d="M18 15l-6-6-6 6"/> : <path d="M6 9l6 6 6-6"/>}
+          </svg>
+        </button>
+      </div>
+
+      {open && (
+        <>
+          {/* Split badge */}
+          <div style={{ padding:'10px 12px', borderRadius:10, marginBottom:12,
+            background:splitStyle.bg, border:`1px solid ${splitStyle.border}` }}>
+            <div style={{ display:'flex', alignItems:'baseline', gap:8, marginBottom:4 }}>
+              <span style={{ fontFamily:'"Space Grotesk",system-ui', fontSize:15, fontWeight:700, color:splitStyle.color }}>
+                {split.name}
+              </span>
+              <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8.5, color:BD.muted }}>
+                {split.sessionsPerWeek}×/sem · {plan.totalSets} series totales
+              </span>
+            </div>
+            <p style={{ fontFamily:'Inter,system-ui', fontSize:10, color:BD.sub, lineHeight:1.55, margin:0 }}>
+              {split.reason}
+            </p>
+          </div>
+
+          {/* Volume table */}
+          <div style={{ marginBottom:10 }}>
+            {plan.volumePlan.map(m => {
+              const done    = setsThisWeek(m.id, log) + (sessionSets[m.id] || 0);
+              const pct     = m.targetSets > 0 ? Math.min(100, (done / m.targetSets) * 100) : 0;
+              const prioC   = m.state === 'priority' ? BD.blue
+                            : m.state === 'maintain'  ? BD.green : BD.amber;
+              const badge   = m.state === 'priority' ? 'MAV'
+                            : m.state === 'maintain'  ? 'MEV' : 'DLD';
+              return (
+                <div key={m.id} style={{ marginBottom:8 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:3 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                      <span style={{ fontFamily:'Inter,system-ui', fontSize:10.5, color:BD.sub, fontWeight:600 }}>{m.name}</span>
+                      <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:7.5, padding:'1px 5px',
+                        borderRadius:999, background:`${prioC}1A`, color:prioC, fontWeight:700 }}>{badge}</span>
+                    </div>
+                    <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9.5, color:BD.muted }}>
+                      {done}/{m.targetSets} · {m.freq}×/sem
+                    </span>
+                  </div>
+                  <div style={{ height:3, borderRadius:999, background:'rgba(255,255,255,0.06)', overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:`${pct}%`, background:prioC, borderRadius:999, transition:'width .4s ease' }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Day structure toggle */}
+          <button onClick={() => setDayOpen(o=>!o)}
+            style={{ width:'100%', background:'rgba(255,255,255,0.03)', border:`1px solid ${BD.border}`,
+              borderRadius:8, padding:'7px 12px', cursor:'pointer', color:BD.muted,
+              fontFamily:'Inter,system-ui', fontSize:10, display:'flex', justifyContent:'space-between',
+              marginBottom: dayOpen ? 8 : 10 }}>
+            <span>Estructura de sesiones</span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.5" strokeLinecap="round" style={{ transform: dayOpen ? 'rotate(180deg)':'none', transition:'transform .2s' }}>
+              <path d="M6 9l6 6 6-6"/>
+            </svg>
+          </button>
+
+          {dayOpen && (
+            <div style={{ marginBottom:10 }}>
+              {plan.days.map((day, i) => (
+                <div key={i} style={{ marginBottom:6, padding:'8px 10px', borderRadius:8,
+                  background:'rgba(255,255,255,0.02)', border:`1px solid ${BD.border}` }}>
+                  <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8.5,
+                    fontWeight:700, color:BD.muted, marginBottom:5, letterSpacing:0.5 }}>
+                    {day.dayLabel.toUpperCase()} · {day.totalSets} series
+                  </div>
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                    {day.muscles.map(m => (
+                      <span key={m.id} style={{ fontFamily:'Inter,system-ui', fontSize:9.5,
+                        padding:'2px 7px', borderRadius:999,
+                        background:'rgba(59,130,246,0.10)', color:'#93C5FD' }}>
+                        {m.name} · {m.setsThisDay}s
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <p style={{ fontFamily:'Inter,system-ui', fontSize:9.5, color:BD.muted,
+                lineHeight:1.5, margin:'6px 0 0' }}>{split.science}</p>
+            </div>
+          )}
+
+          {/* CTA */}
+          <button onClick={handleSendToCoach}
+            style={{ width:'100%', padding:'10px 0', borderRadius:8, cursor:'pointer',
+              border:'1px solid rgba(59,130,246,0.28)', background:'rgba(59,130,246,0.08)',
+              color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:11.5, fontWeight:700,
+              transition:'all .15s' }}>
+            Enviar al Coach →
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Atlas Score ───────────────────────────────────────────────────────────────
 function computeAtlasScore(priorities, log, sessionSets) {
   const active = Object.entries(priorities).filter(([,s]) => s === 'priority' || s === 'maintain');
@@ -1836,6 +1981,13 @@ function BuilderSection() {
 
             {/* Balance panel — desequilibrios musculares */}
             <BalancePanel log={state.log} sessionSets={sessionSets} />
+
+            {/* Coach recommendation — split + volumen + estructura científica */}
+            <CoachRecommendationPanel
+              priorities={priorities}
+              log={state.log}
+              sessionSets={sessionSets}
+            />
 
             {(Object.keys(priorities).length > 0 || workout.length > 0) && (
               <div style={{ marginTop:12, display:'flex', flexDirection:'column', gap:6 }}>

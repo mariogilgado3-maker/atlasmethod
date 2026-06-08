@@ -772,6 +772,43 @@ function AtlasCoachSection() {
   const messagesEndRef = React.useRef(null);
   const inputRef       = React.useRef(null);
 
+  // ── Builder plan injection — reads plan saved by CoachRecommendationPanel ────
+  const [pendingBuilderPlan] = React.useState(() => {
+    try {
+      if (!window.AtlasEngine) return null;
+      const bp = AtlasEngine.loadBuilderPlan();
+      if (!bp || !bp.volumePlan?.length) return null;
+      if (Date.now() - (bp.generatedAt || 0) > 600000) return null; // expire 10 min
+      AtlasEngine.clearBuilderPlan();
+      return bp;
+    } catch { return null; }
+  });
+
+  // Inject builder plan into active chat once activeChatId is resolved
+  React.useEffect(() => {
+    if (!pendingBuilderPlan || !activeChatId) return;
+    const bp = pendingBuilderPlan;
+    const priority = bp.volumePlan.filter(m => m.state === 'priority').map(m => m.name);
+    const maintain = bp.volumePlan.filter(m => m.state === 'maintain').map(m => m.name);
+    const lines = [
+      'Plan del Builder recibido.',
+      priority.length ? `${priority.length} grupo${priority.length > 1 ? 's' : ''} en prioridad: ${priority.slice(0, 4).join(', ')}${priority.length > 4 ? ' y más' : ''}.` : '',
+      maintain.length ? `${maintain.length} en mantenimiento: ${maintain.slice(0, 3).join(', ')}${maintain.length > 3 ? ' y más' : ''}.` : '',
+      `Split recomendado: ${bp.split?.name || 'Upper/Lower'} · ${bp.days?.length || 4} sesiones semanales.`,
+      `Volumen objetivo: ${bp.totalSets} series/semana.`,
+      '¿Genero la rutina completa con ejercicios específicos basada en este plan?',
+    ].filter(Boolean);
+    setChats(prev => prev.map(c => c.id !== activeChatId ? c : {
+      ...c,
+      messages: [...c.messages, {
+        id: `bp-${Date.now()}`,
+        role: 'coach',
+        content: { type:'text', text: lines.join(' ') },
+        ts: Date.now(),
+      }],
+    }));
+  }, [activeChatId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const allExs = React.useMemo(() => {
     try { return ExerciseService.getAll(); } catch { return []; }
   }, []);
