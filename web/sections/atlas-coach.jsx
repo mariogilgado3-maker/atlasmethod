@@ -18,6 +18,21 @@ const AC = {
   input:   '#0A1422',
 };
 
+// ── Shared group metadata (used by logic AND components) ──────────────────────
+const AC_GP_LABEL = { pecho:'Pecho', hombro:'Hombros', espalda:'Espalda', biceps:'Bíceps', triceps:'Tríceps', piernas:'Piernas', gluteos:'Glúteos', core:'Core' };
+const AC_GP_RE    = {
+  pecho:   /pectoral/i,
+  hombro:  /deltoides/i,
+  espalda: /dorsal|trapecio|romboides/i,
+  biceps:  /b[íi]ceps|braquial/i,
+  triceps: /tr[íi]ceps/i,
+  piernas: /cu[áa]dricep|isquio|gemelo|tibial/i,
+  gluteos: /gl[úu]teo/i,
+  core:    /core|transverso|oblicuo|recto abdominal/i,
+};
+// Canonical Builder muscle per coach group (for SCIENCE lookups)
+const AC_GP_CANON = { pecho:'pecho', hombro:'delt_lat', espalda:'dorsal', biceps:'biceps', triceps:'triceps', piernas:'cuadriceps', gluteos:'gluteos', core:'core' };
+
 // ── Exercise grouping ─────────────────────────────────────────────────────────
 function acExGroup(ex) {
   const p = ex.pattern || '';
@@ -248,6 +263,11 @@ function acDetectIntent(text) {
   if (/quiero.*trabajar|mejorar.*pecho|mejorar.*espalda|mejorar.*pierna|foco en/.test(t)) return 'routine';
   if (/analiza|an[aá]lisis|c[oó]mo.*voy|qu[eé] tal.*entrena|revisar?|mi historial/.test(t)) return 'analysis';
   if (/progres|estoy mejorando|mis avances|mis n[úu]meros|he mejorado|cu[aá]nto he subido|mi progreso/.test(t)) return 'progress';
+  // explain — must come before injury/plateau/programming to catch "por qué"
+  if (/qu[eé] es.*(mav|mev|mrv)|qu[eé] significa.*(mav|mev|mrv)/.test(t)) return 'explain';
+  if (/expl[íi]ca|a qu[eé] se debe|c[oó]mo decidiste|criterio|metodolog[íi]a|razon(amiento)?|motivo/.test(t)) return 'explain';
+  if (/por qu[eé].*(series|volumen|split|ppl|upper|full.?body|prioridad|ejercicio|mav|mev)/.test(t)) return 'explain';
+  if (/por qu[eé].*(pecho|espalda|hombro|b[íi]ceps|tr[íi]ceps|pierna|gl[úu]teo|core|deltoides|dorsal)/.test(t)) return 'explain';
   if (/me duele|me molesta|tengo.*dolor|lesi[oó]n|lastim|dolor en|molestia en/.test(t)) return 'injury';
   if (/estancado|plateau|no progres|no avanzo|mismo peso|sin cambios/.test(t)) return 'plateau';
   if (/cu[aá]ntas series|volumen|frecuencia|mejor.*frecuencia|fallo muscular|rir|rpe/.test(t)) return 'programming';
@@ -620,6 +640,201 @@ function acResponseProgress(ctx) {
   };
 }
 
+// ── Explain intent ────────────────────────────────────────────────────────────
+function acExtractExplainTarget(text) {
+  const t = text.toLowerCase();
+  // Concept lookups
+  if (/\bmav\b/.test(t)) return { type:'concept', concept:'mav' };
+  if (/\bmev\b/.test(t)) return { type:'concept', concept:'mev' };
+  if (/\bmrv\b/.test(t)) return { type:'concept', concept:'mrv' };
+  // Split
+  if (/\bppl\b|push.*pull.*leg/.test(t)) return { type:'split', split:'ppl' };
+  if (/upper.*lower|superior.*inferior/.test(t)) return { type:'split', split:'upper_lower' };
+  if (/full.?body|cuerpo entero/.test(t)) return { type:'split', split:'fullbody' };
+  if (/split|estructura|distribución|días.*semana/.test(t)) return { type:'split', split:null };
+  // Muscle group — longest match first
+  const GP_DETECT = [
+    ['espalda', /espalda|dorsal|trapecio|jalón|dominada|remo/],
+    ['pecho',   /pecho|pectoral|press banca/],
+    ['hombro',  /hombro|deltoides/],
+    ['biceps',  /b[íi]ceps|curl/],
+    ['triceps', /tr[íi]ceps/],
+    ['piernas', /pierna|cu[áa]dricep|sentadilla|isquio|femoral/],
+    ['gluteos', /gl[úu]teo|hip thrust/],
+    ['core',    /core|abdominal|oblicuo/],
+  ];
+  for (const [group, re] of GP_DETECT) {
+    if (re.test(t)) {
+      const numMatch = t.match(/(\d+)\s*series?/);
+      return { type:'muscle', group, askedSeries: numMatch ? parseInt(numMatch[1]) : null };
+    }
+  }
+  // Volume (generic)
+  const numMatch = t.match(/(\d+)\s*series?/);
+  if (numMatch) return { type:'volume', askedSeries: parseInt(numMatch[1]) };
+  return { type:'general' };
+}
+
+function acResponseExplain(text, ctx, profile) {
+  const target = acExtractExplainTarget(text);
+  const sci  = window.AtlasEngine?.SCIENCE;
+  const STATE_LABEL = { priority:'prioridad máxima', maintain:'mantenimiento', reducir:'volumen reducido' };
+
+  // ── Concept: MEV / MAV / MRV ─────────────────────────────────────────────
+  if (target.type === 'concept') {
+    const defs = {
+      mev: {
+        title:'¿Qué es el MEV?',
+        text:`MEV — Minimum Effective Volume (Volumen Mínimo Efectivo).
+
+Es la cantidad mínima de series semanales necesarias para que un músculo crezca. Por debajo de este umbral el entrenamiento no produce adaptaciones de hipertrofia relevantes.
+
+Ejemplo: si el MEV del pecho es 10 series/sem, con 9 series apenas mantendrías el músculo actual, sin crecimiento real.
+
+El MEV varía por grupo muscular y nivel de entrenamiento. Para músculos de alta recuperación (gemelos, core) puede ser de 6–8 series; para grupos grandes (cuádriceps, dorsal) está en 8–12 series.`,
+        citation:'Israetel, M., Hoffman, J. & Case, C. (2019). Scientific Principles of Hypertrophy Training. Renaissance Periodization.',
+      },
+      mav: {
+        title:'¿Qué es el MAV?',
+        text:`MAV — Maximum Adaptive Volume (Volumen Adaptativo Máximo).
+
+Es el punto óptimo de volumen semanal donde el músculo produce la mayor respuesta de hipertrofia sin comprometer la recuperación. Es tu objetivo de series/semana cuando priorizas un grupo muscular.
+
+Por encima del MAV el estímulo adicional empieza a generar más fatiga que crecimiento. No significa que estés en la zona peligrosa — eso sería el MRV.
+
+Ejemplo: MAV del pecho en intermedio = 16 series/sem. En este punto maximizas el estímulo anabólico con recuperación completa entre sesiones.`,
+        citation:'Israetel, M., Hoffman, J. & Case, C. (2019). Scientific Principles of Hypertrophy Training. Renaissance Periodization.',
+      },
+      mrv: {
+        title:'¿Qué es el MRV?',
+        text:`MRV — Maximum Recoverable Volume (Volumen Máximo Recuperable).
+
+Es el techo de series semanales que puedes hacer y aun así recuperarte para la sesión siguiente. Superar el MRV de forma crónica acumula fatiga sin añadir estímulo productivo — la relación estímulo/fatiga se vuelve negativa.
+
+El MRV no es una barrera rígida: depende del sueño, nutrición, estrés externo y la fase del mesociclo. En fases de acumulación puedes acercarte más; en deload reduces al 50–60%.
+
+Ejemplo: MRV del pecho = 22 series/sem. Por encima de eso la recuperación entre sesiones es insuficiente para la síntesis proteica efectiva.`,
+        citation:'Israetel, M. & Feather, J. (2019). Managing Fatigue for Peak Performance. Renaissance Periodization Press.',
+      },
+    };
+    const d = defs[target.concept];
+    return { type:'explain', title:d.title, text:d.text, science:null, citation:d.citation };
+  }
+
+  // ── Split selection ───────────────────────────────────────────────────────
+  if (target.type === 'split') {
+    const splitKey = target.split;
+    const SPLIT_INFO = {
+      ppl: {
+        name:'Push / Pull / Legs (PPL)',
+        why:`PPL organiza el entrenamiento por patrones de movimiento: sesión de empuje (pecho, hombros, tríceps), sesión de tracción (espalda, bíceps) y sesión de piernas. Esto permite frecuencia 2× por grupo muscular con 48–72h de recuperación entre estímulos del mismo grupo.`,
+        when:`Es el split más eficiente cuando el volumen objetivo supera las 12–14 series por grupo muscular semanal. A ese volumen, una sola sesión sería demasiado larga y fatiga acumulada comprometería la técnica.`,
+        citation:'Colquhoun, R.J. et al. (2018). Training volume, not frequency, indicative of maximal strength adaptations to resistance training. Journal of Strength and Conditioning Research.',
+      },
+      upper_lower: {
+        name:'Upper / Lower',
+        why:`Upper/Lower divide el entrenamiento en sesiones de tren superior (pecho, espalda, hombros, brazos) y tren inferior (cuádriceps, isquiotibiales, glúteos, core). Frecuencia 2× por grupo con mayor recuperación que PPL.`,
+        when:`Óptimo con 4 sesiones semanales y volumen moderado (8–14 series/grupo/sem). Permite más trabajo por sesión que Full Body manteniendo frecuencia adecuada.`,
+        citation:'Schoenfeld, B.J. et al. (2016). Effects of resistance training frequency on measures of muscle hypertrophy. Sports Medicine.',
+      },
+      fullbody: {
+        name:'Full Body',
+        why:`Full Body entrena todos los grupos musculares en cada sesión. Con 3 sesiones semanales consigues frecuencia 3× por grupo — la más alta posible con este volumen — maximizando las "ventanas de síntesis proteica" por semana.`,
+        when:`Ideal con volumen bajo-moderado (<8 series/grupo/sem) y principiantes-intermedios. A mayor volumen, la sesión se alarga demasiado y la fatiga compromete los grupos trabajados al final.`,
+        citation:'Schoenfeld, B.J. et al. (2016). Effects of resistance training frequency on measures of muscle hypertrophy. Sports Medicine.',
+      },
+    };
+    const info = SPLIT_INFO[splitKey];
+    if (!info) {
+      // Generic split explanation if we don't know which split
+      const recommended = ctx.hasBuilderProfile && window.AtlasEngine
+        ? window.AtlasEngine.selectSplit(ctx.rawBuilderPriorities, ctx.targetDays)
+        : null;
+      const rName = recommended ? { fullbody:'Full Body', upper_lower:'Upper/Lower', ppl:'PPL' }[recommended.key] || recommended.name : null;
+      const rWhy  = recommended?.reason || 'Basado en tu volumen total y días disponibles.';
+      return {
+        type:'explain',
+        title:'¿Por qué este split?',
+        text: rName
+          ? `El split recomendado para tu perfil es **${rName}**.\n\n${rWhy}\n\n${recommended?.science || ''}`
+          : 'No tengo datos suficientes para explicar la selección del split. Configura tu perfil y Builder para obtener una recomendación científica.',
+        citation:'Israetel, M., Hoffman, J. & Case, C. (2019). Scientific Principles of Hypertrophy Training.',
+      };
+    }
+    const recommended = ctx.hasBuilderProfile && window.AtlasEngine
+      ? window.AtlasEngine.selectSplit(ctx.rawBuilderPriorities, ctx.targetDays)
+      : null;
+    const isRecommended = !splitKey || recommended?.key === splitKey;
+    return {
+      type:'explain',
+      title:`¿Por qué ${info.name}?`,
+      text:`${info.why}\n\n${info.when}${isRecommended && recommended?.reason ? `\n\nPara tu perfil: ${recommended.reason}` : ''}`,
+      citation:info.citation,
+    };
+  }
+
+  // ── Muscle group volume ───────────────────────────────────────────────────
+  if (target.type === 'muscle') {
+    const { group, askedSeries } = target;
+    const state   = ctx.builderGroupPriorities?.[group];
+    const muscleId = AC_GP_CANON[group];
+    const muscSci  = sci?.[muscleId];
+    const label    = AC_GP_LABEL[group] || group;
+
+    if (!muscSci) {
+      return { type:'text', text:`No tengo datos científicos para "${label}" en este momento. Asegúrate de que scientificEngine.js está cargado correctamente.` };
+    }
+
+    const targetSets = state === 'priority' ? muscSci.mav
+      : state === 'maintain'  ? muscSci.mev
+      : state === 'reducir'   ? Math.round(muscSci.mev * 0.5)
+      : muscSci.mev;
+    const stateNote = state
+      ? `Has marcado **${label}** como **${STATE_LABEL[state]}** en el Builder.`
+      : `${label} no está en tu perfil del Builder — se usa el MEV como referencia base.`;
+
+    const seriesNote = askedSeries
+      ? askedSeries <= muscSci.mev  ? `${askedSeries} series está cerca del MEV — es un estímulo mínimo. Si buscas hipertrofia, considera subir hacia el MAV.`
+        : askedSeries <= muscSci.mav ? `${askedSeries} series está dentro del rango óptimo MAV para ${label}.`
+        : askedSeries <= muscSci.mrv ? `${askedSeries} series está entre el MAV y el MRV — zona de alto estímulo, asegúrate de que la recuperación es suficiente.`
+        : `${askedSeries} series supera el MRV de ${label} (${muscSci.mrv}). Riesgo de acumulación de fatiga sin estímulo adicional productivo.`
+      : null;
+
+    const objective = profile?.objetivo || 'hipertrofia';
+    const objNote   = objective === 'hipertrofia'
+      ? 'Para hipertrofia, el rango MAV maximiza el estímulo anabólico con recuperación completa entre sesiones.'
+      : objective === 'fuerza'
+      ? 'Para fuerza, el volumen óptimo está ligeramente por debajo del MAV, con mayor intensidad relativa.'
+      : 'Para recomposición, el volumen en rango MEV–MAV permite el déficit calórico sin comprometer la señalización anabólica.';
+
+    return {
+      type: 'explain',
+      title: `¿Por qué ${askedSeries ? askedSeries + ' series de' : 'este volumen en'} ${label}?`,
+      text: `${stateNote}\n\n${objNote}\n\n${seriesNote ? seriesNote + '\n\n' : ''}La evidencia sitúa el rango óptimo de ${label} para sujetos entrenados en:\n• MEV: ${muscSci.mev} series/semana\n• MAV: ${muscSci.mav} series/semana\n• MRV: ${muscSci.mrv} series/semana\n\nFrecuencia óptima: ${muscSci.freq}× por semana.\n\nObjetivo actual para ti: **${targetSets} series/semana**.`,
+      science: { mev:muscSci.mev, mav:muscSci.mav, mrv:muscSci.mrv, target:targetSets, label },
+      citation: `Schoenfeld, B.J. & Grgic, J. (2018). Evidence-Based Guidelines for Resistance Training Volume to Maximize Muscle Hypertrophy. Strength & Conditioning Journal, 40(4).`,
+    };
+  }
+
+  // ── Generic volume question ───────────────────────────────────────────────
+  if (target.type === 'volume') {
+    return {
+      type: 'explain',
+      title: '¿Por qué este volumen?',
+      text: `El volumen (series por semana) es la variable con mayor impacto en la hipertrofia muscular a largo plazo. La prescripción de Atlas se basa en tres umbrales científicos:\n\n• **MEV** (Mínimo Efectivo): el mínimo de series para producir crecimiento.\n• **MAV** (Volumen Adaptativo Máximo): el punto de máximo estímulo con recuperación completa.\n• **MRV** (Máximo Recuperable): el techo antes de que la fatiga supere al estímulo.\n\nTu Builder define el estado de cada músculo (prioridad, mantenimiento, reducción), y Atlas asigna el volumen target según ese estado:\n• Prioridad → MAV\n• Mantenimiento → MEV\n• Reducción → ½ MEV\n\nPregúntame por un grupo específico para ver sus valores exactos.`,
+      citation: `Krieger, J.W. (2010). Single vs. multiple sets of resistance exercise for muscle hypertrophy: a meta-analysis. Journal of Strength and Conditioning Research, 24(4).`,
+    };
+  }
+
+  // ── General methodology ───────────────────────────────────────────────────
+  return {
+    type: 'explain',
+    title: 'Metodología de Atlas Coach',
+    text: `Atlas Coach basa todas sus recomendaciones en la literatura científica de hipertrofia y fuerza, integrada con tu perfil personal.\n\n**Cómo se construye una rutina:**\n1. Tu Builder define el estado de cada músculo (prioridad / mantener / reducir)\n2. El motor científico traduce eso a series semanales objetivo usando MEV/MAV/MRV por grupo\n3. Se selecciona el split óptimo según el volumen total y días disponibles\n4. Las series se distribuyen entre sesiones según la frecuencia recomendada para cada grupo\n\n**Principios base:**\n• Frecuencia óptima: 2× por grupo muscular para la mayoría de grupos (Schoenfeld, 2016)\n• Progresión: sobrecarga progresiva semanal (kg o reps) como driver principal\n• Deload: cada 4–6 semanas para evitar la acumulación de fatiga (Israetel, 2019)\n\nPregúntame "¿por qué X series de Y?" o "¿qué es el MAV?" para explicaciones específicas.`,
+    citation: `Israetel, M., Hoffman, J. & Case, C. (2019). Scientific Principles of Hypertrophy Training. Renaissance Periodization.`,
+  };
+}
+
 function acResponseInjury(text, memory) {
   const t = text.toLowerCase();
   const parts = ['hombro','rodilla','lumbar','espalda baja','muñeca','codo','tobillo','cadera','cuello','gemelo'];
@@ -695,6 +910,7 @@ function acGenerateSmartResponse(userText, state, profile, memory, allExs) {
     case 'routine':     return acResponseRoutine(params, ctx, profile, memory, allExs);
     case 'analysis':    return acResponseAnalysis(ctx, profile);
     case 'progress':    return acResponseProgress(ctx);
+    case 'explain':     return acResponseExplain(userText, ctx, profile);
     case 'injury':      return acResponseInjury(userText, memory);
     case 'plateau':     return acResponsePlateau(ctx);
     case 'programming': return acResponseProgramming(userText);
@@ -787,36 +1003,24 @@ function AcDashboard({ ctx, profile }) {
     return gain > 0.1 ? gain.toFixed(1) : null;
   }, [ctx, profile]);
 
-  // Volume per group via regex on weekMuscleVol keys
-  const GP_RE = {
-    pecho:   /pectoral/i,
-    hombro:  /deltoides/i,
-    espalda: /dorsal|trapecio|romboides/i,
-    biceps:  /b[íi]ceps|braquial/i,
-    triceps: /tr[íi]ceps/i,
-    piernas: /cu[áa]dricep|isquio|gemelo|tibial/i,
-    gluteos: /gl[úu]teo/i,
-    core:    /core|transverso|oblicuo|recto abdominal/i,
-  };
-  const GP_LABEL  = { pecho:'Pecho', hombro:'Hombros', espalda:'Espalda', biceps:'Bíceps', triceps:'Tríceps', piernas:'Piernas', gluteos:'Glúteos', core:'Core' };
-  const GP_CANON  = { pecho:'pecho', hombro:'delt_lat', espalda:'dorsal', biceps:'biceps', triceps:'triceps', piernas:'cuadriceps', gluteos:'gluteos', core:'core' };
-  const GP_DFLT   = { pecho:14, hombro:10, espalda:14, biceps:10, triceps:10, piernas:14, gluteos:14, core:10 };
+  // Volume per group via module-level regex constants
+  const GP_DFLT = { pecho:14, hombro:10, espalda:14, biceps:10, triceps:10, piernas:14, gluteos:14, core:10 };
 
   function gVol(g) {
-    const re = GP_RE[g];
+    const re = AC_GP_RE[g];
     return Object.entries(ctx.weekMuscleVol || {}).reduce((t,[k,v]) => t + (re?.test(k) ? v : 0), 0);
   }
   function gTarget(g) {
     const state = ctx.builderGroupPriorities?.[g];
-    if (state && window.AtlasEngine?.SCIENCE?.[GP_CANON[g]]) {
-      const sci = window.AtlasEngine.SCIENCE[GP_CANON[g]];
+    if (state && window.AtlasEngine?.SCIENCE?.[AC_GP_CANON[g]]) {
+      const sci = window.AtlasEngine.SCIENCE[AC_GP_CANON[g]];
       return state === 'priority' ? sci.mav : state === 'maintain' ? sci.mev : Math.round(sci.mev * 0.5);
     }
     return GP_DFLT[g] || 12;
   }
 
-  const bars = Object.keys(GP_LABEL).map(g => ({
-    g, label:GP_LABEL[g], sets:gVol(g), target:gTarget(g),
+  const bars = Object.keys(AC_GP_LABEL).map(g => ({
+    g, label:AC_GP_LABEL[g], sets:gVol(g), target:gTarget(g),
     priority: ctx.builderGroupPriorities?.[g] || null,
   })).filter(b => b.sets > 0 || (b.priority && b.priority !== 'off'));
 
@@ -1016,6 +1220,68 @@ function AcAnalysisCard({ content }) {
   );
 }
 
+function AcExplainCard({ content }) {
+  const { title, text, science, citation } = content;
+  // MEV/MAV/MRV range bar
+  const RangeBar = ({ mev, mav, mrv, target }) => {
+    const total = mrv + mrv * 0.1; // give a bit of padding
+    const pMev    = mev    / total * 100;
+    const pMav    = mav    / total * 100;
+    const pMrv    = mrv    / total * 100;
+    const pTarget = Math.min(target / total * 100, 100);
+    return (
+      <div style={{ margin:'14px 0', padding:'14px', background:'rgba(255,255,255,0.03)', borderRadius:8, border:`1px solid ${AC.border}` }}>
+        <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:7, fontWeight:700, color:AC.muted, letterSpacing:1.3, marginBottom:12 }}>RANGO DE VOLUMEN ÓPTIMO · SERIES/SEMANA</div>
+        {/* Bar track */}
+        <div style={{ position:'relative', height:8, background:'rgba(255,255,255,0.06)', borderRadius:4, marginBottom:24 }}>
+          {/* MEV → MAV zone (blue) */}
+          <div style={{ position:'absolute', top:0, height:'100%', left:`${pMev}%`, width:`${pMav-pMev}%`, background:'rgba(59,130,246,0.35)', borderRadius:4 }} />
+          {/* MAV → MRV zone (amber fade) */}
+          <div style={{ position:'absolute', top:0, height:'100%', left:`${pMav}%`, width:`${pMrv-pMav}%`, background:'rgba(245,158,11,0.18)', borderRadius:4 }} />
+          {/* Target marker */}
+          <div style={{ position:'absolute', top:-3, width:2, height:14, background:AC.blue, borderRadius:1, left:`${pTarget}%`, transform:'translateX(-50%)' }}>
+            <div style={{ position:'absolute', top:16, left:'50%', transform:'translateX(-50%)', fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, fontWeight:800, color:AC.blue, whiteSpace:'nowrap' }}>{target} series</div>
+          </div>
+        </div>
+        {/* Labels */}
+        <div style={{ display:'flex', justifyContent:'space-between' }}>
+          {[{l:'MEV',v:mev,c:AC.muted},{l:'MAV',v:mav,c:AC.blue},{l:'MRV',v:mrv,c:AC.amber}].map(({l,v,c}) => (
+            <div key={l} style={{ textAlign:'center' }}>
+              <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:7, fontWeight:700, color:c, letterSpacing:0.8 }}>{l}</div>
+              <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:13, fontWeight:800, color:c, marginTop:2 }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ borderRadius:14, overflow:'hidden', border:`1px solid rgba(59,130,246,0.22)`, background:AC.card2, animation:'fadeIn .25s ease' }}>
+      {/* Header */}
+      <div style={{ padding:'10px 16px', background:'rgba(59,130,246,0.08)', borderBottom:`1px solid rgba(59,130,246,0.16)`, display:'flex', alignItems:'center', gap:8 }}>
+        <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:7, fontWeight:700, color:'rgba(147,197,253,0.7)', letterSpacing:1.4 }}>RAZONAMIENTO CIENTÍFICO</div>
+      </div>
+      <div style={{ padding:'16px' }}>
+        {/* Title */}
+        {title && <div style={{ fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, color:AC.text, marginBottom:12, letterSpacing:-0.2 }}>{title}</div>}
+        {/* Range bar when science data is present */}
+        {science && <RangeBar {...science} />}
+        {/* Explanation text */}
+        <div style={{ fontFamily:'Inter,system-ui', fontSize:13, color:AC.sub, lineHeight:1.65, whiteSpace:'pre-line' }}>
+          {text.replace(/\*\*(.+?)\*\*/g, (_, m) => m) /* strip markdown bold for plain render */}
+        </div>
+        {/* Citation */}
+        {citation && (
+          <div style={{ marginTop:14, paddingTop:12, borderTop:`1px solid ${AC.border}`, fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, color:AC.muted, lineHeight:1.55 }}>
+            📚 {citation}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AcVolumeCard({ volumePlan }) {
   if (!volumePlan?.length) return null;
   const STATE_C = { priority: AC.blue, maintain: AC.green, reducir: AC.amber };
@@ -1120,6 +1386,7 @@ function AcCoachMessage({ content, onSendToBuilder }) {
       )}
     </div>
   );
+  if (content.type === 'explain') return <AcExplainCard content={content} />;
   return <div style={bubble}>{String(content)}</div>;
 }
 
