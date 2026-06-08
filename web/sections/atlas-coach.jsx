@@ -92,26 +92,77 @@ function acBuildRichContext(state, profile) {
   const coreVol = sumVol(/core|transverso|oblicuo|recto abdominal/);
   const pushPullRatio = pullVol > 0 ? pushVol / pullVol : pushVol > 0 ? 99 : 1;
 
-  // Load progression: track max kg per exercise across last 8 sessions
-  const recentLog = log.slice(0, 8);
-  const exerciseKgHistory = {};
-  recentLog.forEach(s => {
+  // ── Progression engine: per-exercise history and change detection ───────────
+  // exHistory[name] → [{dateTs, topKg, topKgReps}] ordered newest first
+  const exHistory = {};
+  log.slice(0, 10).forEach(s => {
     (s.exercises || []).forEach(ex => {
-      const kgs = (ex.sets || []).map(st => parseFloat(st.kg) || 0).filter(k => k > 0);
-      if (kgs.length === 0) return;
-      const maxKg = Math.max(...kgs);
-      if (!exerciseKgHistory[ex.name]) exerciseKgHistory[ex.name] = [];
-      exerciseKgHistory[ex.name].push(maxKg);
+      const sets = ex.sets || [];
+      let topKg = 0, topKgReps = 0;
+      sets.forEach(st => {
+        const kg = parseFloat(st.kg) || 0;
+        const reps = parseInt(st.reps) || parseInt(st.reps?.split('-')?.[0]) || 0;
+        if (kg > topKg || (kg === topKg && reps > topKgReps)) { topKg = kg; topKgReps = reps; }
+      });
+      if (topKg === 0) return;
+      if (!exHistory[ex.name]) exHistory[ex.name] = [];
+      exHistory[ex.name].push({ dateTs: s.dateTs, topKg, topKgReps });
     });
   });
 
-  // Detect plateaus (same max kg in last 3+ consecutive appearances)
-  const plateaus = [];
-  Object.entries(exerciseKgHistory).forEach(([name, kgs]) => {
-    if (kgs.length >= 3) {
-      const last3 = kgs.slice(0, 3);
-      if (last3.every(k => k === last3[0]) && last3[0] > 0) {
-        plateaus.push({ name, kg: last3[0], sessions: last3.length });
+  // All-time PR per exercise (max kg ever logged)
+  const allTimePR = {};
+  log.forEach(s => {
+    (s.exercises || []).forEach(ex => {
+      (ex.sets || []).forEach(st => {
+        const kg = parseFloat(st.kg) || 0;
+        if (!allTimePR[ex.name] || kg > allTimePR[ex.name]) allTimePR[ex.name] = kg;
+      });
+    });
+  });
+
+  // Compare last two appearances per exercise → progressions and plateaus
+  const progressions = [];
+  const plateaus     = [];
+  // Also keep kgHistory array for backwards compat
+  const exerciseKgHistory = {};
+
+  Object.entries(exHistory).forEach(([name, hist]) => {
+    exerciseKgHistory[name] = hist.map(h => h.topKg);
+    if (hist.length < 2) return;
+    const curr = hist[0], prev = hist[1];
+    const kgDelta  = curr.topKg  - prev.topKg;
+    const repDelta = curr.topKgReps - prev.topKgReps;
+
+    if (kgDelta > 0) {
+      // Weight increase → weight PR
+      const nextIncrease = curr.topKg < 40 ? 1 : curr.topKg < 80 ? 2.5 : 5;
+      progressions.push({
+        name, type:'weight', kgDelta, repDelta,
+        prev:{ kg:prev.topKg, reps:prev.topKgReps },
+        curr:{ kg:curr.topKg, reps:curr.topKgReps },
+        isAllTimePR: curr.topKg >= (allTimePR[name] || 0),
+        rec: curr.topKgReps < 8
+          ? `Trabaja ${curr.topKg}kg hasta llegar a 8 reps antes de subir más.`
+          : `Sigue con ${curr.topKg}kg hasta 10-12 reps, luego sube ${nextIncrease}kg.`,
+      });
+    } else if (kgDelta === 0 && repDelta > 0) {
+      // Rep increase at same weight → rep PR
+      const nextIncrease = curr.topKg < 40 ? 1 : curr.topKg < 80 ? 2.5 : 5;
+      progressions.push({
+        name, type:'reps', kgDelta, repDelta,
+        prev:{ kg:prev.topKg, reps:prev.topKgReps },
+        curr:{ kg:curr.topKg, reps:curr.topKgReps },
+        isAllTimePR: false,
+        rec: curr.topKgReps >= 12
+          ? `Ya llegas a 12 reps — sube ${nextIncrease}kg la próxima sesión.`
+          : `Sigue con ${curr.topKg}kg hasta alcanzar 12 reps, luego sube carga.`,
+      });
+    } else if (kgDelta === 0 && repDelta <= 0 && hist.length >= 3) {
+      // Plateau: same or worse for 3+ sessions
+      const oldest = hist[2];
+      if (oldest.topKg === curr.topKg && Math.abs(oldest.topKgReps - curr.topKgReps) <= 1) {
+        plateaus.push({ name, kg:curr.topKg, reps:curr.topKgReps, sessions:hist.length });
       }
     }
   });
@@ -183,6 +234,7 @@ function acBuildRichContext(state, profile) {
     mostTrained,
     streak: sessions.streak || 0,
     completed: sessions.completed || 0,
+    progressions, plateaus, exHistory, allTimePR,
     builderGroupPriorities,
     rawBuilderPriorities,
     hasBuilderProfile: Object.keys(builderGroupPriorities).length > 0,
@@ -194,7 +246,8 @@ function acDetectIntent(text) {
   const t = text.toLowerCase();
   if (/hazme|g[eé]nera|crea|dame.*rutina|rutina.*para|plan.*para|d[íi]a de|quiero.*entrena|qu[eé] hago hoy/.test(t)) return 'routine';
   if (/quiero.*trabajar|mejorar.*pecho|mejorar.*espalda|mejorar.*pierna|foco en/.test(t)) return 'routine';
-  if (/analiza|an[aá]lisis|c[oó]mo.*voy|qu[eé] tal.*entrena|revisar?|mi historial|mi progreso/.test(t)) return 'analysis';
+  if (/analiza|an[aá]lisis|c[oó]mo.*voy|qu[eé] tal.*entrena|revisar?|mi historial/.test(t)) return 'analysis';
+  if (/progres|estoy mejorando|mis avances|mis n[úu]meros|he mejorado|cu[aá]nto he subido|mi progreso/.test(t)) return 'progress';
   if (/me duele|me molesta|tengo.*dolor|lesi[oó]n|lastim|dolor en|molestia en/.test(t)) return 'injury';
   if (/estancado|plateau|no progres|no avanzo|mismo peso|sin cambios/.test(t)) return 'plateau';
   if (/cu[aá]ntas series|volumen|frecuencia|mejor.*frecuencia|fallo muscular|rir|rpe/.test(t)) return 'programming';
@@ -347,9 +400,23 @@ function acResponseGreeting(ctx, profile, memory) {
   else if (ctx.daysSinceLast === 1) parts.push('Entrenaste ayer.');
   else if (ctx.daysSinceLast < 99) parts.push(`Llevas ${ctx.daysSinceLast} días sin entrenar.`);
   if (ctx.streak >= 3) parts.push(`${ctx.streak} días de racha.`);
-  if (ctx.pushPullRatio > 1.5 && ctx.pushVol > 3) parts.push(`Esta semana tienes más empuje que tracción (${ctx.pushVol} vs ${ctx.pullVol} series).`);
-  else if (ctx.plateaus.length > 0) parts.push(`Hay un posible plateau en ${ctx.plateaus[0].name}.`);
-  else if (ctx.lowVolGroups.length > 0) parts.push(`${ctx.lowVolGroups[0]} con poco volumen esta semana.`);
+
+  // Surface top progression proactively
+  if (ctx.progressions?.length > 0) {
+    const p = ctx.progressions[0];
+    const exShort = p.name.split(' ').slice(0, 2).join(' ');
+    if (p.type === 'weight') {
+      parts.push(`Mejora detectada en ${exShort}: +${p.kgDelta}kg (${p.prev.kg}→${p.curr.kg}kg × ${p.curr.reps} reps).`);
+    } else {
+      parts.push(`Mejora en ${exShort}: +${p.repDelta} reps a ${p.curr.kg}kg (${p.prev.reps}→${p.curr.reps}).`);
+    }
+  } else if (ctx.pushPullRatio > 1.5 && ctx.pushVol > 3) {
+    parts.push(`Esta semana tienes más empuje que tracción (${ctx.pushVol} vs ${ctx.pullVol} series).`);
+  } else if (ctx.plateaus.length > 0) {
+    parts.push(`Hay un posible plateau en ${ctx.plateaus[0].name}.`);
+  } else if (ctx.lowVolGroups.length > 0) {
+    parts.push(`${ctx.lowVolGroups[0]} con poco volumen esta semana.`);
+  }
   parts.push('¿En qué te ayudo?');
   return { type:'text', text: parts.join(' ') };
 }
@@ -413,7 +480,17 @@ function acResponseRoutine(params, ctx, profile, memory, allExs) {
       arms:'Sesión de brazos:',
       shoulders:'Sesión de hombros:',
     };
-    intro = intros[splitKey] || 'Aquí tienes la rutina:';
+    let base = intros[splitKey] || 'Aquí tienes la rutina:';
+    // Inject top progression into intro when available
+    if (ctx.progressions?.length > 0) {
+      const p = ctx.progressions[0];
+      const exShort = p.name.split(' ').slice(0, 2).join(' ');
+      const note = p.type === 'weight'
+        ? `Recuerda que en ${exShort} subiste ${p.kgDelta}kg respecto a la sesión anterior — mantén ese ritmo.`
+        : `En ${exShort} mejoraste ${p.repDelta} reps a ${p.curr.kg}kg — ${p.rec}`;
+      base = base + '\n' + note;
+    }
+    intro = base;
   }
 
   // Build per-muscle volume plan for display (MEV / target / MRV)
@@ -486,15 +563,60 @@ function acResponseAnalysis(ctx, profile) {
   }
 
   const warns = issues.filter(i => i.sev === 'warning');
+  const progCount = ctx.progressions?.length || 0;
   const summary = warns.length > 0
-    ? `He revisado ${Math.min(ctx.totalSessions, 10)} sesiones. ${warns.length} punto${warns.length > 1 ? 's' : ''} que deberías corregir.`
-    : `He revisado ${Math.min(ctx.totalSessions, 10)} sesiones. Tu entrenamiento va bien, con algunos ajustes menores.`;
+    ? `He revisado ${Math.min(ctx.totalSessions, 10)} sesiones. ${warns.length} punto${warns.length > 1 ? 's' : ''} que deberías corregir${progCount > 0 ? ` y ${progCount} mejora${progCount > 1 ? 's' : ''} detectada${progCount > 1 ? 's' : ''}` : ''}.`
+    : progCount > 0
+      ? `He revisado ${Math.min(ctx.totalSessions, 10)} sesiones. ${progCount} mejora${progCount > 1 ? 's' : ''} detectada${progCount > 1 ? 's' : ''} desde la última sesión. Buen ritmo.`
+      : `He revisado ${Math.min(ctx.totalSessions, 10)} sesiones. Tu entrenamiento va bien, con algunos ajustes menores.`;
 
   return {
     type: 'analysis',
     summary,
     issues,
     stats: { sessions: ctx.totalSessions, week: ctx.weekSessions, push: ctx.pushVol, pull: ctx.pullVol, streak: ctx.streak, fatigue: ctx.fatigueLevel },
+    progressions: ctx.progressions || [],
+    plateaus: ctx.plateaus || [],
+  };
+}
+
+function acResponseProgress(ctx) {
+  if (ctx.totalSessions < 2) {
+    return { type:'text', text:'Necesito al menos 2 sesiones registradas para detectar progresión. Guarda tu primera rutina en el Builder y vuelve la semana siguiente.' };
+  }
+
+  const progs  = ctx.progressions || [];
+  const plats  = ctx.plateaus || [];
+
+  if (progs.length === 0 && plats.length === 0) {
+    return { type:'text', text:'No detecto cambios claros entre tus últimas dos sesiones — puede que sea demasiado pronto o que las cargas no estén registradas con precisión. ¿Guardas el kg y las reps en cada serie?' };
+  }
+
+  const lines = [];
+  if (progs.length > 0) {
+    lines.push(`${progs.length} mejora${progs.length > 1 ? 's' : ''} detectada${progs.length > 1 ? 's' : ''}:`);
+    progs.forEach(p => {
+      const badge = p.type === 'weight' ? `+${p.kgDelta}kg` : `+${p.repDelta} reps`;
+      lines.push(`• ${p.name}: ${p.prev.kg}kg×${p.prev.reps} → ${p.curr.kg}kg×${p.curr.reps} (${badge})`);
+      lines.push(`  → ${p.rec}`);
+    });
+  }
+  if (plats.length > 0) {
+    lines.push('');
+    lines.push(`${plats.length} plateau${plats.length > 1 ? 's' : ''} detectado${plats.length > 1 ? 's' : ''}:`);
+    plats.forEach(p => {
+      lines.push(`• ${p.name}: ${p.kg}kg×${p.reps} sin cambios en ${p.sessions} sesiones → prueba subir intensidad (RIR -1) o variar el ejercicio.`);
+    });
+  }
+
+  return {
+    type: 'analysis',
+    summary: lines[0],
+    issues: [],
+    stats: { sessions: ctx.totalSessions, week: ctx.weekSessions, push: ctx.pushVol, pull: ctx.pullVol, streak: ctx.streak, fatigue: ctx.fatigueLevel },
+    progressions: progs,
+    plateaus: plats,
+    _progressText: lines.join('\n'),
   };
 }
 
@@ -572,6 +694,7 @@ function acGenerateSmartResponse(userText, state, profile, memory, allExs) {
     case 'greeting':    return acResponseGreeting(ctx, profile, memory);
     case 'routine':     return acResponseRoutine(params, ctx, profile, memory, allExs);
     case 'analysis':    return acResponseAnalysis(ctx, profile);
+    case 'progress':    return acResponseProgress(ctx);
     case 'injury':      return acResponseInjury(userText, memory);
     case 'plateau':     return acResponsePlateau(ctx);
     case 'programming': return acResponseProgramming(userText);
@@ -586,8 +709,9 @@ function acGenerateSmartResponse(userText, state, profile, memory, allExs) {
 // ── Dynamic context chips ─────────────────────────────────────────────────────
 function acGetDynamicChips(ctx, profile) {
   const chips = [];
+  if (ctx.progressions?.length > 0) chips.push('Ver mi progresión');
   if (ctx.daysSinceLast > 4 && ctx.daysSinceLast < 99) chips.push(`¿Retomamos hoy?`);
-  if (ctx.plateaus.length > 0) chips.push(`Estancado en ${ctx.plateaus[0].name.split(' ')[0]}`);
+  if (ctx.plateaus?.length > 0) chips.push(`Estancado en ${ctx.plateaus[0].name.split(' ')[0]}`);
   if (ctx.pushPullRatio > 1.5) chips.push('Necesito más tracción');
   if (ctx.fatigueLevel === 'high') chips.push('¿Debo hacer deload?');
   if (ctx.totalSessions === 0) chips.push('Hazme un plan para empezar');
@@ -797,6 +921,57 @@ function AcVolumeCard({ volumePlan }) {
   );
 }
 
+function AcProgressionCard({ progressions, plateaus }) {
+  const hasProgs  = progressions?.length > 0;
+  const hasPlats  = plateaus?.length > 0;
+  if (!hasProgs && !hasPlats) return null;
+
+  return (
+    <div style={{ borderRadius:12, overflow:'hidden', border:`1px solid ${AC.border}`, background:AC.card2, marginTop:8 }}>
+      {hasProgs && (
+        <>
+          <div style={{ padding:'7px 14px', borderBottom:`1px solid ${AC.border}` }}>
+            <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:7, fontWeight:700, color:'#22C55E', letterSpacing:1.4 }}>PROGRESIÓN DETECTADA</div>
+          </div>
+          {progressions.map((p, i) => {
+            const badge = p.type === 'weight' ? `+${p.kgDelta}kg` : `+${p.repDelta} rep${p.repDelta > 1 ? 's' : ''}`;
+            return (
+              <div key={p.name} style={{ padding:'11px 14px', borderTop: i > 0 ? `1px solid rgba(255,255,255,0.04)` : 'none', borderLeft:'2px solid #22C55E' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8 }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontFamily:'Inter,system-ui', fontSize:12, fontWeight:700, color:AC.text, marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {p.name}{p.isAllTimePR && <span style={{ marginLeft:6, fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, fontWeight:700, color:'#F59E0B', background:'rgba(245,158,11,0.12)', border:'1px solid rgba(245,158,11,0.3)', borderRadius:4, padding:'1px 5px', letterSpacing:0.6 }}>PR</span>}
+                    </div>
+                    <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:10, color:AC.muted, marginBottom:5 }}>
+                      {p.prev.kg}kg×{p.prev.reps} <span style={{ color:AC.muted }}>→</span> {p.curr.kg}kg×{p.curr.reps}
+                    </div>
+                    {p.rec && <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:AC.blue, fontWeight:500 }}>→ {p.rec}</div>}
+                  </div>
+                  <div style={{ flexShrink:0, fontFamily:'ui-monospace,Menlo,monospace', fontSize:12, fontWeight:800, color:'#22C55E', background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.25)', borderRadius:6, padding:'4px 9px', letterSpacing:-0.3 }}>{badge}</div>
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
+      {hasPlats && (
+        <>
+          <div style={{ padding:'7px 14px', borderBottom:`1px solid ${AC.border}`, borderTop: hasProgs ? `1px solid ${AC.border}` : 'none' }}>
+            <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:7, fontWeight:700, color:AC.amber, letterSpacing:1.4 }}>PLATEAU DETECTADO</div>
+          </div>
+          {plateaus.map((p, i) => (
+            <div key={p.name} style={{ padding:'11px 14px', borderTop: i > 0 ? `1px solid rgba(255,255,255,0.04)` : 'none', borderLeft:`2px solid ${AC.amber}` }}>
+              <div style={{ fontFamily:'Inter,system-ui', fontSize:12, fontWeight:700, color:AC.text, marginBottom:3 }}>{p.name}</div>
+              <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:10, color:AC.muted, marginBottom:4 }}>{p.kg}kg × {p.reps} reps · {p.sessions} sesiones sin cambio</div>
+              <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:AC.amber, fontWeight:500 }}>→ Prueba RIR −1 esta sesión o cambia a una variación del mismo patrón.</div>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 function AcCoachMessage({ content, onSendToBuilder }) {
   const bubble = { padding:'13px 18px', borderRadius:'4px 18px 18px 18px', background:AC.card, border:`1px solid ${AC.border}`, fontFamily:'Inter,system-ui', fontSize:14, lineHeight:1.65, color:AC.text, whiteSpace:'pre-line' };
   if (content.type === 'text') return <div style={bubble}>{content.text}</div>;
@@ -809,7 +984,14 @@ function AcCoachMessage({ content, onSendToBuilder }) {
       ))}
     </div>
   );
-  if (content.type === 'analysis') return <AcAnalysisCard content={content} />;
+  if (content.type === 'analysis') return (
+    <div>
+      <AcAnalysisCard content={content} />
+      {(content.progressions?.length > 0 || content.plateaus?.length > 0) && (
+        <AcProgressionCard progressions={content.progressions} plateaus={content.plateaus} />
+      )}
+    </div>
+  );
   return <div style={bubble}>{String(content)}</div>;
 }
 
