@@ -961,6 +961,193 @@ function AtlasScoreCard({ priorities, log, sessionSets }) {
   );
 }
 
+// ── Modal: Generar Plan ───────────────────────────────────────────────────────
+function PlanModal({ priorities, log, sessionSets, workout, onClose, onGoLab }) {
+  const sc    = computeAtlasScore(priorities, log, sessionSets);
+  const today = new Date().toLocaleDateString('es-ES', { year:'numeric', month:'long', day:'numeric' });
+  const active = Object.entries(priorities).filter(([,s]) => s);
+
+  // Paleta clara para impresión
+  const PT = {
+    bg:'#F8F9FC', card:'#FFFFFF', border:'#E5E7EB',
+    text:'#0F1A2E', sub:'#374151', muted:'#9CA3AF',
+    blue:'#2563EB', green:'#16A34A', amber:'#D97706', red:'#DC2626',
+  };
+
+  const scoreColor = sc.total >= 80 ? PT.green
+                   : sc.total >= 65 ? PT.amber
+                   : sc.total >= 45 ? '#EA580C' : PT.red;
+  const qualLabel  = sc.total >= 80 ? 'Excelente' : sc.total >= 65 ? 'Bueno'
+                   : sc.total >= 45 ? 'Mejorable' : 'Atención';
+
+  function handlePrint() {
+    const s = document.createElement('style');
+    s.dataset.ap = '1';
+    s.textContent = `@media print{body *{visibility:hidden!important}#atlas-plan-print,#atlas-plan-print *{visibility:visible!important}#atlas-plan-print{position:fixed;inset:0;overflow:visible!important;padding:40px!important;border-radius:0!important;max-height:none!important}.atlas-noprint{display:none!important}}`;
+    document.head.appendChild(s);
+    window.print();
+    window.addEventListener('afterprint', () =>
+      document.querySelectorAll('[data-ap]').forEach(e => e.remove()), { once:true });
+  }
+
+  return ReactDOM.createPortal(
+    <div style={{ position:'fixed', inset:0, zIndex:960, overflowY:'auto',
+      display:'flex', alignItems:'flex-start', justifyContent:'center',
+      padding:'4vh 16px 6vh' }}>
+
+      {/* Fondo oscuro */}
+      <div onClick={onClose}
+        style={{ position:'fixed', inset:0, background:'rgba(4,10,20,0.86)', zIndex:0 }} />
+
+      {/* Tarjeta del plan — fondo claro para impresión */}
+      <div id="atlas-plan-print"
+        style={{ position:'relative', zIndex:1, width:'min(680px, 100%)',
+          background:PT.bg, borderRadius:20, padding:'44px 48px',
+          color:PT.text, fontFamily:'Inter,system-ui',
+          boxShadow:'0 32px 80px rgba(0,0,0,0.55)' }}>
+
+        {/* ── Cabecera ── */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start',
+          marginBottom:28, paddingBottom:22, borderBottom:`1.5px solid ${PT.border}` }}>
+          <div>
+            <div style={{ fontFamily:'"Space Grotesk",system-ui', fontWeight:800,
+              fontSize:22, color:PT.text, letterSpacing:-0.5, marginBottom:3 }}>
+              Atlas Method
+            </div>
+            <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9.5,
+              color:PT.muted, letterSpacing:0.5 }}>
+              PLAN DE ENTRENAMIENTO · {today.toUpperCase()}
+            </div>
+          </div>
+          <button onClick={onClose} className="atlas-noprint"
+            style={{ background:'none', border:'none', cursor:'pointer',
+              color:PT.muted, fontSize:22, lineHeight:1, padding:'0 4px' }}>
+            ×
+          </button>
+        </div>
+
+        {/* ── Atlas Score ── */}
+        <div style={{ display:'flex', gap:32, marginBottom:30, alignItems:'center' }}>
+          <div style={{ textAlign:'center', flexShrink:0, minWidth:84 }}>
+            <div style={{ fontFamily:'"Space Grotesk",system-ui', fontSize:58,
+              fontWeight:800, color:scoreColor, lineHeight:1 }}>
+              {sc.total}
+            </div>
+            <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:PT.muted, marginTop:2 }}>/100</div>
+            <span style={{ display:'inline-block', marginTop:7, padding:'3px 10px',
+              borderRadius:999, background:`${scoreColor}18`, color:scoreColor,
+              fontFamily:'Inter,system-ui', fontSize:10, fontWeight:700 }}>
+              {qualLabel}
+            </span>
+          </div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8.5,
+              color:PT.muted, letterSpacing:1.5, marginBottom:10 }}>ATLAS SCORE</div>
+            {sc.pillars.map(p => {
+              const pct = p.pts / p.max;
+              const c   = pct >= 0.8 ? PT.green : pct >= 0.5 ? PT.amber : PT.red;
+              return (
+                <div key={p.key} style={{ marginBottom:7 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
+                    <span style={{ fontFamily:'Inter,system-ui', fontSize:10.5, color:PT.sub }}>{p.label}</span>
+                    <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9.5,
+                      color:c, fontWeight:700 }}>{p.pts}/{p.max}</span>
+                  </div>
+                  <div style={{ height:4, borderRadius:999, background:'#E5E7EB', overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:`${pct*100}%`, background:c, borderRadius:999 }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Músculos priorizados ── */}
+        {active.length > 0 && (
+          <div style={{ marginBottom:26 }}>
+            <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8.5,
+              color:PT.muted, letterSpacing:1.5, marginBottom:12 }}>MÚSCULOS PRIORIZADOS</div>
+            <div style={{ borderRadius:10, overflow:'hidden', border:`1px solid ${PT.border}` }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 96px 100px 68px',
+                background:'#F3F4F6', padding:'7px 14px' }}>
+                {['Músculo','Prioridad','Series/sem','Frec.'].map(h => (
+                  <span key={h} style={{ fontFamily:'Inter,system-ui', fontSize:9,
+                    fontWeight:700, color:PT.muted, letterSpacing:0.5 }}>{h}</span>
+                ))}
+              </div>
+              {active.map(([id, state], i) => {
+                const def  = MUSCLES[id];
+                const sci2 = MUSCLE_SCIENCE[id];
+                if (!def || !sci2) return null;
+                const done   = setsThisWeek(id, log) + (sessionSets[id] || 0);
+                const target = state === 'priority' ? sci2.mav
+                             : state === 'maintain'  ? sci2.mev
+                             : Math.round(sci2.mev * 0.5);
+                const sc2c   = state === 'priority' ? PT.blue
+                             : state === 'maintain'  ? PT.green : PT.amber;
+                const slabel = state === 'priority' ? 'Prioridad'
+                             : state === 'maintain'  ? 'Mantener' : 'Reducir';
+                return (
+                  <div key={id} style={{ display:'grid', gridTemplateColumns:'1fr 96px 100px 68px',
+                    padding:'9px 14px', borderTop:`1px solid ${PT.border}`,
+                    background: i%2===0 ? PT.card : '#FAFAFA' }}>
+                    <span style={{ fontFamily:'Inter,system-ui', fontSize:11, fontWeight:600, color:PT.text }}>{def.label}</span>
+                    <span style={{ fontFamily:'Inter,system-ui', fontSize:10.5, color:sc2c, fontWeight:700 }}>{slabel}</span>
+                    <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:10, color:PT.text }}>
+                      {done}<span style={{ color:PT.muted }}>/{target} sets</span>
+                    </span>
+                    <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:10, color:PT.sub }}>{sci2.freq}×/sem</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Insight ── */}
+        <div style={{ background:'#EFF6FF', border:'1px solid #BFDBFE',
+          borderRadius:10, padding:'12px 16px', marginBottom:26 }}>
+          <span style={{ fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700,
+            color:'#1D4ED8' }}>Recomendación · </span>
+          <span style={{ fontFamily:'Inter,system-ui', fontSize:11, color:'#1E40AF',
+            lineHeight:1.65 }}>{sc.insight}</span>
+        </div>
+
+        {/* ── Footer acciones ── */}
+        <div style={{ borderTop:`1px solid ${PT.border}`, paddingTop:18,
+          display:'flex', alignItems:'center', justifyContent:'space-between',
+          flexWrap:'wrap', gap:10 }}>
+          <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:PT.muted }}>
+            Atlas Method · <span style={{ fontWeight:700, color:PT.blue }}>atlasmethod.com</span>
+          </div>
+          <div className="atlas-noprint" style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <button onClick={onClose}
+              style={{ padding:'8px 14px', borderRadius:8, border:`1px solid ${PT.border}`,
+                background:'transparent', fontFamily:'Inter,system-ui', fontSize:11,
+                color:PT.sub, cursor:'pointer', fontWeight:600 }}>
+              Cerrar
+            </button>
+            <button onClick={onGoLab}
+              style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${PT.blue}`,
+                background:'transparent', fontFamily:'Inter,system-ui', fontSize:11,
+                color:PT.blue, cursor:'pointer', fontWeight:700 }}>
+              Ir al Laboratorio →
+            </button>
+            <button onClick={handlePrint}
+              style={{ padding:'8px 18px', borderRadius:8, border:'none',
+                background:PT.blue, fontFamily:'Inter,system-ui', fontSize:11,
+                color:'white', cursor:'pointer', fontWeight:700,
+                boxShadow:'0 2px 8px rgba(37,99,235,0.35)' }}>
+              Descargar PDF
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ── Barra de búsqueda global ──────────────────────────────────────────────────
 function SearchBar({ query, onQuery, muscle, onMuscle }) {
   const [focused, setFocused] = React.useState(false);
@@ -1453,6 +1640,7 @@ function BuilderSection() {
   const [workout,    setWorkout]   = React.useState([]);
   const [saved,      setSaved]     = React.useState(false);
   const [flash,      setFlash]     = React.useState(false);
+  const [showPlan,   setShowPlan]  = React.useState(false);
 
   // Priorities persist in localStorage
   const [priorities, setPrioritiesRaw] = React.useState(() => {
@@ -1649,14 +1837,27 @@ function BuilderSection() {
             {/* Balance panel — desequilibrios musculares */}
             <BalancePanel log={state.log} sessionSets={sessionSets} />
 
-            {workout.length > 0 && (
-              <button onClick={() => navigate('/coach')}
-                style={{ marginTop:10, width:'100%', padding:'10px 0', borderRadius:10,
-                  border:'1px solid rgba(59,130,246,0.30)', background:'rgba(59,130,246,0.08)',
-                  color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:12, fontWeight:700,
-                  cursor:'pointer' }}>
-                Analizar con Coach →
-              </button>
+            {(Object.keys(priorities).length > 0 || workout.length > 0) && (
+              <div style={{ marginTop:12, display:'flex', flexDirection:'column', gap:6 }}>
+                <button onClick={() => setShowPlan(true)}
+                  style={{ width:'100%', padding:'12px 0', borderRadius:10, border:'none',
+                    cursor:'pointer',
+                    background:'linear-gradient(135deg, #1D4ED8 0%, #2563EB 100%)',
+                    color:'white', fontFamily:'Inter,system-ui', fontSize:12.5, fontWeight:700,
+                    letterSpacing:0.2, boxShadow:'0 4px 20px rgba(37,99,235,0.40)',
+                    transition:'opacity .15s' }}>
+                  Generar Plan →
+                </button>
+                {workout.length > 0 && (
+                  <button onClick={() => navigate('/coach')}
+                    style={{ width:'100%', padding:'9px 0', borderRadius:10,
+                      border:'1px solid rgba(59,130,246,0.22)', background:'rgba(59,130,246,0.06)',
+                      color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:11.5, fontWeight:700,
+                      cursor:'pointer' }}>
+                    Analizar con Coach →
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
@@ -1713,6 +1914,17 @@ function BuilderSection() {
         <WorkoutBar
           workout={workout} saved={saved} duration={duration}
           onSave={save} mobile={mobile}
+        />
+      )}
+
+      {showPlan && (
+        <PlanModal
+          priorities={priorities}
+          log={state.log}
+          sessionSets={sessionSets}
+          workout={workout}
+          onClose={() => setShowPlan(false)}
+          onGoLab={() => { setShowPlan(false); navigate('/laboratorio'); }}
         />
       )}
     </section>
