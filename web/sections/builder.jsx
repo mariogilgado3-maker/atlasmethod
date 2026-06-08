@@ -169,15 +169,19 @@ function BodyMap({ view, selected, onPick, priorities }) {
     const hasSel = selected !== null;
     const prio   = priorities[id] === 'priority';
     const maint  = priorities[id] === 'maintain';
+    const red    = priorities[id] === 'reducir';
 
-    const opacity = sel                         ? 1
-                  : hasSel && hovr              ? 0.24
-                  : hasSel && prio              ? 0.32
-                  : hasSel                      ? 0.08
-                  : hovr                        ? 0.90
-                  : prio                        ? 0.78
-                  : maint                       ? 0.50
-                  :                               0.36;
+    const opacity = sel                ? 1
+      : hasSel && hovr                 ? 0.24
+      : hasSel && prio                 ? 0.32
+      : hasSel && maint                ? 0.22
+      : hasSel && red                  ? 0.16
+      : hasSel                         ? 0.08
+      : hovr                           ? 0.90
+      : prio                           ? 0.78
+      : maint                          ? 0.50
+      : red                            ? 0.28
+      :                                  0.36;
 
     const filter = sel               ? 'url(#glow-sel)'
                  : prio && !hasSel   ? 'url(#glow-prio)'
@@ -463,23 +467,34 @@ function BodyMap({ view, selected, onPick, priorities }) {
 
 // ── Panel de volumen semanal ──────────────────────────────────────────────────
 function WeeklyVolumePanel({ priorities, log, sessionSets }) {
-  const priorityMuscles = Object.entries(priorities).filter(([, s]) => s === 'priority' || s === 'maintain');
-  if (priorityMuscles.length === 0) return null;
+  const activeMuscles = Object.entries(priorities).filter(
+    ([, s]) => s === 'priority' || s === 'maintain' || s === 'reducir'
+  );
+  if (activeMuscles.length === 0) return null;
 
   return (
     <div style={{ background:BD.card, borderRadius:14, padding:'14px 16px', marginBottom:20,
       border:`1px solid ${BD.border}` }}>
       <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8.5, fontWeight:700,
         color:BD.muted, letterSpacing:1.5, marginBottom:12 }}>OBJETIVOS SEMANALES</div>
-      {priorityMuscles.map(([id, state]) => {
-        const def  = MUSCLES[id];
-        const sci  = MUSCLE_SCIENCE[id];
+      {activeMuscles.map(([id, state]) => {
+        const def    = MUSCLES[id];
+        const sci    = MUSCLE_SCIENCE[id];
         if (!def || !sci) return null;
         const isPrio  = state === 'priority';
-        const target  = isPrio ? sci.mav : sci.mev;
+        const isMaint = state === 'maintain';
+        const isRed   = state === 'reducir';
+        // Priority→MAV, Mantener→MEV, Reducir→50% MEV (deload)
+        const target  = isPrio ? sci.mav : isMaint ? sci.mev : Math.round(sci.mev * 0.5);
         const done    = setsThisWeek(id, log) + (sessionSets[id] || 0);
         const pct     = Math.min(100, Math.round((done / target) * 100));
-        const color   = pct >= 100 ? BD.green : pct >= 60 ? BD.amber : BD.blue;
+        // Para reducir: colores invertidos (menos = mejor)
+        const color   = isRed
+          ? (done <= target ? BD.green : done <= sci.mev ? BD.amber : BD.red)
+          : pct >= 100 ? BD.green : pct >= 60 ? BD.amber : BD.blue;
+        const badgeBg    = isPrio ? 'rgba(59,130,246,0.18)'  : isMaint ? 'rgba(34,197,94,0.12)'  : 'rgba(245,158,11,0.12)';
+        const badgeColor = isPrio ? '#93C5FD'                : isMaint ? BD.green                 : BD.amber;
+        const badgeLabel = isPrio ? 'PRIORIDAD'              : isMaint ? 'MANTENER'               : 'REDUCIR';
         return (
           <div key={id} style={{ marginBottom:10 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
@@ -487,12 +502,10 @@ function WeeklyVolumePanel({ priorities, log, sessionSets }) {
                 <span style={{ fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700, color:BD.text }}>
                   {def.label}
                 </span>
-                {isPrio && (
-                  <span style={{ fontSize:8, padding:'1px 5px', borderRadius:999, fontWeight:700,
-                    background:'rgba(59,130,246,0.18)', color:'#93C5FD', fontFamily:'Inter,system-ui' }}>
-                    PRIORIDAD
-                  </span>
-                )}
+                <span style={{ fontSize:8, padding:'1px 5px', borderRadius:999, fontWeight:700,
+                  background:badgeBg, color:badgeColor, fontFamily:'Inter,system-ui' }}>
+                  {badgeLabel}
+                </span>
               </div>
               <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:10, color }}>
                 {done}/{target} sets · {sci.freq}×/sem
@@ -507,6 +520,131 @@ function WeeklyVolumePanel({ priorities, log, sessionSets }) {
       })}
       <div style={{ marginTop:8, fontFamily:'Inter,system-ui', fontSize:10, color:BD.muted }}>
         Basado en protocolos de hipertrofia (Israetel / Schoenfeld)
+      </div>
+    </div>
+  );
+}
+
+// ── Panel de recomendación científica ────────────────────────────────────────
+function SciencePanel({ muscleId, priorities, log, sessionSets, onTogglePriority }) {
+  if (!muscleId) return null;
+  const def = MUSCLES[muscleId];
+  const sci = MUSCLE_SCIENCE[muscleId];
+  if (!def || !sci) return null;
+
+  const prio = priorities[muscleId];
+  const done = setsThisWeek(muscleId, log) + (sessionSets[muscleId] || 0);
+
+  const statusColor = done === 0       ? BD.muted
+                    : done < sci.mev   ? BD.amber
+                    : done < sci.mav   ? BD.green
+                    : done <= sci.mrv  ? BD.blue
+                    : BD.red;
+
+  const statusText = done === 0        ? 'Sin series esta semana'
+                   : done < sci.mev    ? 'Por debajo del volumen mínimo efectivo'
+                   : done < sci.mav    ? 'En rango óptimo · sigue así'
+                   : done <= sci.mrv   ? 'Volumen elevado · monitoriza recuperación'
+                   :                    'Superando el máximo recuperable';
+
+  const ROWS = [
+    { key:'MEV', val:sci.mev, color:BD.amber, title:'Mínimo efectivo',
+      body:'Series mínimas por semana para provocar adaptación. Por debajo no hay progreso real.' },
+    { key:'MAV', val:sci.mav, color:BD.green, title:'Volumen óptimo',
+      body:'Rango donde la hipertrofia se maximiza sin comprometer la recuperación semanal.' },
+    { key:'MRV', val:sci.mrv, color:BD.red,   title:'Máximo recuperable',
+      body:'Límite superior. Superarlo de forma sostenida acumula fatiga y frena el progreso.' },
+  ];
+
+  return (
+    <div style={{ background:BD.card, borderRadius:14, padding:'14px 16px',
+      border:`1px solid ${BD.border}`, animation:'fadeIn .2s ease' }}>
+
+      {/* Cabecera */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+        <div>
+          <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, fontWeight:700,
+            color:BD.muted, letterSpacing:1.5, marginBottom:3 }}>RECOMENDACIÓN CIENTÍFICA</div>
+          <div style={{ fontFamily:'"Space Grotesk",system-ui', fontSize:15, fontWeight:700, color:BD.text }}>
+            {def.label}
+          </div>
+        </div>
+        <button onClick={() => onTogglePriority(muscleId)}
+          style={{ padding:'5px 12px', borderRadius:999, border:'none', cursor:'pointer',
+            background: prio === 'priority' ? BD.blue
+                       : prio === 'maintain' ? 'rgba(34,197,94,0.15)'
+                       : prio === 'reducir'  ? 'rgba(245,158,11,0.12)'
+                       : 'rgba(255,255,255,0.06)',
+            color: prio === 'priority' ? '#fff'
+                  : prio === 'maintain' ? BD.green
+                  : prio === 'reducir'  ? BD.amber
+                  : BD.muted,
+            fontFamily:'Inter,system-ui', fontSize:10, fontWeight:700, transition:'all .14s',
+            boxShadow: prio === 'priority' ? '0 3px 12px -3px rgba(59,130,246,0.45)' : 'none',
+            whiteSpace:'nowrap' }}>
+          {prio === 'priority' ? '🎯 Prioridad'
+           : prio === 'maintain' ? '✓ Mantener'
+           : prio === 'reducir'  ? '↓ Reducir'
+           : '+ Priorizar'}
+        </button>
+      </div>
+
+      {/* Filas MEV / MAV / MRV */}
+      {ROWS.map(({ key, val, color, title, body }) => (
+        <div key={key} style={{ display:'flex', gap:10, marginBottom:10, alignItems:'flex-start' }}>
+          <div style={{ minWidth:36, flexShrink:0, textAlign:'center' }}>
+            <div style={{ display:'inline-block', padding:'2px 5px', borderRadius:5,
+              background:`${color}1A`, fontFamily:'ui-monospace,Menlo,monospace',
+              fontSize:8, fontWeight:700, color, marginBottom:3 }}>{key}</div>
+            <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:11,
+              color, fontWeight:700 }}>{val}</div>
+          </div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700,
+              color:BD.sub, marginBottom:2 }}>{title}</div>
+            <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:BD.muted, lineHeight:1.5 }}>
+              {body}
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {/* Barra de volumen con marcadores MEV / MAV */}
+      <div style={{ marginTop:12, marginBottom:4 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
+          <span style={{ fontFamily:'Inter,system-ui', fontSize:9.5, color:BD.muted }}>
+            Esta semana · {sci.freq}× recomendado
+          </span>
+          <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:10,
+            color:statusColor, fontWeight:700 }}>{done} sets</span>
+        </div>
+        <div style={{ position:'relative', height:6, borderRadius:999, background:'rgba(255,255,255,0.06)' }}>
+          <div style={{ position:'absolute', inset:0, borderRadius:999, overflow:'hidden' }}>
+            <div style={{ height:'100%', borderRadius:999, transition:'width .4s ease',
+              width:`${Math.min(100, (done / sci.mrv) * 100)}%`, background:statusColor }} />
+          </div>
+          {/* Marcador MEV */}
+          <div style={{ position:'absolute', top:0, bottom:0, width:1.5,
+            left:`${(sci.mev / sci.mrv) * 100}%`, background:BD.amber,
+            transform:'translateX(-50%)' }} />
+          {/* Marcador MAV */}
+          <div style={{ position:'absolute', top:0, bottom:0, width:1.5,
+            left:`${(sci.mav / sci.mrv) * 100}%`, background:BD.green,
+            transform:'translateX(-50%)' }} />
+        </div>
+        <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
+          <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, color:BD.amber }}>MEV {sci.mev}</span>
+          <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, color:BD.green }}>MAV {sci.mav}</span>
+          <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, color:BD.muted }}>MRV {sci.mrv}</span>
+        </div>
+      </div>
+
+      {/* Estado actual */}
+      <div style={{ marginTop:10, padding:'7px 10px', borderRadius:8,
+        background:`${statusColor}0D`, border:`1px solid ${statusColor}1A` }}>
+        <span style={{ fontFamily:'Inter,system-ui', fontSize:10, color:statusColor, fontWeight:600 }}>
+          {statusText}
+        </span>
       </div>
     </div>
   );
@@ -738,14 +876,17 @@ function ResultsPanel({ filteredExs, sessionIds, workout, muscle, query, priorit
               style={{ flexShrink:0, padding:'7px 14px', borderRadius:999, border:'none', cursor:'pointer',
                 background: prio === 'priority' ? BD.blue
                            : prio === 'maintain' ? 'rgba(34,197,94,0.15)'
+                           : prio === 'reducir'  ? 'rgba(245,158,11,0.12)'
                            : 'rgba(255,255,255,0.06)',
                 color: prio === 'priority' ? '#fff'
                       : prio === 'maintain' ? BD.green
+                      : prio === 'reducir'  ? BD.amber
                       : BD.muted,
                 fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700, transition:'all .15s',
                 boxShadow: prio === 'priority' ? '0 4px 16px -4px rgba(59,130,246,0.50)' : 'none' }}>
-              {prio === 'priority' ? '🎯 Priorizado'
-               : prio === 'maintain' ? '✓ Mantenimiento'
+              {prio === 'priority' ? '🎯 Prioridad'
+               : prio === 'maintain' ? '✓ Mantener'
+               : prio === 'reducir'  ? '↓ Reducir'
                : '+ Priorizar'}
             </button>
           )}
@@ -917,16 +1058,19 @@ function EmptyPanel({ onPick, priorities }) {
               style={{ padding:'6px 13px', borderRadius:999,
                 background: prio === 'priority' ? BD.blueDim
                            : prio === 'maintain' ? 'rgba(34,197,94,0.08)'
+                           : prio === 'reducir'  ? 'rgba(245,158,11,0.08)'
                            : 'rgba(255,255,255,0.04)',
                 border: prio === 'priority' ? '1px solid rgba(59,130,246,0.40)'
                        : prio === 'maintain' ? '1px solid rgba(34,197,94,0.28)'
+                       : prio === 'reducir'  ? '1px solid rgba(245,158,11,0.24)'
                        : `1px solid ${BD.border}`,
                 fontFamily:'Inter,system-ui', fontSize:11, fontWeight:600,
                 color: prio === 'priority' ? '#93C5FD'
                       : prio === 'maintain' ? BD.green
+                      : prio === 'reducir'  ? BD.amber
                       : BD.muted,
                 cursor:'pointer', transition:'all .12s' }}>
-              {prio === 'priority' ? '🎯 ' : prio === 'maintain' ? '✓ ' : ''}{def.label}
+              {prio === 'priority' ? '🎯 ' : prio === 'maintain' ? '✓ ' : prio === 'reducir' ? '↓ ' : ''}{def.label}
             </button>
           );
         })}
@@ -1011,7 +1155,10 @@ function BuilderSection() {
   function togglePriority(id) {
     setPriorities(prev => {
       const cur = prev[id];
-      const next = cur === 'priority' ? 'maintain' : cur === 'maintain' ? null : 'priority';
+      const next = cur === 'priority' ? 'maintain'
+                 : cur === 'maintain' ? 'reducir'
+                 : cur === 'reducir'  ? null
+                 : 'priority';
       const copy = { ...prev };
       if (next === null) delete copy[id]; else copy[id] = next;
       return copy;
@@ -1166,8 +1313,21 @@ function BuilderSection() {
               <BodyMap view={view} selected={muscle} onPick={pickMuscle} priorities={priorities} />
             </div>
 
-            {/* Volume panel below map */}
-            <div style={{ marginTop:16 }}>
+            {/* Panel científico — aparece cuando hay músculo seleccionado */}
+            {muscle && (
+              <div style={{ marginTop:12 }}>
+                <SciencePanel
+                  muscleId={muscle}
+                  priorities={priorities}
+                  log={state.log}
+                  sessionSets={sessionSets}
+                  onTogglePriority={togglePriority}
+                />
+              </div>
+            )}
+
+            {/* Volume panel — resumen global de todas las prioridades */}
+            <div style={{ marginTop:12 }}>
               <WeeklyVolumePanel priorities={priorities} log={state.log} sessionSets={sessionSets} />
             </div>
 
