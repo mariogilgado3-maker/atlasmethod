@@ -229,8 +229,19 @@ function acExtractParams(text) {
 }
 
 // ── Detailed routine builder ──────────────────────────────────────────────────
+// GROUP_CANONICAL: for each Coach group, which Builder muscle represents it scientifically
+const AC_GROUP_CANONICAL = {
+  pecho:'pecho', hombro:'delt_lat', espalda:'dorsal',
+  biceps:'biceps', triceps:'triceps', piernas:'cuadriceps',
+  gluteos:'gluteos', core:'core',
+};
+// Split frequency: how many sessions per week include each group
+const AC_SPLIT_FREQ = { fullbody:3, upper_lower:2, ppl:2, push:1, pull:1, legs:1, arms:1, shoulders:1 };
+
 function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, builderPriorities) {
   const bp = builderPriorities || {};
+  const splitFreq = AC_SPLIT_FREQ[splitKey] || 2;
+
   const byGroup = {};
   allExs.forEach(ex => {
     const g = acExGroup(ex);
@@ -245,16 +256,38 @@ function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, builderPr
     rendimiento: { sets: 4, setsComp: 5, reps: '4-8',  rir: 1, rest: '2-3 min' },
   }[goal] || { sets: 3, setsComp: 4, reps: '8-12', rir: 2, rest: '90s' };
 
+  // Returns scientific per-session volume for a group, or null if not in Builder profile
+  function groupSci(group) {
+    const state = bp[group];
+    if (!state || state === 'off') return null;
+    const muscleId = AC_GROUP_CANONICAL[group];
+    if (!muscleId || !window.AtlasEngine?.SCIENCE) return null;
+    const sci = window.AtlasEngine.SCIENCE[muscleId];
+    if (!sci) return null;
+    const weekly = state === 'priority' ? sci.mav : state === 'maintain' ? sci.mev : Math.round(sci.mev * 0.5);
+    const perSession = Math.max(2, Math.round(weekly / splitFreq));
+    return { weekly, perSession, state };
+  }
+
   function pick(group, n, isCompound) {
+    const sci    = groupSci(group);
     const pState = bp[group];
-    // Adjust exercise count by priority: +1 for priority, -1 for reducir (min 1)
-    const nAdj = pState === 'priority' ? n + 1 : pState === 'reducir' ? Math.max(1, n - 1) : n;
-    const isPriority = pState === 'priority';
+
+    let nAdj, setsPerEx;
+    if (sci) {
+      // Derive exercise count so total session sets ≈ perSession target
+      const baseN = Math.max(1, Math.ceil(sci.perSession / (isCompound ? scheme.setsComp : scheme.sets)));
+      nAdj    = Math.min(baseN, n + 2);
+      // Normalize: distribute perSession sets evenly across exercises
+      setsPerEx = Math.max(2, Math.ceil(sci.perSession / Math.max(nAdj, 1)));
+    } else {
+      nAdj      = pState === 'priority' ? n + 1 : pState === 'reducir' ? Math.max(1, n - 1) : n;
+      setsPerEx = null;
+    }
+
     return (byGroup[group] || []).slice(0, nAdj).map((ex, i) => {
-      // Priority groups get an extra set on compound movements
-      const setsN = isCompound && i === 0
-        ? (isPriority ? scheme.setsComp + 1 : scheme.setsComp)
-        : (isPriority ? scheme.sets + 1 : scheme.sets);
+      const baseSets = isCompound && i === 0 ? scheme.setsComp : scheme.sets;
+      const setsN    = setsPerEx ?? (pState === 'priority' ? baseSets + 1 : baseSets);
       return {
         id: ex.id,
         name: ex.name,
@@ -383,10 +416,24 @@ function acResponseRoutine(params, ctx, profile, memory, allExs) {
     intro = intros[splitKey] || 'Aquí tienes la rutina:';
   }
 
+  // Build per-muscle volume plan for display (MEV / target / MRV)
+  let volumePlan = null;
+  if (hasBp && window.AtlasEngine) {
+    try {
+      volumePlan = window.AtlasEngine.computeVolumePlan(ctx.rawBuilderPriorities).map(m => ({
+        id: m.id, name: m.name, state: m.state,
+        weeklyTarget: m.targetSets,
+        mev: m.mev, mav: m.mav, mrv: m.mrv,
+        label: m.state === 'priority' ? 'MAV' : m.state === 'maintain' ? 'MEV' : '½ MEV',
+      }));
+    } catch {}
+  }
+
   return {
     type: 'routine',
     text: intro,
     sessions,
+    volumePlan,
     builderPayload: sessions[0]?.exercises || [],
   };
 }
@@ -717,12 +764,46 @@ function AcAnalysisCard({ content }) {
   );
 }
 
+function AcVolumeCard({ volumePlan }) {
+  if (!volumePlan?.length) return null;
+  const STATE_C = { priority: AC.blue, maintain: AC.green, reducir: AC.amber };
+  const STATE_L = { priority: 'PRIORIDAD', maintain: 'MANTENER', reducir: 'REDUCIR' };
+  return (
+    <div style={{ borderRadius:12, overflow:'hidden', border:`1px solid ${AC.border}`, background:AC.card2, marginTop:8, marginBottom:2 }}>
+      <div style={{ padding:'7px 14px', borderBottom:`1px solid ${AC.border}`, display:'flex', alignItems:'center', gap:8 }}>
+        <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:7, fontWeight:700, color:AC.muted, letterSpacing:1.4 }}>VOLUMEN CIENTÍFICO · SERIES / SEMANA</div>
+      </div>
+      {/* Column headers */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 46px 46px 46px 76px', padding:'5px 14px', borderBottom:`1px solid rgba(255,255,255,0.04)` }}>
+        {['MÚSCULO','MEV','OBJ','MRV','ESTADO'].map((h, i) => (
+          <div key={h} style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:6.5, fontWeight:700, color:AC.muted, letterSpacing:0.7, textAlign:i>0?'center':'left' }}>{h}</div>
+        ))}
+      </div>
+      {volumePlan.map((m, i) => {
+        const sc = STATE_C[m.state] || AC.muted;
+        return (
+          <div key={m.id} style={{ display:'grid', gridTemplateColumns:'1fr 46px 46px 46px 76px', padding:'8px 14px', alignItems:'center', borderTop: i > 0 ? `1px solid rgba(255,255,255,0.03)` : 'none' }}>
+            <div style={{ fontFamily:'Inter,system-ui', fontSize:11, fontWeight:600, color:AC.sub }}>{m.name}</div>
+            <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:11, color:AC.muted, textAlign:'center' }}>{m.mev}</div>
+            <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:14, fontWeight:800, color:sc, textAlign:'center', letterSpacing:-0.5 }}>{m.weeklyTarget}</div>
+            <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:11, color:AC.muted, textAlign:'center' }}>{m.mrv}</div>
+            <div style={{ textAlign:'center' }}>
+              <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:7, fontWeight:700, color:sc, background:`${sc}18`, border:`1px solid ${sc}30`, borderRadius:4, padding:'2px 5px', letterSpacing:0.5 }}>{STATE_L[m.state] || m.label}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function AcCoachMessage({ content, onSendToBuilder }) {
   const bubble = { padding:'13px 18px', borderRadius:'4px 18px 18px 18px', background:AC.card, border:`1px solid ${AC.border}`, fontFamily:'Inter,system-ui', fontSize:14, lineHeight:1.65, color:AC.text, whiteSpace:'pre-line' };
   if (content.type === 'text') return <div style={bubble}>{content.text}</div>;
   if (content.type === 'routine') return (
     <div>
       <div style={bubble}>{content.text}</div>
+      {content.volumePlan?.length > 0 && <AcVolumeCard volumePlan={content.volumePlan} />}
       {(content.sessions || []).map((session, si) => (
         <AcRoutineCard key={si} session={session} onSendToBuilder={onSendToBuilder} />
       ))}
