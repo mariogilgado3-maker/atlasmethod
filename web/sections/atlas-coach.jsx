@@ -141,6 +141,34 @@ function acBuildRichContext(state, profile) {
   });
   const mostTrained = Object.entries(exCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
+  // Builder priorities → coach group mapping
+  const rawBuilderPriorities = (() => {
+    try { return JSON.parse(localStorage.getItem('atlas.priorities') || '{}'); } catch { return {}; }
+  })();
+  // Map builder muscle IDs to coach group labels
+  const BUILDER_TO_GROUP = {
+    pecho:       'pecho',
+    delt_ant:    'hombro', delt_lat: 'hombro', delt_post: 'hombro',
+    dorsal:      'espalda', trapecio: 'espalda',
+    biceps:      'biceps',
+    triceps:     'triceps',
+    cuadriceps:  'piernas', aductores: 'piernas', gemelos: 'piernas', tibial: 'piernas', abductores: 'piernas',
+    gluteos:     'gluteos', isquio: 'gluteos',
+    core:        'core', oblicuos: 'core', lumbar: 'core', erectores: 'core', antebrazo: 'core',
+  };
+  // Merge per-group: highest priority state wins (priority > maintain > reducir)
+  const PRIORITY_RANK = { priority: 3, maintain: 2, reducir: 1 };
+  const builderGroupPriorities = {};
+  Object.entries(rawBuilderPriorities).forEach(([id, state]) => {
+    if (!state || state === 'off' || state === 'null') return;
+    const group = BUILDER_TO_GROUP[id];
+    if (!group) return;
+    const cur = builderGroupPriorities[group];
+    if (!cur || (PRIORITY_RANK[state] || 0) > (PRIORITY_RANK[cur] || 0)) {
+      builderGroupPriorities[group] = state;
+    }
+  });
+
   return {
     log, sessions,
     totalSessions: log.length,
@@ -155,6 +183,9 @@ function acBuildRichContext(state, profile) {
     mostTrained,
     streak: sessions.streak || 0,
     completed: sessions.completed || 0,
+    builderGroupPriorities,
+    rawBuilderPriorities,
+    hasBuilderProfile: Object.keys(builderGroupPriorities).length > 0,
   };
 }
 
@@ -198,7 +229,8 @@ function acExtractParams(text) {
 }
 
 // ── Detailed routine builder ──────────────────────────────────────────────────
-function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs) {
+function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, builderPriorities) {
+  const bp = builderPriorities || {};
   const byGroup = {};
   allExs.forEach(ex => {
     const g = acExGroup(ex);
@@ -214,8 +246,15 @@ function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs) {
   }[goal] || { sets: 3, setsComp: 4, reps: '8-12', rir: 2, rest: '90s' };
 
   function pick(group, n, isCompound) {
-    return (byGroup[group] || []).slice(0, n).map((ex, i) => {
-      const setsN = isCompound && i === 0 ? scheme.setsComp : scheme.sets;
+    const pState = bp[group];
+    // Adjust exercise count by priority: +1 for priority, -1 for reducir (min 1)
+    const nAdj = pState === 'priority' ? n + 1 : pState === 'reducir' ? Math.max(1, n - 1) : n;
+    const isPriority = pState === 'priority';
+    return (byGroup[group] || []).slice(0, nAdj).map((ex, i) => {
+      // Priority groups get an extra set on compound movements
+      const setsN = isCompound && i === 0
+        ? (isPriority ? scheme.setsComp + 1 : scheme.setsComp)
+        : (isPriority ? scheme.sets + 1 : scheme.sets);
       return {
         id: ex.id,
         name: ex.name,
@@ -226,6 +265,7 @@ function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs) {
         repsRange: scheme.reps,
         rir: i === 0 ? scheme.rir : scheme.rir + 1,
         rest: isCompound && i === 0 ? scheme.rest : '60-90s',
+        _priority: pState || null,
       };
     });
   }
@@ -282,9 +322,11 @@ function acResponseGreeting(ctx, profile, memory) {
 }
 
 function acResponseRoutine(params, ctx, profile, memory, allExs) {
-  const goal  = params.goal  || profile?.objetivo || 'hipertrofia';
+  const goal   = params.goal  || profile?.objetivo || 'hipertrofia';
   const tiempo = params.tiempo || profile?.tiempo || 60;
-  const level = profile?.nivel || 'intermedio';
+  const level  = profile?.nivel || 'intermedio';
+  const bp     = ctx.builderGroupPriorities || {};
+  const hasBp  = ctx.hasBuilderProfile;
 
   let splitKey = params.split || null;
   if (!splitKey) {
@@ -293,20 +335,35 @@ function acResponseRoutine(params, ctx, profile, memory, allExs) {
     else if (params.target === 'legs') splitKey = 'legs';
     else if (params.target === 'arms') splitKey = 'arms';
     else if (params.target === 'shoulders') splitKey = 'shoulders';
-    else if (ctx.targetDays >= 4) splitKey = 'upper_lower';
+    else if (hasBp && window.AtlasEngine) {
+      // Use the scientific engine's split selector based on builder priorities
+      const engineSplit = window.AtlasEngine.selectSplit(ctx.rawBuilderPriorities, ctx.targetDays);
+      splitKey = engineSplit?.key || 'upper_lower';
+    } else if (ctx.targetDays >= 4) splitKey = 'upper_lower';
     else if (ctx.targetDays >= 3) splitKey = 'ppl';
     else splitKey = 'fullbody';
   }
 
-  const sessions = acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs);
+  const sessions = acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, bp);
   if (!sessions.length || sessions.every(s => !s.exercises.length)) {
     return { type:'text', text:'No pude armar la rutina con los ejercicios disponibles. Prueba con otro tipo de split.' };
   }
 
-  // Context-aware intro
+  // Context-aware intro — builder profile takes precedence when present
   let intro = '';
-  const avoided = memory?.evitados || [];
-  if (ctx.daysSinceLast > 6) {
+  if (hasBp) {
+    const priorityGroups = Object.entries(bp).filter(([,v]) => v === 'priority').map(([k]) => k);
+    const maintainGroups = Object.entries(bp).filter(([,v]) => v === 'maintain').map(([k]) => k);
+    const reducirGroups  = Object.entries(bp).filter(([,v]) => v === 'reducir').map(([k]) => k);
+    const GROUP_LABEL = { pecho:'pecho', hombro:'hombros', espalda:'espalda', biceps:'bíceps', triceps:'tríceps', piernas:'piernas', gluteos:'glúteos', core:'core' };
+    const fmt = arr => arr.map(g => GROUP_LABEL[g] || g).join(', ');
+    const parts = [`Basado en tu perfil del Builder —`];
+    if (priorityGroups.length) parts.push(`${fmt(priorityGroups)} en prioridad`);
+    if (maintainGroups.length) parts.push(`${fmt(maintainGroups)} en mantenimiento`);
+    if (reducirGroups.length)  parts.push(`${fmt(reducirGroups)} reducido`);
+    parts.push(`. Split ${splitKey.replace('_',' ')} · ${sessions.length} bloque${sessions.length !== 1 ? 's' : ''}:`);
+    intro = parts.join(' ');
+  } else if (ctx.daysSinceLast > 6) {
     intro = `Llevas ${ctx.daysSinceLast} días sin entrenar. Aquí tienes la sesión — empieza en el 70–80% de tus cargas habituales:`;
   } else if (ctx.pushPullRatio > 1.5 && !['pull','legs'].includes(splitKey)) {
     intro = `Tu tracción está por debajo de tu empuje esta semana. Prioriza espalda pronto. Aquí tienes la sesión:`;
@@ -496,19 +553,40 @@ function acGetDynamicChips(ctx, profile) {
 // ── Welcome message ───────────────────────────────────────────────────────────
 function acWelcomeMessage(state, profile, memory) {
   const ctx = acBuildRichContext(state, profile);
+  const bp  = ctx.builderGroupPriorities || {};
+  const GROUP_LABEL = { pecho:'pecho', hombro:'hombros', espalda:'espalda', biceps:'bíceps', triceps:'tríceps', piernas:'piernas', gluteos:'glúteos', core:'core' };
+
   if (ctx.totalSessions === 0) {
-    if (!profile) return 'Hola. Configura tu perfil en el panel inferior del sidebar para que pueda darte recomendaciones personalizadas. ¿Con qué empezamos?';
+    if (!profile && !ctx.hasBuilderProfile) return 'Hola. Configura tu perfil en el panel inferior del sidebar para que pueda darte recomendaciones personalizadas. ¿Con qué empezamos?';
+    if (ctx.hasBuilderProfile) {
+      const priorityNames = Object.entries(bp).filter(([,v]) => v === 'priority').map(([k]) => GROUP_LABEL[k] || k);
+      const profileNote = profile ? ` ${profile.objetivo}, nivel ${profile.nivel}.` : '';
+      const bpNote = priorityNames.length ? ` Tu Builder tiene ${priorityNames.join(' y ')} como prioridad.` : ' Tengo tu perfil del Builder cargado.';
+      return `Hola.${profileNote}${bpNote} ¿Genero tu plan de entrenamiento basado en esas prioridades?`;
+    }
     return `Hola. Perfil cargado — ${profile.objetivo}, nivel ${profile.nivel}. Sin sesiones registradas aún. ¿Quieres que genere tu primer plan de entrenamiento?`;
   }
+
   const parts = [];
   if (ctx.daysSinceLast === 0) parts.push('Entrenaste hoy.');
   else if (ctx.daysSinceLast === 1) parts.push('Entrenaste ayer.');
   else if (ctx.daysSinceLast < 99) parts.push(`Llevas ${ctx.daysSinceLast} días sin entrenar.`);
   if (ctx.streak >= 3) parts.push(`${ctx.streak} días de racha.`);
-  if (ctx.pushPullRatio > 1.5 && ctx.pushVol > 3) parts.push(`Esta semana más empuje que tracción (${ctx.pushVol}:${ctx.pullVol}).`);
-  else if (ctx.plateaus.length > 0) parts.push(`Posible plateau en ${ctx.plateaus[0].name}.`);
-  else if (ctx.lowVolGroups.length > 0) parts.push(`${ctx.lowVolGroups[0]} con poco volumen esta semana.`);
-  else if (ctx.fatigueLevel === 'high') parts.push('Volumen semanal alto — considera un deload.');
+
+  // Mention builder priorities if available
+  if (ctx.hasBuilderProfile) {
+    const priorityNames = Object.entries(bp).filter(([,v]) => v === 'priority').map(([k]) => GROUP_LABEL[k] || k);
+    if (priorityNames.length) parts.push(`Builder: ${priorityNames.join(', ')} en prioridad.`);
+  } else if (ctx.pushPullRatio > 1.5 && ctx.pushVol > 3) {
+    parts.push(`Esta semana más empuje que tracción (${ctx.pushVol}:${ctx.pullVol}).`);
+  } else if (ctx.plateaus.length > 0) {
+    parts.push(`Posible plateau en ${ctx.plateaus[0].name}.`);
+  } else if (ctx.lowVolGroups.length > 0) {
+    parts.push(`${ctx.lowVolGroups[0]} con poco volumen esta semana.`);
+  } else if (ctx.fatigueLevel === 'high') {
+    parts.push('Volumen semanal alto — considera un deload.');
+  }
+
   parts.push('¿En qué te ayudo?');
   if (memory?.lesiones?.length > 0) parts.splice(-1, 0, `Recuerdo que tienes molestias en ${memory.lesiones.slice(0,2).join(' y ')}.`);
   return parts.join(' ');
