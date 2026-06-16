@@ -458,6 +458,7 @@ function EmptyState({ priorities, physiqueType, onPick }) {
 
 // ── BuilderSection ─────────────────────────────────────────────────────────────
 function BuilderSection() {
+  console.log("BUILDER REAL CARGADO");
   const mobile = useWidth() < 680;
 
   const [view,       setView]       = React.useState('front');
