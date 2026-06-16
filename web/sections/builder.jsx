@@ -1,6 +1,6 @@
-// Atlas Builder v5 — body-map first (main branch)
+// Atlas Builder v6 — 11 grupos musculares, prioridades, ciencia, físico objetivo
 
-// ── Tokens ────────────────────────────────────────────────────────────────────
+// ── Design tokens ──────────────────────────────────────────────────────────────
 const BD = {
   page:    '#060D18',
   panel:   '#0A1422',
@@ -17,53 +17,129 @@ const BD = {
   red:     '#EF4444',
 };
 
-// ── Grupos musculares ─────────────────────────────────────────────────────────
+// ── Grupos musculares (11) ─────────────────────────────────────────────────────
 const MUSCLES = {
-  pecho:   { label: 'Pecho',   view: 'front' },
-  espalda: { label: 'Espalda', view: 'back'  },
-  hombro:  { label: 'Hombros', view: 'both'  },
-  biceps:  { label: 'Bíceps',  view: 'front' },
-  triceps: { label: 'Tríceps', view: 'back'  },
-  piernas: { label: 'Piernas', view: 'front' },
-  gluteos: { label: 'Glúteos', view: 'back'  },
-  core:    { label: 'Core',    view: 'both'  },
+  pecho:      { label: 'Pecho',          short: 'Pecho',     view: 'front' },
+  espalda:    { label: 'Espalda',        short: 'Espalda',   view: 'back'  },
+  deltoides:  { label: 'Deltoides',      short: 'Delts',     view: 'both'  },
+  biceps:     { label: 'Bíceps',         short: 'Bíceps',    view: 'front' },
+  triceps:    { label: 'Tríceps',        short: 'Tríceps',   view: 'back'  },
+  abdomen:    { label: 'Abdomen',        short: 'Abs',       view: 'front' },
+  cuadriceps: { label: 'Cuádriceps',     short: 'Cuáds',     view: 'front' },
+  isquio:     { label: 'Isquiotibiales', short: 'Isquios',   view: 'back'  },
+  gluteos:    { label: 'Glúteos',        short: 'Glúteos',   view: 'back'  },
+  gemelos:    { label: 'Gemelos',        short: 'Gemelos',   view: 'both'  },
+  antebrazos: { label: 'Antebrazos',     short: 'Antebrz.',  view: 'both'  },
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function exGroup(ex) {
-  if (ex.group) return ex.group;
-  const p = ex.pattern || '';
-  if (p === 'empuje-horizontal') return 'pecho';
-  if (p === 'empuje-vertical')
-    return (ex.muscles.primary[0] || '').includes('Tríceps') ? 'triceps' : 'hombro';
-  if (p === 'traccion-horizontal')
-    return (ex.muscles.primary[0] || '').includes('Deltoides') ? 'hombro' : 'espalda';
-  if (p === 'traccion-vertical') {
-    const pm = ex.muscles.primary[0] || '';
-    return (pm.includes('Bíceps') || pm.includes('Braquial')) ? 'biceps' : 'espalda';
-  }
-  if (p === 'sentadilla' || p === 'bisagra' || p === 'aislamiento-pantorrilla') return 'pierna';
-  if (p.startsWith('core')) return 'core';
-  return 'core';
+// ── Datos científicos — series/semana (Israetel & Schoenfeld) ─────────────────
+const SCIENCE = {
+  pecho:      { mev: 10, mav: 17, mrv: 22 },
+  espalda:    { mev: 10, mav: 18, mrv: 25 },
+  deltoides:  { mev:  6, mav: 16, mrv: 26 },
+  biceps:     { mev:  6, mav: 14, mrv: 20 },
+  triceps:    { mev:  6, mav: 14, mrv: 18 },
+  abdomen:    { mev:  0, mav: 16, mrv: 25 },
+  cuadriceps: { mev:  8, mav: 16, mrv: 20 },
+  isquio:     { mev:  4, mav: 10, mrv: 16 },
+  gluteos:    { mev:  4, mav: 12, mrv: 16 },
+  gemelos:    { mev:  8, mav: 16, mrv: 20 },
+  antebrazos: { mev:  4, mav: 10, mrv: 18 },
+};
+
+// ── Ejercicios por grupo ───────────────────────────────────────────────────────
+const EXERCISES = {
+  pecho: [
+    { name: 'Press banca',     type: 'Compuesto',   muscles: 'Pectoral mayor, Tríceps, Deltoides anterior' },
+    { name: 'Press inclinado', type: 'Compuesto',   muscles: 'Pectoral clavicular, Deltoides anterior' },
+    { name: 'Aperturas',       type: 'Aislamiento', muscles: 'Pectoral mayor — máximo estiramiento' },
+  ],
+  espalda: [
+    { name: 'Dominadas',       type: 'Compuesto', muscles: 'Dorsal ancho, Bíceps, Romboides' },
+    { name: 'Jalón polea',     type: 'Compuesto', muscles: 'Dorsal ancho, Bíceps' },
+    { name: 'Remo con barra',  type: 'Compuesto', muscles: 'Trapecio, Romboides, Dorsal ancho' },
+  ],
+  deltoides: [
+    { name: 'Press militar',          type: 'Compuesto',   muscles: 'Deltoides anterior y lateral, Tríceps' },
+    { name: 'Elevaciones laterales',  type: 'Aislamiento', muscles: 'Deltoides lateral — cabeza media' },
+  ],
+  biceps: [
+    { name: 'Curl barra',     type: 'Aislamiento', muscles: 'Bíceps braquial, Braquial' },
+    { name: 'Curl inclinado', type: 'Aislamiento', muscles: 'Bíceps — cabeza larga, estiramiento completo' },
+  ],
+  triceps: [
+    { name: 'Fondos',      type: 'Compuesto',   muscles: 'Tríceps, Pectoral inferior, Deltoides anterior' },
+    { name: 'Extensiones', type: 'Aislamiento', muscles: 'Tríceps braquial — todas las cabezas' },
+  ],
+  abdomen: [
+    { name: 'Crunch',                  type: 'Aislamiento', muscles: 'Recto abdominal' },
+    { name: 'Elevaciones de piernas',  type: 'Aislamiento', muscles: 'Psoas, Recto abdominal inferior' },
+  ],
+  cuadriceps: [
+    { name: 'Sentadilla', type: 'Compuesto', muscles: 'Cuádriceps, Glúteos, Isquiotibiales' },
+    { name: 'Prensa',     type: 'Compuesto', muscles: 'Cuádriceps, Glúteos' },
+  ],
+  isquio: [
+    { name: 'Peso muerto rumano', type: 'Compuesto',   muscles: 'Isquiotibiales, Glúteos, Erectores' },
+    { name: 'Curl femoral',       type: 'Aislamiento', muscles: 'Isquiotibiales' },
+  ],
+  gluteos: [
+    { name: 'Hip thrust',         type: 'Compuesto', muscles: 'Glúteo mayor, Isquiotibiales' },
+    { name: 'Sentadilla búlgara', type: 'Compuesto', muscles: 'Glúteos, Cuádriceps' },
+  ],
+  gemelos: [
+    { name: 'Elevaciones de gemelos', type: 'Aislamiento', muscles: 'Gastrocnemio, Sóleo' },
+  ],
+  antebrazos: [
+    { name: 'Curl inverso',  type: 'Aislamiento', muscles: 'Braquiorradial, Extensores del antebrazo' },
+    { name: 'Farmer walk',   type: 'Funcional',   muscles: 'Flexores del antebrazo, Agarre' },
+  ],
+};
+
+// ── Sistema de prioridades ─────────────────────────────────────────────────────
+const PRIO = {
+  priority: { label: 'Prioridad', color: '#93C5FD', bg: 'rgba(59,130,246,0.18)', dot: '#3B82F6',               svgFill: 'rgba(59,130,246,0.55)'   },
+  maintain: { label: 'Mantener',  color: '#FCD34D', bg: 'rgba(245,158,11,0.13)', dot: '#F59E0B',               svgFill: 'rgba(245,158,11,0.40)'   },
+  reducir:  { label: 'Reducir',   color: 'rgba(232,237,248,0.30)', bg: 'rgba(255,255,255,0.03)', dot: 'rgba(255,255,255,0.22)', svgFill: 'rgba(255,255,255,0.04)' },
+};
+
+function nextPrio(cur) {
+  if (!cur) return 'priority';
+  if (cur === 'priority') return 'maintain';
+  if (cur === 'maintain') return 'reducir';
+  return null;
 }
 
-function exsForMuscle(id, all) {
-  if (id === 'pecho')   return all.filter(e => exGroup(e) === 'pecho');
-  if (id === 'espalda') return all.filter(e => exGroup(e) === 'espalda');
-  if (id === 'hombro')  return all.filter(e => exGroup(e) === 'hombro');
-  if (id === 'biceps')  return all.filter(e => exGroup(e) === 'biceps');
-  if (id === 'triceps') return all.filter(e => exGroup(e) === 'triceps');
-  if (id === 'piernas') return all.filter(e => e.pattern === 'sentadilla' || e.pattern === 'aislamiento-pantorrilla');
-  if (id === 'gluteos') return all.filter(e => e.pattern === 'bisagra');
-  if (id === 'core')    return all.filter(e => exGroup(e) === 'core');
-  return [];
+// ── Tipo de físico objetivo ────────────────────────────────────────────────────
+function computePhysiqueType(priorities) {
+  const prios = Object.keys(priorities).filter((m) => priorities[m] === 'priority');
+  const upper = ['pecho','espalda','deltoides','biceps','triceps'].filter((m) => priorities[m] === 'priority');
+  const lower = ['cuadriceps','isquio','gluteos','gemelos'].filter((m) => priorities[m] === 'priority');
+
+  if (prios.length === 0) return { type: 'neutral', label: 'Sin definir', desc: 'Toca los músculos o el grid para comenzar a diseñar tu físico objetivo.' };
+
+  if (upper.length >= 3 && lower.length === 0)
+    return { type: 'vtaper', label: 'Físico orientado a V-Taper', desc: 'Hombros amplios, espalda densa, cintura estrecha. El canon estético clásico de la musculación.' };
+
+  if (lower.length >= 3 && upper.length <= 1)
+    return { type: 'lower', label: 'Tren inferior dominante', desc: 'Glúteos, piernas y potencia inferior. Perfil de atleta y sprinter.' };
+
+  if (priorities['pecho'] === 'priority' && priorities['deltoides'] === 'priority' && priorities['triceps'] === 'priority')
+    return { type: 'push', label: 'Push dominante', desc: 'Pecho, deltoides y tríceps como ejes. Estética de press y volumen anterior.' };
+
+  if (priorities['espalda'] === 'priority' && priorities['biceps'] === 'priority')
+    return { type: 'pull', label: 'Pull dominante', desc: 'Espalda y bíceps como base. Anchura dorsal, grosor y brazos funcionales.' };
+
+  if (priorities['gluteos'] === 'priority' && priorities['cuadriceps'] === 'priority' && priorities['isquio'] === 'priority')
+    return { type: 'legs', label: 'Piernas completas', desc: 'Los tres grupos del tren inferior como protagonistas. Piernas simétricas y equilibradas.' };
+
+  if (prios.length >= 4 && upper.length >= 2 && lower.length >= 2)
+    return { type: 'balanced', label: 'Físico equilibrado', desc: 'Desarrollo armónico de todos los grupos. Estética atlética y funcional por excelencia.' };
+
+  return { type: 'custom', label: 'Físico personalizado', desc: 'Tu combinación única de prioridades. El entrenamiento reflejará exactamente lo que quieres construir.' };
 }
 
-function sessionDuration(workout) {
-  const sets = workout.reduce((s, e) => s + e.sets.length, 0);
-  return Math.round((workout.length ? 5 : 0) + sets * 2.5);
-}
-
+// ── useWidth ──────────────────────────────────────────────────────────────────
 function useWidth() {
   const [w, setW] = React.useState(window.innerWidth);
   React.useEffect(() => {
@@ -74,16 +150,19 @@ function useWidth() {
   return w;
 }
 
-// ── Mapa corporal SVG ─────────────────────────────────────────────────────────
-function BodyMap({ view, selected, onPick }) {
+// ── BodyMap SVG (11 grupos clicables) ─────────────────────────────────────────
+function BodyMap({ view, selected, priorities, onPick }) {
   const [hov, setHov] = React.useState(null);
 
   function zone(id) {
     const sel  = selected === id;
     const hovr = hov === id;
+    const p    = priorities[id] || null;
+    const cfg  = p ? PRIO[p] : null;
     let fill, stroke, sw;
-    if (sel)       { fill = '#3B82F6'; stroke = 'rgba(147,197,253,0.9)'; sw = 2; }
-    else if (hovr) { fill = 'rgba(59,130,246,0.40)'; stroke = 'rgba(147,197,253,0.55)'; sw = 1.5; }
+    if (sel)       { fill = '#3B82F6';           stroke = 'rgba(147,197,253,0.9)';  sw = 2;   }
+    else if (cfg)  { fill = cfg.svgFill;          stroke = cfg.dot;                  sw = 1;   }
+    else if (hovr) { fill = 'rgba(59,130,246,0.35)'; stroke = 'rgba(147,197,253,0.55)'; sw = 1.5; }
     else           { fill = 'rgba(255,255,255,0.07)'; stroke = 'rgba(255,255,255,0.14)'; sw = 0.5; }
     return {
       fill, stroke, strokeWidth: sw,
@@ -94,69 +173,80 @@ function BodyMap({ view, selected, onPick }) {
     };
   }
 
-  const g = { fill: 'rgba(255,255,255,0.05)', stroke: 'rgba(255,255,255,0.09)', strokeWidth: 0.5 };
+  const g  = { fill: 'rgba(255,255,255,0.05)', stroke: 'rgba(255,255,255,0.09)', strokeWidth: 0.5 };
+  const lk = hov || selected;
+  const lm = lk ? MUSCLES[lk] : null;
 
   return (
     <div>
       <svg viewBox="0 0 200 460"
         style={{ width: '100%', maxWidth: 260, display: 'block', margin: '0 auto' }}>
+
+        {/* Esqueleto base */}
         <circle cx="100" cy="28" r="21" {...g} />
         <rect x="92" y="47" width="16" height="13" rx="4" {...g} />
         <path d="M62,60 L138,60 C141,92 142,136 136,166 L124,180 L76,180 L64,166 C58,136 59,92 62,60Z" {...g} />
-        <ellipse cx="47"  cy="110" rx="11" ry="38" {...g} />
-        <ellipse cx="153" cy="110" rx="11" ry="38" {...g} />
-        <ellipse cx="40"  cy="165" rx="9"  ry="28" {...g} />
-        <ellipse cx="160" cy="165" rx="9"  ry="28" {...g} />
-        <ellipse cx="82"  cy="268" rx="20" ry="52" {...g} />
-        <ellipse cx="118" cy="268" rx="20" ry="52" {...g} />
-        <ellipse cx="82"  cy="370" rx="13" ry="34" {...g} />
-        <ellipse cx="118" cy="370" rx="13" ry="34" {...g} />
-        <ellipse cx="82"  cy="410" rx="14" ry="7"  {...g} />
-        <ellipse cx="118" cy="410" rx="14" ry="7"  {...g} />
+        <ellipse cx="47"  cy="108" rx="11" ry="38" {...g} />
+        <ellipse cx="153" cy="108" rx="11" ry="38" {...g} />
+        <ellipse cx="40"  cy="162" rx="9"  ry="27" {...g} />
+        <ellipse cx="160" cy="162" rx="9"  ry="27" {...g} />
+        <ellipse cx="83"  cy="262" rx="20" ry="52" {...g} />
+        <ellipse cx="117" cy="262" rx="20" ry="52" {...g} />
+        <ellipse cx="83"  cy="367" rx="13" ry="33" {...g} />
+        <ellipse cx="117" cy="367" rx="13" ry="33" {...g} />
+        <ellipse cx="83"  cy="408" rx="14" ry="7"  {...g} />
+        <ellipse cx="117" cy="408" rx="14" ry="7"  {...g} />
 
         {view === 'front' ? (
           <React.Fragment>
-            <ellipse cx="52"  cy="75"  rx="14" ry="12" {...zone('hombro')} />
-            <ellipse cx="148" cy="75"  rx="14" ry="12" {...zone('hombro')} />
+            <ellipse cx="51"  cy="74"  rx="14" ry="12" {...zone('deltoides')} />
+            <ellipse cx="149" cy="74"  rx="14" ry="12" {...zone('deltoides')} />
             <path d="M72,68 C68,68 62,75 62,88 C62,100 70,107 82,107 L100,107 L100,68Z"       {...zone('pecho')} />
             <path d="M128,68 C132,68 138,75 138,88 C138,100 130,107 118,107 L100,107 L100,68Z" {...zone('pecho')} />
-            <ellipse cx="47"  cy="112" rx="9" ry="26" {...zone('biceps')} />
-            <ellipse cx="153" cy="112" rx="9" ry="26" {...zone('biceps')} />
-            <rect    x="78"   y="108"  width="44" height="58" rx="10" {...zone('core')} />
-            <ellipse cx="82"  cy="274" rx="17" ry="48" {...zone('piernas')} />
-            <ellipse cx="118" cy="274" rx="17" ry="48" {...zone('piernas')} />
+            <ellipse cx="47"  cy="110" rx="9"  ry="25" {...zone('biceps')} />
+            <ellipse cx="153" cy="110" rx="9"  ry="25" {...zone('biceps')} />
+            <ellipse cx="40"  cy="162" rx="8"  ry="25" {...zone('antebrazos')} />
+            <ellipse cx="160" cy="162" rx="8"  ry="25" {...zone('antebrazos')} />
+            <rect    x="79"   y="108"  width="42" height="56" rx="9" {...zone('abdomen')} />
+            <ellipse cx="83"  cy="256" rx="17" ry="46" {...zone('cuadriceps')} />
+            <ellipse cx="117" cy="256" rx="17" ry="46" {...zone('cuadriceps')} />
+            <ellipse cx="83"  cy="367" rx="11" ry="29" {...zone('gemelos')} />
+            <ellipse cx="117" cy="367" rx="11" ry="29" {...zone('gemelos')} />
           </React.Fragment>
         ) : (
           <React.Fragment>
-            <ellipse cx="52"  cy="75"  rx="14" ry="12" {...zone('hombro')} />
-            <ellipse cx="148" cy="75"  rx="14" ry="12" {...zone('hombro')} />
-            <path d="M73,60 L100,68 L127,60 C120,55 80,55 73,60Z"                              {...zone('espalda')} />
-            <path d="M100,68 C92,68 65,80 58,106 C54,120 60,145 76,148 L100,148Z"              {...zone('espalda')} />
-            <path d="M100,68 C108,68 135,80 142,106 C146,120 140,145 124,148 L100,148Z"        {...zone('espalda')} />
-            <ellipse cx="47"  cy="112" rx="9" ry="26" {...zone('triceps')} />
-            <ellipse cx="153" cy="112" rx="9" ry="26" {...zone('triceps')} />
-            <ellipse cx="100" cy="162" rx="20" ry="14" {...zone('core')} />
-            <ellipse cx="82"  cy="210" rx="22" ry="28" {...zone('gluteos')} />
-            <ellipse cx="118" cy="210" rx="22" ry="28" {...zone('gluteos')} />
-            <ellipse cx="82"  cy="285" rx="17" ry="40" {...zone('piernas')} />
-            <ellipse cx="118" cy="285" rx="17" ry="40" {...zone('piernas')} />
+            <ellipse cx="51"  cy="74"  rx="14" ry="12" {...zone('deltoides')} />
+            <ellipse cx="149" cy="74"  rx="14" ry="12" {...zone('deltoides')} />
+            <path d="M73,60 L100,68 L127,60 C120,55 80,55 73,60Z"                       {...zone('espalda')} />
+            <path d="M100,68 C92,68 65,80 58,106 C54,120 60,145 76,148 L100,148Z"       {...zone('espalda')} />
+            <path d="M100,68 C108,68 135,80 142,106 C146,120 140,145 124,148 L100,148Z" {...zone('espalda')} />
+            <ellipse cx="47"  cy="110" rx="9"  ry="25" {...zone('triceps')} />
+            <ellipse cx="153" cy="110" rx="9"  ry="25" {...zone('triceps')} />
+            <ellipse cx="40"  cy="162" rx="8"  ry="25" {...zone('antebrazos')} />
+            <ellipse cx="160" cy="162" rx="8"  ry="25" {...zone('antebrazos')} />
+            <ellipse cx="83"  cy="206" rx="21" ry="27" {...zone('gluteos')} />
+            <ellipse cx="117" cy="206" rx="21" ry="27" {...zone('gluteos')} />
+            <ellipse cx="83"  cy="268" rx="16" ry="38" {...zone('isquio')} />
+            <ellipse cx="117" cy="268" rx="16" ry="38" {...zone('isquio')} />
+            <ellipse cx="83"  cy="367" rx="11" ry="29" {...zone('gemelos')} />
+            <ellipse cx="117" cy="367" rx="11" ry="29" {...zone('gemelos')} />
           </React.Fragment>
         )}
 
-        {(hov || selected) && (
+        {lm && (
           <text x="100" y="448" textAnchor="middle"
             fill="rgba(232,237,248,0.55)" fontSize="10"
             fontFamily="Inter,system-ui" fontWeight="700" letterSpacing="1">
-            {MUSCLES[hov || selected] && MUSCLES[hov || selected].label.toUpperCase()}
+            {lm.label.toUpperCase()}
           </text>
         )}
       </svg>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 14px', marginTop: 16, justifyContent: 'center' }}>
-        {[['rgba(255,255,255,0.14)','Sin seleccionar'],['rgba(59,130,246,0.55)','Seleccionado']].map(([c, l]) => (
-          <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: c, display: 'inline-block' }} />
-            <span style={{ fontFamily: 'Inter,system-ui', fontSize: 10, color: BD.muted }}>{l}</span>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 10px', marginTop: 10, justifyContent: 'center' }}>
+        {Object.keys(PRIO).map((k) => (
+          <span key={k} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: PRIO[k].dot, display: 'inline-block' }} />
+            <span style={{ fontFamily: 'Inter,system-ui', fontSize: 9, color: BD.muted }}>{PRIO[k].label}</span>
           </span>
         ))}
       </div>
@@ -164,391 +254,284 @@ function BodyMap({ view, selected, onPick }) {
   );
 }
 
-// ── Tarjeta ejercicio con thumbnail ───────────────────────────────────────────
-function ExCard({ ex, inSession, onClick }) {
-  const [hov, setHov] = React.useState(false);
-  const g = exGroup(ex);
+// ── Grid de prioridades ────────────────────────────────────────────────────────
+function PriorityGrid({ priorities, onCycle, selected }) {
   return (
-    <div onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{ borderRadius: 14, overflow: 'hidden', cursor: 'pointer',
-        border: `1.5px solid ${inSession ? 'rgba(34,197,94,0.35)' : hov ? 'rgba(59,130,246,0.45)' : BD.border}`,
-        background: BD.card,
-        transform: hov && !inSession ? 'translateY(-2px)' : 'none',
-        transition: 'border-color .12s, transform .12s' }}>
-      <ExerciseMedia.Thumbnail exercise={ex} group={g} isAdded={inSession} height={90} />
-      <div style={{ padding: '9px 11px 11px' }}>
-        <div style={{ fontFamily: 'Inter,system-ui', fontSize: 11, fontWeight: 700, color: BD.text,
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-          overflow: 'hidden', lineHeight: 1.35 }}>{ex.name}</div>
-        <div style={{ fontFamily: 'Inter,system-ui', fontSize: 10, color: BD.muted, marginTop: 3,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {ex.muscles.primary[0]}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Fila de ejercicio en sesión ───────────────────────────────────────────────
-function ExRow({ ex, onRemove, onEdit }) {
-  const [hov, setHov] = React.useState(false);
-  const g = exGroup(ex);
-  return (
-    <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      onClick={onEdit}
-      style={{ display: 'flex', alignItems: 'center', borderRadius: 12, overflow: 'hidden',
-        background: hov ? BD.hov : BD.card, border: `1px solid ${BD.border}`,
-        marginBottom: 8, cursor: 'pointer', transition: 'background .12s' }}>
-      <div style={{ width: 54, flexShrink: 0 }}>
-        <ExerciseMedia.Thumbnail exercise={ex} group={g} isAdded={false} height={54} />
-      </div>
-      <div style={{ flex: 1, padding: '0 11px', minWidth: 0 }}>
-        <div style={{ fontFamily: 'Inter,system-ui', fontSize: 12, fontWeight: 700, color: BD.text,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ex.name}</div>
-        <div style={{ fontFamily: 'Inter,system-ui', fontSize: 10, color: BD.muted, marginTop: 2 }}>
-          {ex.sets.length} serie{ex.sets.length !== 1 ? 's' : ''}
-          {ex.sets[0] && ex.sets[0].kg ? ` · ${ex.sets[0].kg} kg` : ''}
-        </div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 10 }}>
-        <span style={{ fontSize: 11, color: BD.green }}>✓</span>
-        <button onClick={e => { e.stopPropagation(); onRemove(); }}
-          style={{ width: 24, height: 24, borderRadius: 7, border: 'none',
-            background: 'rgba(239,68,68,0.14)', color: 'rgba(239,68,68,0.80)',
-            cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          ✕
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Panel del músculo seleccionado ────────────────────────────────────────────
-function MusclePanel({ id, sessionExs, onAddEx, onRemoveEx, onEditEx }) {
-  const def = MUSCLES[id] || {};
-  return (
-    <div style={{ animation: 'fadeIn .2s ease' }}>
-      <h2 style={{ fontFamily: 'Inter,system-ui', fontSize: 38, fontWeight: 900,
-        color: BD.text, margin: '0 0 20px', letterSpacing: -2, lineHeight: 1 }}>
-        {def.label}
-      </h2>
-      {sessionExs.length > 0 && (
-        <div style={{ marginBottom: 22 }}>
-          <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 9, fontWeight: 700,
-            color: BD.muted, letterSpacing: 1, marginBottom: 10 }}>EN TU SESIÓN</div>
-          {sessionExs.map(ex => (
-            <ExRow key={ex.id} ex={ex}
-              onRemove={() => onRemoveEx(ex.id)}
-              onEdit={() => onEditEx(ex)} />
-          ))}
-        </div>
-      )}
-      <button onClick={onAddEx}
-        style={{ display: 'flex', alignItems: 'center', gap: 8,
-          padding: '14px 22px', borderRadius: 14,
-          background: BD.blue, color: '#fff', border: 'none', cursor: 'pointer',
-          fontFamily: 'Inter,system-ui', fontSize: 14, fontWeight: 700,
-          boxShadow: '0 8px 28px -8px rgba(59,130,246,0.55)', marginBottom: 20 }}>
-        <span style={{ fontSize: 20, fontWeight: 300, lineHeight: 1 }}>+</span>
-        Añadir ejercicio
-      </button>
-      <p style={{ fontFamily: 'Inter,system-ui', fontSize: 12, color: BD.muted,
-        lineHeight: 1.65, margin: 0, maxWidth: 280 }}>
-        Añade ejercicios para {def.label.toLowerCase()} y configura series y repeticiones.
-      </p>
-    </div>
-  );
-}
-
-// ── Selector de ejercicios ────────────────────────────────────────────────────
-function Picker({ id, exercises, sessionIds, onSelect, onBack }) {
-  const def = MUSCLES[id] || {};
-  return (
-    <div style={{ animation: 'fadeIn .18s ease', display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <button onClick={onBack}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
-          cursor: 'pointer', padding: '4px 0', marginBottom: 16,
-          fontFamily: 'Inter,system-ui', fontSize: 12, color: BD.sub, fontWeight: 600, flexShrink: 0 }}>
-        ← {def.label}
-      </button>
-      <div style={{ fontFamily: 'Inter,system-ui', fontSize: 18, fontWeight: 700,
-        color: BD.text, marginBottom: 16, letterSpacing: -0.5, flexShrink: 0 }}>
-        Elige un ejercicio
-      </div>
-      <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 8 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-          {exercises.map(ex => (
-            <ExCard key={ex.id} ex={ex}
-              inSession={sessionIds.has(ex.id)}
-              onClick={() => onSelect(ex)} />
-          ))}
-          {exercises.length === 0 && (
-            <div style={{ gridColumn: '1/-1', padding: '40px 0', textAlign: 'center',
-              fontFamily: 'Inter,system-ui', fontSize: 13, color: BD.muted }}>
-              Sin ejercicios en esta categoría
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Configurar series ─────────────────────────────────────────────────────────
-function SetConfig({ ex, initSets, onConfirm, onBack }) {
-  const [sets, setSets] = React.useState(() =>
-    initSets && initSets.length > 0
-      ? initSets.map(s => ({ kg: s.kg || '', reps: s.reps || '10' }))
-      : [{ kg: '', reps: '10' }, { kg: '', reps: '10' }, { kg: '', reps: '10' }]
-  );
-  const upd = (i, f, v) => setSets(p => p.map((s, idx) => idx === i ? { ...s, [f]: v } : s));
-  const add = () => setSets(p => [...p, { kg: '', reps: '10' }]);
-  const rem = i => setSets(p => p.filter((_, idx) => idx !== i));
-  const g = exGroup(ex);
-  const inp = {
-    type: 'number', min: 0,
-    style: { width: '100%', padding: '10px 6px', borderRadius: 9, boxSizing: 'border-box',
-      border: `1px solid ${BD.border}`, background: 'rgba(255,255,255,0.04)',
-      fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 14, color: BD.text, textAlign: 'center' },
-  };
-  return (
-    <div style={{ animation: 'fadeIn .18s ease', display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <button onClick={onBack}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
-          cursor: 'pointer', padding: '4px 0', marginBottom: 14,
-          fontFamily: 'Inter,system-ui', fontSize: 12, color: BD.sub, fontWeight: 600, flexShrink: 0 }}>
-        ← Volver
-      </button>
-      <div style={{ borderRadius: 14, overflow: 'hidden', marginBottom: 18, flexShrink: 0 }}>
-        <ExerciseMedia.Thumbnail exercise={ex} group={g} isAdded={false} height={120} />
-        <div style={{ padding: '11px 13px', background: BD.card }}>
-          <div style={{ fontFamily: 'Inter,system-ui', fontSize: 15, fontWeight: 700, color: BD.text }}>{ex.name}</div>
-          <div style={{ fontFamily: 'Inter,system-ui', fontSize: 11, color: BD.muted, marginTop: 2 }}>
-            {ex.muscles.primary.join(' · ')}
-          </div>
-        </div>
-      </div>
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '20px 1fr 1fr 20px', gap: 6, marginBottom: 8 }}>
-          {['', 'Kg', 'Reps', ''].map((h, i) => (
-            <span key={i} style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 8,
-              color: BD.muted, fontWeight: 700, textAlign: 'center', letterSpacing: 0.5 }}>{h}</span>
-          ))}
-        </div>
-        {sets.map((set, i) => (
-          <div key={i} style={{ display: 'grid', gridTemplateColumns: '20px 1fr 1fr 20px', gap: 6, alignItems: 'center', marginBottom: 7 }}>
-            <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10, color: BD.muted, textAlign: 'center' }}>{i + 1}</span>
-            <input {...inp} value={set.kg} placeholder="—" step={0.5} onChange={e => upd(i, 'kg', e.target.value)} />
-            <input {...inp} value={set.reps} placeholder="10" step={1} onChange={e => upd(i, 'reps', e.target.value)} />
-            {sets.length > 1
-              ? <button onClick={() => rem(i)}
-                  style={{ width: 20, height: 20, border: 'none', background: 'rgba(239,68,68,0.14)',
-                    color: 'rgba(239,68,68,0.80)', borderRadius: 5, cursor: 'pointer', fontSize: 10,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
-              : <div />}
-          </div>
-        ))}
-        <button onClick={add}
-          style={{ marginTop: 4, marginBottom: 18, padding: '7px 12px', borderRadius: 9,
-            border: '1px dashed rgba(255,255,255,0.15)', background: 'transparent',
-            cursor: 'pointer', fontFamily: 'Inter,system-ui', fontSize: 11, fontWeight: 600, color: BD.sub }}>
-          + Serie
-        </button>
-        <button onClick={() => onConfirm(ex, sets)}
-          style={{ width: '100%', padding: '14px 20px', borderRadius: 13, cursor: 'pointer',
-            background: BD.blue, color: '#fff', border: 'none',
-            fontFamily: 'Inter,system-ui', fontSize: 14, fontWeight: 700, letterSpacing: -0.2,
-            boxShadow: '0 8px 28px -8px rgba(59,130,246,0.50)' }}>
-          Añadir · {sets.length} serie{sets.length !== 1 ? 's' : ''} →
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Barra de sesión sticky ────────────────────────────────────────────────────
-function WorkoutBar({ workout, saved, duration, onSave, mobile }) {
-  return (
-    <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200,
-      background: 'rgba(6,13,24,0.97)', backdropFilter: 'blur(24px)',
-      borderTop: '1px solid rgba(255,255,255,0.08)',
-      padding: mobile ? '12px 16px' : '12px 32px',
-      display: 'flex', alignItems: 'center', gap: 12 }}>
-      <div style={{ flex: 1, display: 'flex', gap: 6, overflow: 'hidden' }}>
-        {workout.slice(0, mobile ? 2 : 5).map(ex => {
-          const gs = ExerciseMedia.GROUP_STYLE[exGroup(ex)] || ExerciseMedia.GROUP_STYLE.core;
+    <div style={{ marginTop: 14 }}>
+      <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 9, fontWeight: 700,
+        color: BD.muted, letterSpacing: 1, marginBottom: 8 }}>PERFIL MUSCULAR</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+        {Object.keys(MUSCLES).map((id) => {
+          const def = MUSCLES[id];
+          const p   = priorities[id] || null;
+          const cfg = p ? PRIO[p] : null;
+          const sel = selected === id;
           return (
-            <span key={ex.id} style={{ display: 'flex', alignItems: 'center', gap: 6,
-              padding: '5px 10px', borderRadius: 999, flexShrink: 0,
-              background: 'rgba(255,255,255,0.06)', border: `1px solid ${BD.border}`,
-              fontFamily: 'Inter,system-ui', fontSize: 11, fontWeight: 600, color: BD.sub,
-              maxWidth: 140, overflow: 'hidden' }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: gs.to, flexShrink: 0 }} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ex.name}</span>
-            </span>
+            <button key={id} onClick={() => onCycle(id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6,
+                padding: '6px 8px', borderRadius: 8, cursor: 'pointer', textAlign: 'left',
+                background: sel ? 'rgba(59,130,246,0.10)' : (cfg ? cfg.bg : 'rgba(255,255,255,0.02)'),
+                border: '1px solid ' + (sel ? 'rgba(59,130,246,0.35)' : (p ? 'rgba(255,255,255,0.09)' : BD.border)),
+                transition: 'all .12s' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                background: cfg ? cfg.dot : 'rgba(255,255,255,0.14)' }} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: 'Inter,system-ui', fontSize: 10, fontWeight: 700,
+                  color: p ? BD.text : BD.muted,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {def.short}
+                </div>
+                {cfg && (
+                  <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 8,
+                    color: cfg.color, letterSpacing: 0.3, marginTop: 1 }}>{cfg.label}</div>
+                )}
+              </div>
+            </button>
           );
         })}
-        {workout.length > (mobile ? 2 : 5) && (
-          <span style={{ padding: '5px 10px', borderRadius: 999, flexShrink: 0,
-            background: 'rgba(255,255,255,0.04)',
-            fontFamily: 'Inter,system-ui', fontSize: 11, color: BD.muted }}>
-            +{workout.length - (mobile ? 2 : 5)}
-          </span>
-        )}
       </div>
-      {!mobile && (
-        <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: BD.muted, flexShrink: 0 }}>
-          ~{duration} min
-        </span>
-      )}
-      <button onClick={onSave}
-        style={{ flexShrink: 0, padding: '11px 20px', borderRadius: 12, border: 'none', cursor: 'pointer',
-          background: saved ? 'rgba(34,197,94,0.15)' : BD.blue,
-          color: saved ? BD.green : '#fff',
-          fontFamily: 'Inter,system-ui', fontSize: 13, fontWeight: 700, transition: 'all .25s', whiteSpace: 'nowrap' }}>
-        {saved ? '✓ +30 💎' : 'Guardar +30 💎'}
-      </button>
-    </div>
-  );
-}
-
-// ── Panel vacío ───────────────────────────────────────────────────────────────
-function EmptyPanel({ onPick }) {
-  return (
-    <div style={{ paddingTop: 8 }}>
-      <div style={{ fontFamily: '"Instrument Serif",serif', fontStyle: 'italic',
-        fontSize: 28, color: BD.sub, marginBottom: 10, lineHeight: 1.2 }}>
-        Toca un músculo
-      </div>
-      <p style={{ fontFamily: 'Inter,system-ui', fontSize: 14, color: BD.muted,
-        lineHeight: 1.65, margin: '0 0 24px', maxWidth: 300 }}>
-        Selecciona un grupo muscular en el mapa para ver los ejercicios disponibles.
+      <p style={{ fontFamily: 'Inter,system-ui', fontSize: 10, color: BD.muted,
+        margin: '8px 0 0', lineHeight: 1.5 }}>
+        Toca para asignar prioridad. Toca de nuevo para cambiarla.
       </p>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {Object.entries(MUSCLES).map(([id, def]) => (
-          <button key={id} onClick={() => onPick(id)}
-            style={{ padding: '7px 14px', borderRadius: 999,
-              background: 'rgba(255,255,255,0.04)', border: `1px solid ${BD.border}`,
-              fontFamily: 'Inter,system-ui', fontSize: 12, fontWeight: 600, color: BD.muted,
-              cursor: 'pointer', transition: 'background .12s, color .12s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = BD.blueDim; e.currentTarget.style.color = '#93C5FD'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = BD.muted; }}>
-            {def.label}
-          </button>
-        ))}
+    </div>
+  );
+}
+
+// ── Tarjeta de físico objetivo ─────────────────────────────────────────────────
+function PhysiqueCard({ physiqueType }) {
+  if (physiqueType.type === 'neutral') return null;
+  return (
+    <div style={{ padding: '14px 16px', borderRadius: 14, marginBottom: 18,
+      background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.18)' }}>
+      <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 9, fontWeight: 700,
+        color: BD.muted, letterSpacing: 1, marginBottom: 6 }}>FÍSICO OBJETIVO</div>
+      <div style={{ fontFamily: '"Instrument Serif",serif', fontStyle: 'italic',
+        fontSize: 18, color: BD.text, lineHeight: 1.25, marginBottom: 6 }}>
+        {physiqueType.label}
+      </div>
+      <div style={{ fontFamily: 'Inter,system-ui', fontSize: 11, color: BD.sub, lineHeight: 1.55 }}>
+        {physiqueType.desc}
       </div>
     </div>
   );
 }
 
-// ── Componente principal ───────────────────────────────────────────────────────
+// ── Panel científico MEV/MAV/MRV ──────────────────────────────────────────────
+function SciencePanel({ muscleId }) {
+  const s = SCIENCE[muscleId];
+  if (!s) return null;
+  const max  = s.mrv || 1;
+  const bars = [
+    { key: 'MEV', val: s.mev, color: '#22C55E', desc: 'Mínimo efectivo' },
+    { key: 'MAV', val: s.mav, color: '#3B82F6', desc: 'Máximo adaptativo' },
+    { key: 'MRV', val: s.mrv, color: '#F59E0B', desc: 'Máximo recuperable' },
+  ];
+  return (
+    <div style={{ padding: '14px 14px', borderRadius: 14, background: BD.card,
+      border: '1px solid ' + BD.border, marginBottom: 16 }}>
+      <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 9, fontWeight: 700,
+        color: BD.muted, letterSpacing: 1, marginBottom: 12 }}>VOLUMEN SEMANAL · SERIES</div>
+      {bars.map((b) => (
+        <div key={b.key} style={{ marginBottom: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10,
+              fontWeight: 700, color: b.color }}>{b.key}</span>
+            <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10,
+              color: BD.sub }}>{b.val} series/sem</span>
+          </div>
+          <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)' }}>
+            <div style={{ height: '100%', borderRadius: 2,
+              width: Math.round(b.val / max * 100) + '%',
+              background: b.color, opacity: 0.75 }} />
+          </div>
+          <div style={{ fontFamily: 'Inter,system-ui', fontSize: 9, color: BD.muted, marginTop: 2 }}>
+            {b.desc}
+          </div>
+        </div>
+      ))}
+      <div style={{ fontFamily: 'Inter,system-ui', fontSize: 9, color: BD.muted,
+        marginTop: 8, paddingTop: 8, borderTop: '1px solid ' + BD.border, lineHeight: 1.5 }}>
+        Basado en Israetel &amp; Schoenfeld — "Scientific Principles of Hypertrophy Training"
+      </div>
+    </div>
+  );
+}
+
+// ── Lista de ejercicios ────────────────────────────────────────────────────────
+function ExerciseList({ muscleId }) {
+  const list = EXERCISES[muscleId] || [];
+  if (list.length === 0) return null;
+  return (
+    <div>
+      <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 9, fontWeight: 700,
+        color: BD.muted, letterSpacing: 1, marginBottom: 8 }}>EJERCICIOS CLAVE</div>
+      {list.map((ex, i) => (
+        <div key={i} style={{ padding: '10px 12px', borderRadius: 10,
+          background: BD.card, border: '1px solid ' + BD.border, marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+            <span style={{ fontFamily: 'Inter,system-ui', fontSize: 12, fontWeight: 700, color: BD.text }}>
+              {ex.name}
+            </span>
+            <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 9,
+              color: ex.type === 'Compuesto' ? BD.blue : (ex.type === 'Funcional' ? BD.green : BD.amber),
+              background: ex.type === 'Compuesto' ? BD.blueDim : (ex.type === 'Funcional' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.13)'),
+              padding: '2px 6px', borderRadius: 4, whiteSpace: 'nowrap' }}>
+              {ex.type}
+            </span>
+          </div>
+          <div style={{ fontFamily: 'Inter,system-ui', fontSize: 10, color: BD.muted }}>
+            {ex.muscles}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Detalle de músculo seleccionado ───────────────────────────────────────────
+function MuscleDetail({ muscleId, priorities, onCycle }) {
+  const def = MUSCLES[muscleId] || {};
+  const p   = priorities[muscleId] || null;
+  const cfg = p ? PRIO[p] : null;
+  return (
+    <div style={{ animation: 'fadeIn .2s ease' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+        <h2 style={{ fontFamily: 'Inter,system-ui', fontSize: 34, fontWeight: 900,
+          color: BD.text, margin: 0, letterSpacing: -2, lineHeight: 1 }}>
+          {def.label}
+        </h2>
+        <button onClick={() => onCycle(muscleId)}
+          style={{ padding: '8px 14px', borderRadius: 10, border: 'none', cursor: 'pointer',
+            background: cfg ? cfg.bg : 'rgba(255,255,255,0.05)',
+            color: cfg ? cfg.color : BD.muted,
+            fontFamily: 'Inter,system-ui', fontSize: 11, fontWeight: 700,
+            transition: 'all .14s', whiteSpace: 'nowrap' }}>
+          {cfg ? ('● ' + cfg.label) : '○ Sin prioridad'}
+        </button>
+      </div>
+      <SciencePanel muscleId={muscleId} />
+      <ExerciseList muscleId={muscleId} />
+    </div>
+  );
+}
+
+// ── Estado vacío / resumen de físico ──────────────────────────────────────────
+function EmptyState({ priorities, physiqueType, onPick }) {
+  const total = Object.keys(priorities).filter((m) => priorities[m]).length;
+  return (
+    <div>
+      <div style={{ fontFamily: '"Instrument Serif",serif', fontStyle: 'italic',
+        fontSize: 26, color: BD.sub, marginBottom: 10, lineHeight: 1.2 }}>
+        {total === 0 ? 'Diseña tu físico.' : 'Tu físico objetivo.'}
+      </div>
+      <p style={{ fontFamily: 'Inter,system-ui', fontSize: 13, color: BD.muted,
+        lineHeight: 1.65, margin: '0 0 18px', maxWidth: 320 }}>
+        {total === 0
+          ? 'Selecciona un músculo en el mapa o toca el grid para asignar prioridades.'
+          : 'Sigue configurando tu perfil muscular.'}
+      </p>
+      <PhysiqueCard physiqueType={physiqueType} />
+      <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 9, fontWeight: 700,
+        color: BD.muted, letterSpacing: 1, marginBottom: 8 }}>GRUPOS MUSCULARES</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {Object.keys(MUSCLES).map((id) => {
+          const def = MUSCLES[id];
+          const p   = priorities[id] || null;
+          const cfg = p ? PRIO[p] : null;
+          return (
+            <button key={id} onClick={() => onPick(id)}
+              style={{ padding: '6px 12px', borderRadius: 999,
+                background: cfg ? cfg.bg : 'rgba(255,255,255,0.04)',
+                border: '1px solid ' + (p ? cfg.dot : BD.border),
+                fontFamily: 'Inter,system-ui', fontSize: 11, fontWeight: 600,
+                color: p ? cfg.color : BD.muted,
+                cursor: 'pointer', transition: 'all .12s' }}>
+              {def.short}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── BuilderSection ─────────────────────────────────────────────────────────────
 function BuilderSection() {
-  const { actions }  = useStore();
-  const { navigate } = useRoute();
-  const mobile       = useWidth() < 680;
+  const mobile = useWidth() < 680;
 
-  const [view,    setView]    = React.useState('front');
-  const [muscle,  setMuscle]  = React.useState(null);
-  const [mode,    setMode]    = React.useState('empty');
-  const [cfgEx,   setCfgEx]   = React.useState(null);
-  const [cfgSets, setCfgSets] = React.useState(null);
-  const [workout, setWorkout] = React.useState([]);
-  const [saved,   setSaved]   = React.useState(false);
-  const [flash,   setFlash]   = React.useState(false);
-
-  const allExs = React.useMemo(() => ExerciseService.getAll(), []);
-
-  // Load routine sent from Atlas Coach
-  React.useEffect(() => {
-    const raw = localStorage.getItem('atlas.pendingWorkout');
-    if (!raw) return;
+  const [view,       setView]       = React.useState('front');
+  const [selected,   setSelected]   = React.useState(null);
+  const [priorities, setPriorities] = React.useState(() => {
     try {
-      const exs = JSON.parse(raw);
-      if (Array.isArray(exs) && exs.length > 0) {
-        setWorkout(exs);
-        localStorage.removeItem('atlas.pendingWorkout');
-      }
-    } catch {}
-  }, []);
+      const raw  = localStorage.getItem('atlas.builder.v1');
+      const data = raw ? JSON.parse(raw) : null;
+      return (data && data.priorities && typeof data.priorities === 'object') ? data.priorities : {};
+    } catch (e) { return {}; }
+  });
 
-  const muscleExs = React.useMemo(() => muscle ? exsForMuscle(muscle, allExs) : [], [muscle, allExs]);
-  const sessionIds = React.useMemo(() => new Set(workout.map(e => e.id)), [workout]);
-  const sessionExsForMuscle = React.useMemo(() => {
-    const ids = new Set(muscleExs.map(e => e.id));
-    return workout.filter(e => ids.has(e.id));
-  }, [workout, muscleExs]);
-  const duration = React.useMemo(() => sessionDuration(workout), [workout]);
+  const physiqueType = React.useMemo(() => computePhysiqueType(priorities), [priorities]);
 
-  function pickMuscle(id) {
-    setMuscle(id);
-    setMode('overview');
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('atlas.builder.v1', JSON.stringify({ priorities: priorities, lastUpdated: Date.now() }));
+    } catch (e) {}
+    window.atlasBuilderState = {
+      priorities:      priorities,
+      physiqueType:    physiqueType.type,
+      physiqueLabel:   physiqueType.label,
+      selectedMuscle:  selected,
+      generatedSummary: physiqueType.desc,
+    };
+  }, [priorities, selected]);
+
+  function handleCyclePrio(id) {
+    const cur     = priorities[id] || null;
+    const next    = nextPrio(cur);
+    const updated = Object.assign({}, priorities);
+    if (next === null) { delete updated[id]; } else { updated[id] = next; }
+    setPriorities(updated);
+    setSelected(id);
     const def = MUSCLES[id];
-    if (def && def.view === 'back')  setView('back');
-    if (def && def.view === 'front') setView('front');
+    if (def && def.view !== 'both') setView(def.view);
   }
-  function pickExercise(ex) {
-    setCfgEx(ex);
-    setCfgSets(workout.find(e => e.id === ex.id)?.sets || null);
-    setMode('config');
-  }
-  function confirmSets(ex, sets) {
-    setWorkout(prev =>
-      prev.find(e => e.id === ex.id)
-        ? prev.map(e => e.id === ex.id ? { ...e, sets } : e)
-        : [...prev, { ...ex, sets }]
-    );
-    setMode('overview');
-  }
-  function removeEx(id) { setWorkout(prev => prev.filter(e => e.id !== id)); }
-  function editEx(ex) {
-    setCfgEx(ex);
-    setCfgSets(workout.find(e => e.id === ex.id)?.sets || null);
-    setMode('config');
-  }
-  function save() {
-    if (!workout.length) return;
-    actions.logSession(workout.map(ex => ({
-      name: ex.name, muscles: ex.muscles.primary, sets: ex.sets,
-    })));
-    setSaved(true); setFlash(true);
-    setTimeout(() => setFlash(false), 2500);
-    setTimeout(() => { setSaved(false); setWorkout([]); setMuscle(null); setMode('empty'); }, 3000);
+
+  function handlePickMuscle(id) {
+    setSelected(id);
+    const def = MUSCLES[id];
+    if (def && def.view !== 'both') setView(def.view);
   }
 
   return (
     <section style={{ minHeight: '100vh', background: BD.page }}>
+      <div style={{ maxWidth: 1060, margin: '0 auto',
+        padding: mobile ? '48px 16px 80px' : '64px 28px 80px' }}>
 
-      <div style={{ maxWidth: 1060, margin: '0 auto', padding: mobile ? '48px 16px 120px' : '64px 28px 120px' }}>
-
-        {flash && (
-          <div style={{ position: 'fixed', top: 72, right: 20, zIndex: 400,
-            background: '#0F1A2E', color: BD.text, padding: '10px 18px',
-            borderRadius: 999, fontFamily: 'Inter,system-ui', fontSize: 13, fontWeight: 700,
-            animation: 'fadeIn .3s ease', boxShadow: '0 8px 32px rgba(0,0,0,0.5)', whiteSpace: 'nowrap' }}>
-            💎 +30 gemas · Sesión guardada
-          </div>
-        )}
-
-        <div style={{ marginBottom: mobile ? 28 : 44 }}>
+        <div style={{ marginBottom: mobile ? 28 : 40 }}>
           <h1 style={{ fontFamily: 'Inter,system-ui', fontWeight: 900,
-            fontSize: mobile ? 30 : 42, color: BD.text, letterSpacing: -2,
-            lineHeight: 1, margin: 0 }}>
-            Tu sesión.{' '}
+            fontSize: mobile ? 30 : 44, color: BD.text, letterSpacing: -2,
+            lineHeight: 1, margin: '0 0 8px' }}>
+            Tu físico objetivo.{' '}
             <span style={{ fontFamily: '"Instrument Serif",serif', fontStyle: 'italic',
               fontWeight: 400, color: BD.sub, letterSpacing: -1 }}>
-              Toca un músculo.
+              Diseñado por ti.
             </span>
           </h1>
+          {physiqueType.type !== 'neutral' && (
+            <div style={{ fontFamily: 'Inter,system-ui', fontSize: 13,
+              color: BD.blue, fontWeight: 600, marginTop: 6 }}>
+              {physiqueType.label}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: mobile ? 0 : 48,
           alignItems: 'flex-start', flexDirection: mobile ? 'column' : 'row' }}>
 
-          {/* IZQUIERDA — mapa corporal */}
+          {/* IZQUIERDA */}
           <div style={{ width: mobile ? '100%' : 280, flexShrink: 0, marginBottom: mobile ? 32 : 0 }}>
-            <div style={{ display: 'flex', gap: 3, marginBottom: 18,
+
+            <div style={{ display: 'flex', gap: 3, marginBottom: 14,
               background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 3 }}>
               {[['front', 'Frontal'], ['back', 'Posterior']].map(([v, lbl]) => (
                 <button key={v} onClick={() => setView(v)}
@@ -560,54 +543,45 @@ function BuilderSection() {
                 </button>
               ))}
             </div>
+
             <div style={{ maxWidth: mobile ? 220 : 'none', margin: mobile ? '0 auto' : '0' }}>
-              <BodyMap view={view} selected={muscle} onPick={pickMuscle} />
+              <BodyMap
+                view={view}
+                selected={selected}
+                priorities={priorities}
+                onPick={handlePickMuscle}
+              />
             </div>
-            {workout.length > 0 && (
-              <button onClick={() => navigate('/coach')}
-                style={{ marginTop: 18, width: '100%', padding: '10px 0', borderRadius: 10,
-                  border: '1px solid rgba(59,130,246,0.30)', background: 'rgba(59,130,246,0.08)',
-                  color: '#93C5FD', fontFamily: 'Inter,system-ui', fontSize: 12, fontWeight: 700,
-                  cursor: 'pointer' }}>
-                Analizar con Coach →
-              </button>
-            )}
+
+            <PriorityGrid
+              priorities={priorities}
+              onCycle={handleCyclePrio}
+              selected={selected}
+            />
           </div>
 
-          {/* DERECHA — panel contextual */}
-          <div style={{ flex: 1, minWidth: 0, width: mobile ? '100%' : undefined,
-            maxHeight: mobile ? 'none' : 700, overflowY: mobile ? 'visible' : 'auto' }}>
-            {mode === 'empty' && <EmptyPanel onPick={pickMuscle} />}
-            {mode === 'overview' && muscle && (
-              <MusclePanel
-                id={muscle} sessionExs={sessionExsForMuscle}
-                onAddEx={() => setMode('picker')}
-                onRemoveEx={removeEx} onEditEx={editEx}
+          {/* DERECHA */}
+          <div style={{ flex: 1, minWidth: 0,
+            width: mobile ? '100%' : undefined,
+            maxHeight: mobile ? 'none' : 700,
+            overflowY: mobile ? 'visible' : 'auto' }}>
+            {selected ? (
+              <MuscleDetail
+                key={selected}
+                muscleId={selected}
+                priorities={priorities}
+                onCycle={handleCyclePrio}
               />
-            )}
-            {mode === 'picker' && muscle && (
-              <Picker
-                id={muscle} exercises={muscleExs} sessionIds={sessionIds}
-                onSelect={pickExercise} onBack={() => setMode('overview')}
-              />
-            )}
-            {mode === 'config' && cfgEx && (
-              <SetConfig
-                key={cfgEx.id} ex={cfgEx} initSets={cfgSets}
-                onConfirm={confirmSets}
-                onBack={() => setMode(muscle ? 'picker' : 'empty')}
+            ) : (
+              <EmptyState
+                priorities={priorities}
+                physiqueType={physiqueType}
+                onPick={handlePickMuscle}
               />
             )}
           </div>
         </div>
       </div>
-
-      {workout.length > 0 && (
-        <WorkoutBar
-          workout={workout} saved={saved} duration={duration}
-          onSave={save} mobile={mobile}
-        />
-      )}
     </section>
   );
 }
