@@ -57,9 +57,22 @@ const AC_MEMORY_KEY  = 'atlas.coach.memory.v1';
 const AC_CHATS_KEY   = 'atlas.chats.v1';
 
 function acLoadProfile() {
+  // Primary: AtlasProfile (unified store)
+  if (window.AtlasProfile) {
+    const ap = window.AtlasProfile.load();
+    // Only return if coach fields were ever set (objetivo or nivel present)
+    if (ap && (ap.objetivo || ap.nivel)) return ap;
+  }
+  // Fallback: legacy key
   try { return JSON.parse(localStorage.getItem(AC_PROFILE_KEY) || 'null'); } catch { return null; }
 }
 function acSaveProfile(p) {
+  // Write to unified AtlasProfile
+  if (window.AtlasProfile) {
+    window.AtlasProfile.updateCoachProfile(p);
+    return;
+  }
+  // Fallback: legacy key
   try { localStorage.setItem(AC_PROFILE_KEY, JSON.stringify({ ...p, updatedAt: Date.now() })); } catch {}
 }
 function acLoadMemory() {
@@ -208,19 +221,23 @@ function acBuildRichContext(state, profile) {
   const mostTrained = Object.entries(exCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
   // Builder priorities → coach group mapping
+  // Reads from AtlasProfile (unified store), with legacy fallback
   const rawBuilderPriorities = (() => {
+    if (window.AtlasProfile) return window.AtlasProfile.load().priorities || {};
     try { return JSON.parse(localStorage.getItem('atlas.priorities') || '{}'); } catch { return {}; }
   })();
-  // Map builder muscle IDs to coach group labels
+  // Maps both the simple 8-group IDs (from Builder) and 20-muscle scientific IDs
   const BUILDER_TO_GROUP = {
-    pecho:       'pecho',
-    delt_ant:    'hombro', delt_lat: 'hombro', delt_post: 'hombro',
-    dorsal:      'espalda', trapecio: 'espalda',
-    biceps:      'biceps',
-    triceps:     'triceps',
-    cuadriceps:  'piernas', aductores: 'piernas', gemelos: 'piernas', tibial: 'piernas', abductores: 'piernas',
-    gluteos:     'gluteos', isquio: 'gluteos',
-    core:        'core', oblicuos: 'core', lumbar: 'core', erectores: 'core', antebrazo: 'core',
+    // Simple Builder group IDs — pass-through
+    pecho:'pecho', hombro:'hombro', espalda:'espalda',
+    biceps:'biceps', triceps:'triceps', piernas:'piernas',
+    gluteos:'gluteos', core:'core',
+    // 20-muscle scientific IDs
+    delt_ant:'hombro', delt_lat:'hombro', delt_post:'hombro',
+    dorsal:'espalda', trapecio:'espalda',
+    cuadriceps:'piernas', aductores:'piernas', gemelos:'piernas', tibial:'piernas', abductores:'piernas',
+    isquio:'gluteos',
+    oblicuos:'core', lumbar:'core', erectores:'core', antebrazo:'core',
   };
   // Merge per-group: highest priority state wins (priority > maintain > reducir)
   const PRIORITY_RANK = { priority: 3, maintain: 2, reducir: 1 };

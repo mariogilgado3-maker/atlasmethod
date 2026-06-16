@@ -443,22 +443,89 @@ function EmptyPanel({ onPick }) {
   );
 }
 
+// ── Chips de prioridad muscular ───────────────────────────────────────────────
+const PRIO_CFG = {
+  priority: { label: 'Prioridad', bg: 'rgba(59,130,246,0.18)', color: '#93C5FD', dot: '#3B82F6' },
+  maintain: { label: 'Mantener',  bg: 'rgba(245,158,11,0.13)', color: '#FCD34D', dot: '#F59E0B' },
+  reducir:  { label: 'Reducir',   bg: 'rgba(255,255,255,0.04)', color: 'rgba(232,237,248,0.35)', dot: 'rgba(255,255,255,0.18)' },
+};
+
+function PriorityChips({ priorities, onCycle }) {
+  return (
+    <div style={{ marginTop: 20, padding: '14px 12px', borderRadius: 14,
+      background: 'rgba(255,255,255,0.02)', border: `1px solid ${BD.border}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 9, fontWeight: 700,
+          color: BD.muted, letterSpacing: 1 }}>PERFIL MUSCULAR</span>
+        {Object.keys(priorities).length > 0 && (
+          <span style={{ fontFamily: 'Inter,system-ui', fontSize: 9, color: BD.muted }}>
+            toca para cambiar
+          </span>
+        )}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
+        {Object.entries(MUSCLES).map(([id, def]) => {
+          const p   = priorities[id] || null;
+          const cfg = PRIO_CFG[p] || null;
+          return (
+            <button key={id} onClick={() => onCycle(id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 7,
+                padding: '7px 9px', borderRadius: 9, cursor: 'pointer',
+                background: cfg ? cfg.bg : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${p ? 'rgba(255,255,255,0.09)' : BD.border}`,
+                transition: 'all .14s', textAlign: 'left' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                background: cfg ? cfg.dot : 'rgba(255,255,255,0.14)' }} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: 'Inter,system-ui', fontSize: 11, fontWeight: 700,
+                  color: p ? BD.text : BD.muted, lineHeight: 1.2 }}>{def.label}</div>
+                {cfg && (
+                  <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 8,
+                    color: cfg.color, letterSpacing: 0.3, marginTop: 1 }}>{cfg.label}</div>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      {Object.keys(priorities).length === 0 && (
+        <p style={{ fontFamily: 'Inter,system-ui', fontSize: 10, color: BD.muted,
+          margin: '10px 0 0', lineHeight: 1.5 }}>
+          Toca un grupo para marcar tu prioridad — el Coach lo usará para diseñar tu rutina.
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Componente principal ───────────────────────────────────────────────────────
 function BuilderSection() {
   const { actions }  = useStore();
   const { navigate } = useRoute();
   const mobile       = useWidth() < 680;
 
-  const [view,    setView]    = React.useState('front');
-  const [muscle,  setMuscle]  = React.useState(null);
-  const [mode,    setMode]    = React.useState('empty');
-  const [cfgEx,   setCfgEx]   = React.useState(null);
-  const [cfgSets, setCfgSets] = React.useState(null);
-  const [workout, setWorkout] = React.useState([]);
-  const [saved,   setSaved]   = React.useState(false);
-  const [flash,   setFlash]   = React.useState(false);
+  const [view,       setView]       = React.useState('front');
+  const [muscle,     setMuscle]     = React.useState(null);
+  const [mode,       setMode]       = React.useState('empty');
+  const [cfgEx,      setCfgEx]      = React.useState(null);
+  const [cfgSets,    setCfgSets]    = React.useState(null);
+  const [workout,    setWorkout]    = React.useState([]);
+  const [saved,      setSaved]      = React.useState(false);
+  const [flash,      setFlash]      = React.useState(false);
+  const [priorities, setPriorities] = React.useState(() => {
+    try { return (window.AtlasProfile?.load().priorities) || {}; } catch { return {}; }
+  });
 
   const allExs = React.useMemo(() => ExerciseService.getAll(), []);
+
+  function cyclePriority(id) {
+    const cur  = priorities[id] || null;
+    const next = cur === null ? 'priority' : cur === 'priority' ? 'maintain' : cur === 'maintain' ? 'reducir' : null;
+    const updated = { ...priorities };
+    if (next === null) delete updated[id]; else updated[id] = next;
+    setPriorities(updated);
+    try { window.AtlasProfile?.updatePriorities(updated); } catch {}
+  }
 
   // Load routine sent from Atlas Coach
   React.useEffect(() => {
@@ -563,13 +630,15 @@ function BuilderSection() {
             <div style={{ maxWidth: mobile ? 220 : 'none', margin: mobile ? '0 auto' : '0' }}>
               <BodyMap view={view} selected={muscle} onPick={pickMuscle} />
             </div>
-            {workout.length > 0 && (
+            <PriorityChips priorities={priorities} onCycle={cyclePriority} />
+
+            {(workout.length > 0 || Object.keys(priorities).length > 0) && (
               <button onClick={() => navigate('/coach')}
-                style={{ marginTop: 18, width: '100%', padding: '10px 0', borderRadius: 10,
+                style={{ marginTop: 12, width: '100%', padding: '10px 0', borderRadius: 10,
                   border: '1px solid rgba(59,130,246,0.30)', background: 'rgba(59,130,246,0.08)',
                   color: '#93C5FD', fontFamily: 'Inter,system-ui', fontSize: 12, fontWeight: 700,
                   cursor: 'pointer' }}>
-                Analizar con Coach →
+                {workout.length > 0 ? 'Analizar con Coach →' : 'Ver rutina personalizada →'}
               </button>
             )}
           </div>
