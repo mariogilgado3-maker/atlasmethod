@@ -498,11 +498,38 @@ function PriorityChips({ priorities, onCycle }) {
   );
 }
 
+// ── Error boundary — muestra error real en lugar de pantalla en blanco ────────
+class BuilderBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { err: null }; }
+  static getDerivedStateFromError(e) { return { err: e }; }
+  componentDidCatch(e, info) { console.error('[Builder] crash:', e, info && info.componentStack); }
+  render() {
+    if (this.state.err) {
+      return (
+        <section style={{ minHeight: '100vh', background: '#060D18',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+          <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', maxWidth: 600 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#EF4444', marginBottom: 8 }}>
+              Builder error — abre la consola para el stack completo
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(239,68,68,0.7)', lineHeight: 1.6, wordBreak: 'break-all' }}>
+              {String(this.state.err)}
+            </div>
+          </div>
+        </section>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ── Componente principal ───────────────────────────────────────────────────────
 function BuilderSection() {
+  console.log('[Builder] mounted');
   const { actions }  = useStore();
   const { navigate } = useRoute();
   const mobile       = useWidth() < 680;
+  console.log('[Builder] mobile=' + mobile + ' innerWidth=' + window.innerWidth);
 
   const [view,       setView]       = React.useState('front');
   const [muscle,     setMuscle]     = React.useState(null);
@@ -512,14 +539,20 @@ function BuilderSection() {
   const [workout,    setWorkout]    = React.useState([]);
   const [saved,      setSaved]      = React.useState(false);
   const [flash,      setFlash]      = React.useState(false);
-  const [priorities, setPriorities] = React.useState(() => {
+  const [priorities, setPriorities] = React.useState(function() {
     try {
-      const p = window.AtlasProfile?.load?.()?.priorities;
+      var ap = window.AtlasProfile && typeof window.AtlasProfile.load === 'function'
+        ? window.AtlasProfile.load() : null;
+      var p = ap && ap.priorities;
       return (p && typeof p === 'object' && !Array.isArray(p)) ? p : {};
-    } catch { return {}; }
+    } catch (e) { console.warn('[Builder] priorities init error', e); return {}; }
   });
+  console.log('[Builder] priorities OK, allExs next');
 
-  const allExs = React.useMemo(() => ExerciseService.getAll(), []);
+  const allExs = React.useMemo(function() {
+    try { return ExerciseService.getAll(); } catch (e) { console.error('[Builder] ExerciseService error', e); return []; }
+  }, []);
+  console.log('[Builder] allExs=' + (allExs && allExs.length));
 
   function cyclePriority(id) {
     const cur  = priorities[id] || null;
@@ -527,7 +560,11 @@ function BuilderSection() {
     const updated = { ...priorities };
     if (next === null) delete updated[id]; else updated[id] = next;
     setPriorities(updated);
-    try { window.AtlasProfile?.updatePriorities(updated); } catch {}
+    try {
+      if (window.AtlasProfile && typeof window.AtlasProfile.updatePriorities === 'function') {
+        window.AtlasProfile.updatePriorities(updated);
+      }
+    } catch (e) {}
   }
 
   // Load routine sent from Atlas Coach
@@ -540,7 +577,7 @@ function BuilderSection() {
         setWorkout(exs);
         localStorage.removeItem('atlas.pendingWorkout');
       }
-    } catch {}
+    } catch (e) {}
   }, []);
 
   const muscleExs = React.useMemo(() => muscle ? exsForMuscle(muscle, allExs) : [], [muscle, allExs]);
@@ -587,6 +624,7 @@ function BuilderSection() {
     setTimeout(() => { setSaved(false); setWorkout([]); setMuscle(null); setMode('empty'); }, 3000);
   }
 
+  console.log('[Builder] before render, mode=' + mode + ' muscle=' + muscle);
   return (
     <section style={{ minHeight: '100vh', background: BD.page }}>
 
@@ -684,4 +722,12 @@ function BuilderSection() {
   );
 }
 
-Object.assign(window, { BuilderSection });
+function BuilderSectionSafe() {
+  return (
+    <BuilderBoundary>
+      <BuilderSection />
+    </BuilderBoundary>
+  );
+}
+
+Object.assign(window, { BuilderSection: BuilderSectionSafe });
