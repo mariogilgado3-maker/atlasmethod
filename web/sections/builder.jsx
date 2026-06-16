@@ -513,7 +513,10 @@ function BuilderSection() {
   const [saved,      setSaved]      = React.useState(false);
   const [flash,      setFlash]      = React.useState(false);
   const [priorities, setPriorities] = React.useState(() => {
-    try { return (window.AtlasProfile?.load().priorities) || {}; } catch { return {}; }
+    try {
+      const p = window.AtlasProfile?.load?.()?.priorities;
+      return (p && typeof p === 'object' && !Array.isArray(p)) ? p : {};
+    } catch { return {}; }
   });
 
   const allExs = React.useMemo(() => ExerciseService.getAll(), []);
