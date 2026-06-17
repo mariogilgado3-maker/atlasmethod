@@ -57,6 +57,100 @@ function acSaveMemory(m) {
   try { localStorage.setItem(AC_MEMORY_KEY, JSON.stringify({ ...m, updatedAt: Date.now() })); } catch {}
 }
 
+// ── Atlas Profile storage ─────────────────────────────────────────────────────
+const AP_PROFILE_KEY   = 'atlas.profile.v1';
+const AP_DISMISSED_KEY = 'atlas.profile.dismissed';
+
+function apLoadProfile() {
+  try { return JSON.parse(localStorage.getItem(AP_PROFILE_KEY) || 'null'); } catch { return null; }
+}
+function apSaveProfile(p) {
+  try { localStorage.setItem(AP_PROFILE_KEY, JSON.stringify({ ...p, completedAt: Date.now() })); } catch {}
+}
+function apIsDismissed() {
+  return localStorage.getItem(AP_DISMISSED_KEY) === 'true';
+}
+function apSetDismissed() {
+  try { localStorage.setItem(AP_DISMISSED_KEY, 'true'); } catch {}
+}
+
+// ── Onboarding steps ──────────────────────────────────────────────────────────
+const AP_STEPS = [
+  {
+    id: 'objective',
+    question: '¿Cuál es tu objetivo principal?',
+    options: [
+      { v: 'muscle',      l: 'Ganar masa muscular'    },
+      { v: 'fat_loss',    l: 'Perder grasa'           },
+      { v: 'recomp',      l: 'Recomposición corporal' },
+      { v: 'performance', l: 'Rendimiento deportivo'  },
+      { v: 'health',      l: 'Salud y bienestar'      },
+    ],
+    multi: false,
+  },
+  {
+    id: 'experience',
+    question: '¿Cuál es tu nivel de experiencia?',
+    options: [
+      { v: 'beginner',     l: 'Principiante' },
+      { v: 'intermediate', l: 'Intermedio'   },
+      { v: 'advanced',     l: 'Avanzado'     },
+    ],
+    multi: false,
+  },
+  {
+    id: 'trainingDays',
+    question: '¿Cuántos días entrenas por semana?',
+    options: [
+      { v: 2, l: '2 días' },
+      { v: 3, l: '3 días' },
+      { v: 4, l: '4 días' },
+      { v: 5, l: '5 días' },
+      { v: 6, l: '6+ días' },
+    ],
+    multi: false,
+  },
+  {
+    id: 'sessionDuration',
+    question: '¿Cuánto tiempo tienes por sesión?',
+    options: [
+      { v: 30, l: '30 min'  },
+      { v: 45, l: '45 min'  },
+      { v: 60, l: '60 min'  },
+      { v: 90, l: '90+ min' },
+    ],
+    multi: false,
+  },
+  {
+    id: 'equipment',
+    question: '¿Qué equipamiento tienes disponible?',
+    options: [
+      { v: 'full_gym',      l: 'Gimnasio completo' },
+      { v: 'basic_gym',     l: 'Gimnasio básico'   },
+      { v: 'home',          l: 'Casa'              },
+      { v: 'calisthenics',  l: 'Calistenia'        },
+      { v: 'mixed',         l: 'Mixto'             },
+    ],
+    multi: false,
+  },
+  {
+    id: 'musclePriorities',
+    question: 'Selecciona tus prioridades musculares (hasta 3):',
+    options: [
+      { v: 'chest',     l: 'Pecho'      },
+      { v: 'back',      l: 'Espalda'    },
+      { v: 'shoulders', l: 'Hombros'    },
+      { v: 'arms',      l: 'Brazos'     },
+      { v: 'legs',      l: 'Piernas'    },
+      { v: 'glutes',    l: 'Glúteos'    },
+      { v: 'calves',    l: 'Gemelos'    },
+      { v: 'forearms',  l: 'Antebrazos' },
+    ],
+    multi: true,
+    maxSelect: 3,
+  },
+];
+
 // ── Rich context builder ──────────────────────────────────────────────────────
 function acBuildRichContext(state, profile) {
   const log      = state.log || [];
@@ -516,6 +610,144 @@ function acWelcomeMessage(state, profile, memory) {
 
 // ── UI Components ─────────────────────────────────────────────────────────────
 
+// Invitation card shown on first visit — non-blocking, dismissable
+function AtlasProfileCard({ onStart, onDismiss }) {
+  return (
+    <div style={{
+      borderRadius: 16,
+      border: '1px solid rgba(59,130,246,0.28)',
+      background: 'linear-gradient(135deg, rgba(10,20,50,0.98) 0%, rgba(6,13,24,0.98) 100%)',
+      padding: '22px 24px',
+      marginBottom: 28,
+      animation: 'fadeIn .35s ease',
+      position: 'relative',
+    }}>
+      {/* Dismiss */}
+      <button onClick={onDismiss} style={{
+        position:'absolute', top:12, right:14,
+        background:'none', border:'none', cursor:'pointer',
+        fontFamily:'Inter,system-ui', fontSize:15, color:'rgba(232,237,248,0.28)',
+        lineHeight:1, padding:4,
+      }}>✕</button>
+
+      {/* Badge */}
+      <div style={{ display:'inline-flex', alignItems:'center', gap:6, marginBottom:14,
+        padding:'3px 10px', borderRadius:999,
+        background:'rgba(59,130,246,0.10)', border:'1px solid rgba(59,130,246,0.22)' }}>
+        <span style={{ width:5, height:5, borderRadius:'50%', background:'#3B82F6', display:'block' }} />
+        <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700,
+          color:'#93C5FD', letterSpacing:1.2 }}>PERFIL ATLAS</span>
+      </div>
+
+      <div style={{ fontFamily:'Inter,system-ui', fontSize:16, fontWeight:700,
+        color:'#E8EDF8', marginBottom:10, letterSpacing:-0.3 }}>
+        Personaliza tu experiencia Atlas
+      </div>
+      <p style={{ fontFamily:'Inter,system-ui', fontSize:13, color:'rgba(232,237,248,0.55)',
+        lineHeight:1.65, margin:'0 0 20px', maxWidth:480 }}>
+        Atlas Coach puede ofrecer recomendaciones más precisas si conoce tus objetivos, experiencia y disponibilidad de entrenamiento. Completar tu Perfil Atlas solo te llevará unos minutos y permitirá adaptar futuras recomendaciones a tus necesidades.
+      </p>
+
+      <div style={{ display:'flex', gap:10 }}>
+        <button onClick={onStart} style={{
+          padding:'10px 20px', borderRadius:10, border:'none', cursor:'pointer',
+          background:'#3B82F6', color:'#fff',
+          fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, letterSpacing:-0.2,
+          boxShadow:'0 4px 18px -4px rgba(59,130,246,0.45)',
+        }}>Crear Perfil Atlas</button>
+        <button onClick={onDismiss} style={{
+          padding:'10px 18px', borderRadius:10, cursor:'pointer',
+          background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.10)',
+          color:'rgba(232,237,248,0.45)',
+          fontFamily:'Inter,system-ui', fontSize:13, fontWeight:600,
+        }}>Ahora no</button>
+      </div>
+    </div>
+  );
+}
+
+// Renders one onboarding step inside the chat bubble
+function AcOnboardingStep({ step, answered, pendingMulti, onAnswer, onMultiToggle, onMultiConfirm }) {
+  const isDone = answered !== null && answered !== undefined;
+  const { options, multi, maxSelect = 3 } = step;
+
+  if (isDone) {
+    const label = multi
+      ? (Array.isArray(answered) ? answered : [answered]).map(v => options.find(o => o.v === v)?.l || v).join(', ')
+      : options.find(o => o.v === answered)?.l || answered;
+    return (
+      <div style={{ marginTop:10, display:'flex', flexWrap:'wrap', gap:6 }}>
+        {options.map(opt => {
+          const sel = multi ? (Array.isArray(answered) && answered.includes(opt.v)) : answered === opt.v;
+          return (
+            <span key={opt.v} style={{
+              padding:'5px 12px', borderRadius:8,
+              fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600,
+              background: sel ? 'rgba(59,130,246,0.18)' : 'transparent',
+              border: `1px solid ${sel ? 'rgba(59,130,246,0.40)' : 'rgba(255,255,255,0.07)'}`,
+              color: sel ? '#93C5FD' : 'rgba(232,237,248,0.25)',
+            }}>{opt.l}</span>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (multi) {
+    const count = pendingMulti.length;
+    return (
+      <div style={{ marginTop:10 }}>
+        <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:12 }}>
+          {options.map(opt => {
+            const sel = pendingMulti.includes(opt.v);
+            const atMax = count >= maxSelect && !sel;
+            return (
+              <button key={opt.v} onClick={() => !atMax && onMultiToggle(opt.v)}
+                style={{
+                  padding:'6px 13px', borderRadius:8, border:'none', cursor: atMax ? 'default' : 'pointer',
+                  fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600, transition:'all .12s',
+                  background: sel ? '#3B82F6' : atMax ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.07)',
+                  color: sel ? '#fff' : atMax ? 'rgba(232,237,248,0.25)' : 'rgba(232,237,248,0.70)',
+                  border: `1px solid ${sel ? 'transparent' : 'rgba(255,255,255,0.10)'}`,
+                }}>
+                {sel ? '✓ ' : ''}{opt.l}
+              </button>
+            );
+          })}
+        </div>
+        <button onClick={onMultiConfirm} disabled={count === 0}
+          style={{
+            padding:'8px 18px', borderRadius:9, border:'none',
+            cursor: count > 0 ? 'pointer' : 'default',
+            background: count > 0 ? '#3B82F6' : 'rgba(59,130,246,0.18)',
+            color: count > 0 ? '#fff' : 'rgba(255,255,255,0.30)',
+            fontFamily:'Inter,system-ui', fontSize:12, fontWeight:700,
+          }}>
+          Confirmar selección ({count}/{maxSelect})
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop:10, display:'flex', flexWrap:'wrap', gap:6 }}>
+      {options.map(opt => (
+        <button key={opt.v} onClick={() => onAnswer(opt.v)}
+          style={{
+            padding:'6px 13px', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)',
+            cursor:'pointer', background:'rgba(255,255,255,0.06)',
+            fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600,
+            color:'rgba(232,237,248,0.75)', transition:'all .12s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background='rgba(59,130,246,0.18)'; e.currentTarget.style.borderColor='rgba(59,130,246,0.40)'; e.currentTarget.style.color='#93C5FD'; }}
+          onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.12)'; e.currentTarget.style.color='rgba(232,237,248,0.75)'; }}>
+          {opt.l}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function AcTypingIndicator() {
   return (
     <div style={{ display:'flex', alignItems:'flex-end', gap:8, marginBottom:20 }}>
@@ -639,7 +871,7 @@ function AcAnalysisCard({ content }) {
   );
 }
 
-function AcCoachMessage({ content, onSendToBuilder }) {
+function AcCoachMessage({ content, onSendToBuilder, onboardingProps }) {
   const bubble = { padding:'13px 18px', borderRadius:'4px 18px 18px 18px', background:AC.card, border:`1px solid ${AC.border}`, fontFamily:'Inter,system-ui', fontSize:14, lineHeight:1.65, color:AC.text, whiteSpace:'pre-line' };
   if (content.type === 'text') return <div style={bubble}>{content.text}</div>;
   if (content.type === 'routine') return (
@@ -651,10 +883,26 @@ function AcCoachMessage({ content, onSendToBuilder }) {
     </div>
   );
   if (content.type === 'analysis') return <AcAnalysisCard content={content} />;
+  if (content.type === 'onboarding-step') {
+    const ob = onboardingProps || {};
+    return (
+      <div style={bubble}>
+        <div style={{ marginBottom:2 }}>{content.question}</div>
+        <AcOnboardingStep
+          step={content}
+          answered={ob.answers?.[content.id]}
+          pendingMulti={ob.pendingMulti || []}
+          onAnswer={v => ob.onAnswer?.(content.id, v)}
+          onMultiToggle={ob.onMultiToggle}
+          onMultiConfirm={ob.onMultiConfirm}
+        />
+      </div>
+    );
+  }
   return <div style={bubble}>{String(content)}</div>;
 }
 
-function AcMessageBubble({ msg, onSendToBuilder }) {
+function AcMessageBubble({ msg, onSendToBuilder, onboardingProps }) {
   const isUser = msg.role === 'user';
   return (
     <div style={{ display:'flex', justifyContent:isUser?'flex-end':'flex-start', alignItems:'flex-end', gap:8, marginBottom:20, animation:'fadeIn .22s ease' }}>
@@ -664,7 +912,7 @@ function AcMessageBubble({ msg, onSendToBuilder }) {
       <div style={{ maxWidth:'76%', minWidth:0 }}>
         {isUser
           ? <div style={{ padding:'11px 16px', borderRadius:'18px 18px 4px 18px', background:'#2563EB', color:'#fff', fontFamily:'Inter,system-ui', fontSize:14, lineHeight:1.55, wordBreak:'break-word' }}>{msg.content}</div>
-          : <AcCoachMessage content={msg.content} onSendToBuilder={onSendToBuilder} />
+          : <AcCoachMessage content={msg.content} onSendToBuilder={onSendToBuilder} onboardingProps={onboardingProps} />
         }
         <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:'rgba(232,237,248,0.22)', marginTop:5, textAlign:isUser?'right':'left' }}>
           {new Date(msg.ts).toLocaleTimeString('es', { hour:'2-digit', minute:'2-digit' })}
@@ -772,6 +1020,11 @@ function AtlasCoachSection() {
   const messagesEndRef = React.useRef(null);
   const inputRef       = React.useRef(null);
 
+  // ── Atlas Profile onboarding ──────────────────────────────────────────────
+  const [atlasProfile,   setAtlasProfile]   = React.useState(() => apLoadProfile());
+  const [showCard,       setShowCard]       = React.useState(() => !apIsDismissed() && !apLoadProfile());
+  const [onboarding,     setOnboarding]     = React.useState({ active: false, step: 0, answers: {}, pendingMulti: [] });
+
   // ── Builder plan injection — reads plan saved by CoachRecommendationPanel ────
   const [pendingBuilderPlan] = React.useState(() => {
     try {
@@ -857,6 +1110,114 @@ function AtlasCoachSection() {
     setProfile(p);
   }
 
+  // ── Atlas Profile onboarding handlers ─────────────────────────────────────
+  function _addCoachMsg(content) {
+    const id = `ob-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
+    setChats(prev => prev.map(c => c.id !== activeChatId ? c : {
+      ...c,
+      messages: [...c.messages, { id, role:'coach', content, ts:Date.now() }],
+    }));
+  }
+  function _addUserMsg(text) {
+    const id = `obu-${Date.now()}`;
+    setChats(prev => prev.map(c => c.id !== activeChatId ? c : {
+      ...c,
+      messages: [...c.messages, { id, role:'user', content:text, ts:Date.now() }],
+    }));
+  }
+  function _markStepAnswered(stepId, value) {
+    setChats(prev => prev.map(c => c.id !== activeChatId ? c : {
+      ...c,
+      messages: c.messages.map(m =>
+        m.content?.type === 'onboarding-step' && m.content?.id === stepId
+          ? { ...m, content: { ...m.content, answered: value } }
+          : m
+      ),
+    }));
+  }
+
+  function dismissCard() {
+    apSetDismissed();
+    setShowCard(false);
+  }
+
+  function startOnboarding() {
+    setShowCard(false);
+    setOnboarding({ active: true, step: 0, answers: {}, pendingMulti: [] });
+    _addCoachMsg({ type:'text', text:'Perfecto. Vamos a crear tu Perfil Atlas en 6 preguntas rápidas.' });
+    // Delay first question slightly so it feels conversational
+    setTimeout(() => {
+      _addCoachMsg({ type:'onboarding-step', ...AP_STEPS[0] });
+    }, 400);
+  }
+
+  function handleOnboardingAnswer(stepId, value) {
+    const stepIdx = onboarding.step;
+    const step    = AP_STEPS[stepIdx];
+    if (!step || step.id !== stepId) return;
+
+    const label = step.options.find(o => o.v === value)?.l || value;
+    _markStepAnswered(stepId, value);
+    _addUserMsg(label);
+
+    const newAnswers = { ...onboarding.answers, [stepId]: value };
+    _advanceOnboarding(stepIdx, newAnswers);
+  }
+
+  function handleMultiToggle(v) {
+    setOnboarding(prev => {
+      const cur    = prev.pendingMulti;
+      const step   = AP_STEPS[prev.step];
+      const maxSel = step?.maxSelect || 3;
+      const next   = cur.includes(v) ? cur.filter(x => x !== v) : cur.length < maxSel ? [...cur, v] : cur;
+      return { ...prev, pendingMulti: next };
+    });
+  }
+
+  function handleMultiConfirm() {
+    const stepIdx = onboarding.step;
+    const step    = AP_STEPS[stepIdx];
+    if (!step || !step.multi) return;
+    const values  = onboarding.pendingMulti;
+    if (!values.length) return;
+
+    const labels  = values.map(v => step.options.find(o => o.v === v)?.l || v).join(', ');
+    _markStepAnswered(step.id, values);
+    _addUserMsg(labels);
+
+    const newAnswers = { ...onboarding.answers, [step.id]: values };
+    _advanceOnboarding(stepIdx, newAnswers);
+  }
+
+  function _advanceOnboarding(stepIdx, newAnswers) {
+    const nextIdx = stepIdx + 1;
+    if (nextIdx < AP_STEPS.length) {
+      setOnboarding(prev => ({ ...prev, step: nextIdx, answers: newAnswers, pendingMulti: [] }));
+      setTimeout(() => {
+        _addCoachMsg({ type:'onboarding-step', ...AP_STEPS[nextIdx] });
+      }, 350);
+    } else {
+      // All steps done — save profile
+      const saved = {
+        objective:        newAnswers.objective,
+        experience:       newAnswers.experience,
+        trainingDays:     newAnswers.trainingDays,
+        sessionDuration:  newAnswers.sessionDuration,
+        equipment:        newAnswers.equipment,
+        musclePriorities: newAnswers.musclePriorities || [],
+      };
+      apSaveProfile(saved);
+      setAtlasProfile(saved);
+      setOnboarding({ active: false, step: 0, answers: {}, pendingMulti: [] });
+      setTimeout(() => {
+        _addCoachMsg({
+          type:'text',
+          text:'✓ Perfil Atlas creado correctamente.\n\nAtlas Coach utilizará esta información para personalizar futuras recomendaciones de rutinas, distribución de volumen y selección de ejercicios.',
+        });
+      }, 350);
+    }
+  }
+
   function sendMessage() {
     if (!input.trim() || loading || !activeChatId) return;
     const userText = input.trim();
@@ -924,8 +1285,22 @@ function AtlasCoachSection() {
           {/* Messages */}
           <div style={{ flex:1, overflowY:'auto', padding: isMobile ? '20px 16px' : '28px 32px', minHeight:0 }}>
             <div style={{ maxWidth:700, margin:'0 auto' }}>
+              {showCard && (
+                <AtlasProfileCard onStart={startOnboarding} onDismiss={dismissCard} />
+              )}
               {messages.map(msg => (
-                <AcMessageBubble key={msg.id} msg={msg} onSendToBuilder={sendToBuilder} />
+                <AcMessageBubble
+                  key={msg.id}
+                  msg={msg}
+                  onSendToBuilder={sendToBuilder}
+                  onboardingProps={onboarding.active ? {
+                    answers:        onboarding.answers,
+                    pendingMulti:   onboarding.pendingMulti,
+                    onAnswer:       handleOnboardingAnswer,
+                    onMultiToggle:  handleMultiToggle,
+                    onMultiConfirm: handleMultiConfirm,
+                  } : null}
+                />
               ))}
               {loading && <AcTypingIndicator />}
               <div ref={messagesEndRef} />
@@ -965,4 +1340,6 @@ function AtlasCoachSection() {
   );
 }
 
-Object.assign(window, { AtlasCoachSection });
+// Expose AtlasProfile for other sections to read
+const AtlasProfile = { get: apLoadProfile, save: apSaveProfile };
+Object.assign(window, { AtlasCoachSection, AtlasProfile });
