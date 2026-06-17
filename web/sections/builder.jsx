@@ -35,11 +35,11 @@ function exGroup(ex) {
   const p = ex.pattern || '';
   if (p === 'empuje-horizontal') return 'pecho';
   if (p === 'empuje-vertical')
-    return (ex.muscles.primary[0] || '').includes('Tríceps') ? 'triceps' : 'hombro';
+    return (ex.muscles?.primary?.[0] || '').includes('Tríceps') ? 'triceps' : 'hombro';
   if (p === 'traccion-horizontal')
-    return (ex.muscles.primary[0] || '').includes('Deltoides') ? 'hombro' : 'espalda';
+    return (ex.muscles?.primary?.[0] || '').includes('Deltoides') ? 'hombro' : 'espalda';
   if (p === 'traccion-vertical') {
-    const pm = ex.muscles.primary[0] || '';
+    const pm = ex.muscles?.primary?.[0] || '';
     return (pm.includes('Bíceps') || pm.includes('Braquial')) ? 'biceps' : 'espalda';
   }
   if (p === 'sentadilla' || p === 'bisagra' || p === 'aislamiento-pantorrilla') return 'pierna';
@@ -177,14 +177,16 @@ function ExCard({ ex, inSession, onClick }) {
         background: BD.card,
         transform: hov && !inSession ? 'translateY(-2px)' : 'none',
         transition: 'border-color .12s, transform .12s' }}>
-      <ExerciseMedia.Thumbnail exercise={ex} group={g} isAdded={inSession} height={90} />
+      {window.ExerciseMedia
+        ? <ExerciseMedia.Thumbnail exercise={ex} group={g} isAdded={inSession} height={90} />
+        : <div style={{ height: 90, background: BD.card }} />}
       <div style={{ padding: '9px 11px 11px' }}>
         <div style={{ fontFamily: 'Inter,system-ui', fontSize: 11, fontWeight: 700, color: BD.text,
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
           overflow: 'hidden', lineHeight: 1.35 }}>{ex.name}</div>
         <div style={{ fontFamily: 'Inter,system-ui', fontSize: 10, color: BD.muted, marginTop: 3,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {ex.muscles.primary[0]}
+          {ex.muscles?.primary?.[0] || ''}
         </div>
       </div>
     </div>
@@ -202,7 +204,9 @@ function ExRow({ ex, onRemove, onEdit }) {
         background: hov ? BD.hov : BD.card, border: `1px solid ${BD.border}`,
         marginBottom: 8, cursor: 'pointer', transition: 'background .12s' }}>
       <div style={{ width: 54, flexShrink: 0 }}>
-        <ExerciseMedia.Thumbnail exercise={ex} group={g} isAdded={false} height={54} />
+        {window.ExerciseMedia
+          ? <ExerciseMedia.Thumbnail exercise={ex} group={g} isAdded={false} height={54} />
+          : <div style={{ width: 54, height: 54, background: BD.card }} />}
       </div>
       <div style={{ flex: 1, padding: '0 11px', minWidth: 0 }}>
         <div style={{ fontFamily: 'Inter,system-ui', fontSize: 12, fontWeight: 700, color: BD.text,
@@ -322,11 +326,13 @@ function SetConfig({ ex, initSets, onConfirm, onBack }) {
         ← Volver
       </button>
       <div style={{ borderRadius: 14, overflow: 'hidden', marginBottom: 18, flexShrink: 0 }}>
-        <ExerciseMedia.Thumbnail exercise={ex} group={g} isAdded={false} height={120} />
+        {window.ExerciseMedia
+          ? <ExerciseMedia.Thumbnail exercise={ex} group={g} isAdded={false} height={120} />
+          : <div style={{ height: 120, background: BD.card }} />}
         <div style={{ padding: '11px 13px', background: BD.card }}>
           <div style={{ fontFamily: 'Inter,system-ui', fontSize: 15, fontWeight: 700, color: BD.text }}>{ex.name}</div>
           <div style={{ fontFamily: 'Inter,system-ui', fontSize: 11, color: BD.muted, marginTop: 2 }}>
-            {ex.muscles.primary.join(' · ')}
+            {ex.muscles?.primary?.join(' · ') || ''}
           </div>
         </div>
       </div>
@@ -378,7 +384,7 @@ function WorkoutBar({ workout, saved, duration, onSave, mobile }) {
       display: 'flex', alignItems: 'center', gap: 12 }}>
       <div style={{ flex: 1, display: 'flex', gap: 6, overflow: 'hidden' }}>
         {workout.slice(0, mobile ? 2 : 5).map(ex => {
-          const gs = ExerciseMedia.GROUP_STYLE[exGroup(ex)] || ExerciseMedia.GROUP_STYLE.core;
+          const gs = (window.ExerciseMedia?.GROUP_STYLE?.[exGroup(ex)]) || (window.ExerciseMedia?.GROUP_STYLE?.core) || { to: BD.blue };
           return (
             <span key={ex.id} style={{ display: 'flex', alignItems: 'center', gap: 6,
               padding: '5px 10px', borderRadius: 999, flexShrink: 0,
@@ -458,7 +464,10 @@ function BuilderSection() {
   const [saved,   setSaved]   = React.useState(false);
   const [flash,   setFlash]   = React.useState(false);
 
-  const allExs = React.useMemo(() => ExerciseService.getAll(), []);
+  const allExs = React.useMemo(() => {
+    if (!window.ExerciseService) { console.error('[Builder] ExerciseService missing'); return []; }
+    return ExerciseService.getAll();
+  }, []);
 
   // Load routine sent from Atlas Coach via store
   React.useEffect(() => {
@@ -505,14 +514,23 @@ function BuilderSection() {
   function save() {
     if (!workout.length) return;
     actions.logSession(workout.map(ex => ({
-      name: ex.name, muscles: ex.muscles.primary, sets: ex.sets,
+      name: ex.name, muscles: ex.muscles?.primary || [], sets: ex.sets,
     })));
     setSaved(true); setFlash(true);
     setTimeout(() => setFlash(false), 2500);
     setTimeout(() => { setSaved(false); setWorkout([]); setMuscle(null); setMode('empty'); }, 3000);
   }
 
-  return (
+  // ── Diagnostic logs (safe to remove once stable) ─────────────────────────────
+  React.useEffect(() => {
+    console.log('[Builder] mounted');
+    console.log('[Builder] ExerciseService', window.ExerciseService);
+    console.log('[Builder] ExerciseMedia', window.ExerciseMedia);
+    console.log('[Builder] useStore', typeof window.useStore);
+    console.log('[Builder] allExs.length', allExs.length);
+  }, []);
+
+  try { return (
     <section style={{ minHeight: '100vh', background: BD.page }}>
 
       <div style={{ maxWidth: 1060, margin: '0 auto', padding: mobile ? '48px 16px 120px' : '64px 28px 120px' }}>
@@ -604,7 +622,17 @@ function BuilderSection() {
         />
       )}
     </section>
-  );
+  ); } catch (err) {
+    console.error('[Builder] render crash:', err);
+    return (
+      <div style={{ padding: 32, background: '#060D18', minHeight: '100vh', color: '#EF4444',
+        fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 13, lineHeight: 1.7 }}>
+        <div style={{ marginBottom: 8, fontWeight: 700 }}>Builder Error</div>
+        <div>{String(err)}</div>
+        {err?.stack && <pre style={{ marginTop: 12, opacity: 0.6, fontSize: 11 }}>{err.stack}</pre>}
+      </div>
+    );
+  }
 }
 
 Object.assign(window, { BuilderSection });
