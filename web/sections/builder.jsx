@@ -766,8 +766,6 @@ function BalancePanel({ log, sessionSets }) {
   );
 }
 
-}
-
 // ── Panel: Recomendación Atlas Coach ─────────────────────────────────────────
 function CoachRecommendationPanel({ priorities, log, sessionSets }) {
   const [open,    setOpen]    = React.useState(true);
