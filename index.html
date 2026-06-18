@@ -55,20 +55,10 @@
 <script type="text/babel" src="web/sections/aula-admin.jsx"></script>
 <script type="text/babel" src="web/sections/laboratorio.jsx"></script>
 <script type="text/babel" src="web/sections/gems-store.jsx"></script>
+<script type="text/babel" src="web/sections/home-dashboard.jsx"></script>
 
 <script type="text/babel">
 const { useState, useEffect, useRef, useMemo, useCallback } = React;
-
-function HomePage() {
-  return (
-    <>
-      <Hero />
-      <MethodSection />
-      <MobileSection />
-      <ClosingSection />
-    </>
-  );
-}
 
 function AulaPage()        { return <AulaSection />; }
 function CoachPage()       { return <AtlasCoachSection />; }
