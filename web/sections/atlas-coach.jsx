@@ -151,6 +151,89 @@ const AP_STEPS = [
   },
 ];
 
+// ── Onboarding Level 2 steps (optional) ──────────────────────────────────────
+const AP_STEPS_L2 = [
+  {
+    id: 'sex',
+    question: '¿Cuál es tu sexo?',
+    options: [
+      { v: 'male',   l: 'Hombre'              },
+      { v: 'female', l: 'Mujer'               },
+      { v: 'other',  l: 'Prefiero no indicar' },
+    ],
+    multi: false,
+  },
+  {
+    id: 'age',
+    question: '¿Cuántos años tienes?',
+    inputType: 'number',
+    placeholder: 'Tu edad',
+    unit: 'años',
+    min: 10, max: 99,
+    skippable: true,
+  },
+  {
+    id: 'bodyMetrics',
+    question: '¿Cuáles son tu altura y peso aproximados?',
+    inputType: 'body-metrics',
+    skippable: true,
+  },
+  {
+    id: 'injuries',
+    question: '¿Tienes alguna lesión o limitación física?',
+    options: [
+      { v: 'shoulder',   l: 'Hombro'         },
+      { v: 'knee',       l: 'Rodilla'         },
+      { v: 'lower_back', l: 'Espalda lumbar'  },
+      { v: 'elbow',      l: 'Codo'            },
+      { v: 'wrist',      l: 'Muñeca'          },
+      { v: 'ankle',      l: 'Tobillo'         },
+      { v: 'neck',       l: 'Cuello'          },
+      { v: 'none',       l: 'Ninguna'         },
+    ],
+    multi: true,
+    maxSelect: 7,
+    hasNoteField: true,
+    noneOption: 'none',
+  },
+  {
+    id: 'activityLevel',
+    question: '¿Cuál es tu nivel de actividad diaria?',
+    options: [
+      { v: 'sedentary',   l: 'Sedentario'           },
+      { v: 'moderate',    l: 'Moderadamente activo'  },
+      { v: 'active',      l: 'Activo'               },
+      { v: 'very_active', l: 'Muy activo'            },
+    ],
+    multi: false,
+  },
+  {
+    id: 'mainObstacle',
+    question: '¿Qué es lo que más te dificulta progresar actualmente?',
+    options: [
+      { v: 'knowledge',   l: 'Falta de conocimientos' },
+      { v: 'consistency', l: 'Falta de constancia'    },
+      { v: 'time',        l: 'Falta de tiempo'        },
+      { v: 'planning',    l: 'No sé cómo planificar'  },
+      { v: 'results',     l: 'No veo resultados'      },
+      { v: 'motivation',  l: 'Falta de motivación'    },
+    ],
+    multi: false,
+  },
+];
+
+// Injected between L1 and L2 to offer optional continuation
+const AP_L2_OFFER = {
+  id: 'l2-offer',
+  question: '¿Quieres mejorar aún más la precisión de las recomendaciones?',
+  options: [
+    { v: 'yes', l: 'Añadir información adicional' },
+    { v: 'no',  l: 'Finalizar por ahora'          },
+  ],
+  multi: false,
+  isL2Offer: true,
+};
+
 // ── Rich context builder ──────────────────────────────────────────────────────
 function acBuildRichContext(state, profile) {
   const log      = state.log || [];
@@ -667,68 +750,140 @@ function AtlasProfileCard({ onStart, onDismiss }) {
 }
 
 // Renders one onboarding step inside the chat bubble
-function AcOnboardingStep({ step, answered, pendingMulti, onAnswer, onMultiToggle, onMultiConfirm }) {
-  const isDone = answered !== null && answered !== undefined;
-  const { options, multi, maxSelect = 3 } = step;
+function AcOnboardingStep({
+  step, answered, pendingMulti, pendingInput, pendingInputs, pendingNote,
+  onAnswer, onMultiToggle, onMultiConfirm, onInputChange, onInputConfirm,
+  onBodyMetricsChange, onBodyMetricsConfirm, onNoteChange, onSkip,
+}) {
+  const isDone      = answered !== null && answered !== undefined;
+  const { options = [], multi, maxSelect = 3, inputType, skippable, hasNoteField, noneOption } = step;
 
+  const chipStyle = (sel, dim) => ({
+    padding:'5px 12px', borderRadius:8,
+    fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600,
+    background: sel ? 'rgba(59,130,246,0.18)' : 'transparent',
+    border: `1px solid ${sel ? 'rgba(59,130,246,0.40)' : 'rgba(255,255,255,0.07)'}`,
+    color: sel ? '#93C5FD' : dim ? 'rgba(232,237,248,0.20)' : 'rgba(232,237,248,0.25)',
+  });
+
+  const btnSty = { padding:'8px 16px', borderRadius:9, border:'none', cursor:'pointer', fontFamily:'Inter,system-ui', fontSize:12, fontWeight:700 };
+  const skipBtn = skippable && !isDone ? (
+    <button onClick={onSkip} style={{ ...btnSty, background:'transparent', border:'1px solid rgba(255,255,255,0.10)', color:'rgba(232,237,248,0.35)', marginLeft:8 }}>Saltar</button>
+  ) : null;
+
+  // ── Answered state (read-only chips) ────────────────────────────────────────
   if (isDone) {
-    const label = multi
-      ? (Array.isArray(answered) ? answered : [answered]).map(v => options.find(o => o.v === v)?.l || v).join(', ')
-      : options.find(o => o.v === answered)?.l || answered;
+    if (inputType === 'number') {
+      return <div style={{ marginTop:8, fontFamily:'ui-monospace,Menlo,monospace', fontSize:13, color:'#93C5FD' }}>{answered} {step.unit}</div>;
+    }
+    if (inputType === 'body-metrics') {
+      const h = answered?.height, w = answered?.weight;
+      return <div style={{ marginTop:8, fontFamily:'ui-monospace,Menlo,monospace', fontSize:13, color:'#93C5FD' }}>{[h && `${h} cm`, w && `${w} kg`].filter(Boolean).join(' · ') || 'Omitido'}</div>;
+    }
+    if (answered === null) {
+      return <div style={{ marginTop:8, fontFamily:'Inter,system-ui', fontSize:12, color:'rgba(232,237,248,0.30)', fontStyle:'italic' }}>Omitido</div>;
+    }
     return (
       <div style={{ marginTop:10, display:'flex', flexWrap:'wrap', gap:6 }}>
         {options.map(opt => {
           const sel = multi ? (Array.isArray(answered) && answered.includes(opt.v)) : answered === opt.v;
-          return (
-            <span key={opt.v} style={{
-              padding:'5px 12px', borderRadius:8,
-              fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600,
-              background: sel ? 'rgba(59,130,246,0.18)' : 'transparent',
-              border: `1px solid ${sel ? 'rgba(59,130,246,0.40)' : 'rgba(255,255,255,0.07)'}`,
-              color: sel ? '#93C5FD' : 'rgba(232,237,248,0.25)',
-            }}>{opt.l}</span>
-          );
+          return <span key={opt.v} style={chipStyle(sel, !sel)}>{opt.l}</span>;
         })}
       </div>
     );
   }
 
+  // ── Number input ─────────────────────────────────────────────────────────────
+  if (inputType === 'number') {
+    return (
+      <div style={{ marginTop:10, display:'flex', alignItems:'center', flexWrap:'wrap', gap:8 }}>
+        <input type="number" min={step.min} max={step.max} value={pendingInput || ''}
+          onChange={e => onInputChange(e.target.value)} placeholder={step.placeholder}
+          style={{ width:90, padding:'8px 12px', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)',
+            background:'rgba(255,255,255,0.05)', color:'#E8EDF8',
+            fontFamily:'ui-monospace,Menlo,monospace', fontSize:14, textAlign:'center' }} />
+        {step.unit && <span style={{ fontFamily:'Inter,system-ui', fontSize:12, color:'rgba(232,237,248,0.45)' }}>{step.unit}</span>}
+        <button onClick={onInputConfirm} disabled={!pendingInput}
+          style={{ ...btnSty, background: pendingInput ? '#3B82F6' : 'rgba(59,130,246,0.18)', color: pendingInput ? '#fff' : 'rgba(255,255,255,0.30)' }}>
+          Confirmar
+        </button>
+        {skipBtn}
+      </div>
+    );
+  }
+
+  // ── Body metrics (altura + peso) ─────────────────────────────────────────────
+  if (inputType === 'body-metrics') {
+    const hasAny = pendingInputs?.height || pendingInputs?.weight;
+    return (
+      <div style={{ marginTop:10 }}>
+        <div style={{ display:'flex', gap:8, marginBottom:10, flexWrap:'wrap' }}>
+          {[['height','Altura','cm'], ['weight','Peso','kg']].map(([field, label, unit]) => (
+            <div key={field} style={{ display:'flex', alignItems:'center', gap:5 }}>
+              <input type="number" min={field==='height'?100:30} max={field==='height'?250:300}
+                value={pendingInputs?.[field] || ''}
+                onChange={e => onBodyMetricsChange(field, e.target.value)}
+                placeholder={label}
+                style={{ width:80, padding:'8px 10px', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)',
+                  background:'rgba(255,255,255,0.05)', color:'#E8EDF8',
+                  fontFamily:'ui-monospace,Menlo,monospace', fontSize:13, textAlign:'center' }} />
+              <span style={{ fontFamily:'Inter,system-ui', fontSize:11, color:'rgba(232,237,248,0.40)' }}>{unit}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ display:'flex', gap:8 }}>
+          <button onClick={onBodyMetricsConfirm} disabled={!hasAny}
+            style={{ ...btnSty, background: hasAny ? '#3B82F6' : 'rgba(59,130,246,0.18)', color: hasAny ? '#fff' : 'rgba(255,255,255,0.30)' }}>
+            Confirmar
+          </button>
+          {skipBtn}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Multi-select ──────────────────────────────────────────────────────────────
   if (multi) {
     const count = pendingMulti.length;
     return (
       <div style={{ marginTop:10 }}>
-        <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:12 }}>
+        <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:10 }}>
           {options.map(opt => {
-            const sel = pendingMulti.includes(opt.v);
-            const atMax = count >= maxSelect && !sel;
+            const sel     = pendingMulti.includes(opt.v);
+            const isNone  = opt.v === noneOption;
+            const noneOn  = noneOption && pendingMulti.includes(noneOption);
+            const atMax   = !isNone && !noneOn && count >= maxSelect && !sel;
             return (
               <button key={opt.v} onClick={() => !atMax && onMultiToggle(opt.v)}
                 style={{
-                  padding:'6px 13px', borderRadius:8, border:'none', cursor: atMax ? 'default' : 'pointer',
+                  padding:'6px 13px', borderRadius:8, cursor: atMax ? 'default' : 'pointer',
                   fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600, transition:'all .12s',
-                  background: sel ? '#3B82F6' : atMax ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.07)',
-                  color: sel ? '#fff' : atMax ? 'rgba(232,237,248,0.25)' : 'rgba(232,237,248,0.70)',
-                  border: `1px solid ${sel ? 'transparent' : 'rgba(255,255,255,0.10)'}`,
+                  background: sel ? (isNone ? 'rgba(34,197,94,0.18)' : '#3B82F6') : atMax ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.07)',
+                  color: sel ? (isNone ? '#4ADE80' : '#fff') : atMax ? 'rgba(232,237,248,0.22)' : 'rgba(232,237,248,0.70)',
+                  border: `1px solid ${sel ? (isNone ? 'rgba(34,197,94,0.35)' : 'transparent') : 'rgba(255,255,255,0.10)'}`,
                 }}>
                 {sel ? '✓ ' : ''}{opt.l}
               </button>
             );
           })}
         </div>
+        {hasNoteField && (
+          <textarea value={pendingNote || ''} onChange={e => onNoteChange(e.target.value)}
+            placeholder="Describe cualquier limitación relevante (opcional)"
+            rows={2}
+            style={{ width:'100%', boxSizing:'border-box', padding:'9px 12px', borderRadius:9, marginBottom:10, resize:'none',
+              border:'1px solid rgba(255,255,255,0.10)', background:'rgba(255,255,255,0.04)',
+              color:'rgba(232,237,248,0.70)', fontFamily:'Inter,system-ui', fontSize:12, lineHeight:1.5 }} />
+        )}
         <button onClick={onMultiConfirm} disabled={count === 0}
-          style={{
-            padding:'8px 18px', borderRadius:9, border:'none',
-            cursor: count > 0 ? 'pointer' : 'default',
-            background: count > 0 ? '#3B82F6' : 'rgba(59,130,246,0.18)',
-            color: count > 0 ? '#fff' : 'rgba(255,255,255,0.30)',
-            fontFamily:'Inter,system-ui', fontSize:12, fontWeight:700,
-          }}>
-          Confirmar selección ({count}/{maxSelect})
+          style={{ ...btnSty, background: count > 0 ? '#3B82F6' : 'rgba(59,130,246,0.18)', color: count > 0 ? '#fff' : 'rgba(255,255,255,0.30)' }}>
+          Confirmar{maxSelect < 8 ? ` (${count}/${maxSelect})` : ''}
         </button>
       </div>
     );
   }
 
+  // ── Single-select option buttons ──────────────────────────────────────────────
   return (
     <div style={{ marginTop:10, display:'flex', flexWrap:'wrap', gap:6 }}>
       {options.map(opt => (
@@ -892,9 +1047,18 @@ function AcCoachMessage({ content, onSendToBuilder, onboardingProps }) {
           step={content}
           answered={ob.answers?.[content.id]}
           pendingMulti={ob.pendingMulti || []}
+          pendingInput={ob.pendingInput || ''}
+          pendingInputs={ob.pendingInputs || {}}
+          pendingNote={ob.pendingNote || ''}
           onAnswer={v => ob.onAnswer?.(content.id, v)}
           onMultiToggle={ob.onMultiToggle}
           onMultiConfirm={ob.onMultiConfirm}
+          onInputChange={ob.onInputChange}
+          onInputConfirm={ob.onInputConfirm}
+          onBodyMetricsChange={ob.onBodyMetricsChange}
+          onBodyMetricsConfirm={ob.onBodyMetricsConfirm}
+          onNoteChange={ob.onNoteChange}
+          onSkip={ob.onSkip}
         />
       </div>
     );
@@ -1023,7 +1187,7 @@ function AtlasCoachSection() {
   // ── Atlas Profile onboarding ──────────────────────────────────────────────
   const [atlasProfile,   setAtlasProfile]   = React.useState(() => apLoadProfile());
   const [showCard,       setShowCard]       = React.useState(() => !apIsDismissed() && !apLoadProfile());
-  const [onboarding,     setOnboarding]     = React.useState({ active: false, step: 0, answers: {}, pendingMulti: [] });
+  const [onboarding,     setOnboarding]     = React.useState({ active: false, level: 1, step: 0, answers: {}, pendingMulti: [], pendingInput: '', pendingInputs: {}, pendingNote: '' });
 
   // ── Builder plan injection — reads plan saved by CoachRecommendationPanel ────
   const [pendingBuilderPlan] = React.useState(() => {
@@ -1141,81 +1305,166 @@ function AtlasCoachSection() {
     setShowCard(false);
   }
 
+  const _OB_RESET = { active: false, level: 1, step: 0, answers: {}, pendingMulti: [], pendingInput: '', pendingInputs: {}, pendingNote: '' };
+
   function startOnboarding() {
     setShowCard(false);
-    setOnboarding({ active: true, step: 0, answers: {}, pendingMulti: [] });
-    _addCoachMsg({ type:'text', text:'Perfecto. Vamos a crear tu Perfil Atlas en 6 preguntas rápidas.' });
-    // Delay first question slightly so it feels conversational
-    setTimeout(() => {
-      _addCoachMsg({ type:'onboarding-step', ...AP_STEPS[0] });
-    }, 400);
+    setOnboarding({ ..._OB_RESET, active: true });
+    _addCoachMsg({ type:'text', text:'Perfecto. Empecemos con tu Perfil Atlas. 6 preguntas rápidas.' });
+    setTimeout(() => _addCoachMsg({ type:'onboarding-step', ...AP_STEPS[0] }), 400);
   }
 
   function handleOnboardingAnswer(stepId, value) {
+    // L2 offer
+    if (stepId === 'l2-offer') {
+      const label = AP_L2_OFFER.options.find(o => o.v === value)?.l || value;
+      _markStepAnswered(stepId, value);
+      _addUserMsg(label);
+      if (value === 'yes') {
+        setOnboarding(prev => ({ ...prev, level: 2, step: 0, pendingMulti: [], pendingInput: '', pendingInputs: {}, pendingNote: '' }));
+        setTimeout(() => _addCoachMsg({ type:'onboarding-step', ...AP_STEPS_L2[0] }), 350);
+      } else {
+        _finishOnboarding(onboarding.answers);
+      }
+      return;
+    }
+
+    const steps   = onboarding.level === 1 ? AP_STEPS : AP_STEPS_L2;
     const stepIdx = onboarding.step;
-    const step    = AP_STEPS[stepIdx];
+    const step    = steps[stepIdx];
     if (!step || step.id !== stepId) return;
 
-    const label = step.options.find(o => o.v === value)?.l || value;
+    const label = step.options?.find(o => o.v === value)?.l || String(value);
     _markStepAnswered(stepId, value);
     _addUserMsg(label);
-
     const newAnswers = { ...onboarding.answers, [stepId]: value };
-    _advanceOnboarding(stepIdx, newAnswers);
+    _advanceOnboarding(stepIdx, newAnswers, onboarding.level);
   }
 
   function handleMultiToggle(v) {
     setOnboarding(prev => {
-      const cur    = prev.pendingMulti;
-      const step   = AP_STEPS[prev.step];
-      const maxSel = step?.maxSelect || 3;
-      const next   = cur.includes(v) ? cur.filter(x => x !== v) : cur.length < maxSel ? [...cur, v] : cur;
-      return { ...prev, pendingMulti: next };
+      const steps   = prev.level === 1 ? AP_STEPS : AP_STEPS_L2;
+      const step    = steps[prev.step];
+      const maxSel  = step?.maxSelect || 3;
+      const none    = step?.noneOption;
+      let cur       = prev.pendingMulti;
+      if (none && v === none) {
+        cur = cur.includes(none) ? [] : [none];
+      } else if (none && cur.includes(none)) {
+        cur = [v];
+      } else {
+        cur = cur.includes(v) ? cur.filter(x => x !== v) : cur.length < maxSel ? [...cur, v] : cur;
+      }
+      return { ...prev, pendingMulti: cur };
     });
   }
 
   function handleMultiConfirm() {
+    const steps   = onboarding.level === 1 ? AP_STEPS : AP_STEPS_L2;
     const stepIdx = onboarding.step;
-    const step    = AP_STEPS[stepIdx];
+    const step    = steps[stepIdx];
     if (!step || !step.multi) return;
     const values  = onboarding.pendingMulti;
     if (!values.length) return;
-
+    const note    = onboarding.pendingNote?.trim() || null;
     const labels  = values.map(v => step.options.find(o => o.v === v)?.l || v).join(', ');
     _markStepAnswered(step.id, values);
-    _addUserMsg(labels);
-
+    _addUserMsg(labels + (note ? ` — ${note}` : ''));
     const newAnswers = { ...onboarding.answers, [step.id]: values };
-    _advanceOnboarding(stepIdx, newAnswers);
+    if (step.hasNoteField && note) newAnswers.injuryNotes = note;
+    _advanceOnboarding(stepIdx, newAnswers, onboarding.level);
   }
 
-  function _advanceOnboarding(stepIdx, newAnswers) {
+  function handleInputChange(value) {
+    setOnboarding(prev => ({ ...prev, pendingInput: value }));
+  }
+
+  function handleInputConfirm() {
+    const steps   = onboarding.level === 1 ? AP_STEPS : AP_STEPS_L2;
+    const step    = steps[onboarding.step];
+    if (!step || step.inputType !== 'number') return;
+    const val = onboarding.pendingInput;
+    if (!val) return;
+    _markStepAnswered(step.id, val);
+    _addUserMsg(val + (step.unit ? ' ' + step.unit : ''));
+    const newAnswers = { ...onboarding.answers, [step.id]: Number(val) };
+    _advanceOnboarding(onboarding.step, newAnswers, onboarding.level);
+  }
+
+  function handleBodyMetricsChange(field, value) {
+    setOnboarding(prev => ({ ...prev, pendingInputs: { ...prev.pendingInputs, [field]: value } }));
+  }
+
+  function handleBodyMetricsConfirm() {
+    const steps = onboarding.level === 1 ? AP_STEPS : AP_STEPS_L2;
+    const step  = steps[onboarding.step];
+    if (!step || step.inputType !== 'body-metrics') return;
+    const val   = onboarding.pendingInputs;
+    const parts = [val.height && `${val.height} cm`, val.weight && `${val.weight} kg`].filter(Boolean);
+    _markStepAnswered(step.id, val);
+    _addUserMsg(parts.join(' · ') || 'Sin datos');
+    const newAnswers = { ...onboarding.answers, [step.id]: val };
+    _advanceOnboarding(onboarding.step, newAnswers, onboarding.level);
+  }
+
+  function handleNoteChange(value) {
+    setOnboarding(prev => ({ ...prev, pendingNote: value }));
+  }
+
+  function handleSkip() {
+    const steps = onboarding.level === 1 ? AP_STEPS : AP_STEPS_L2;
+    const step  = steps[onboarding.step];
+    if (!step) return;
+    _markStepAnswered(step.id, null);
+    _addUserMsg('Saltar');
+    _advanceOnboarding(onboarding.step, { ...onboarding.answers }, onboarding.level);
+  }
+
+  function _advanceOnboarding(stepIdx, newAnswers, level) {
+    const steps   = level === 1 ? AP_STEPS : AP_STEPS_L2;
     const nextIdx = stepIdx + 1;
-    if (nextIdx < AP_STEPS.length) {
-      setOnboarding(prev => ({ ...prev, step: nextIdx, answers: newAnswers, pendingMulti: [] }));
+    const reset   = { pendingMulti: [], pendingInput: '', pendingInputs: {}, pendingNote: '' };
+
+    if (nextIdx < steps.length) {
+      setOnboarding(prev => ({ ...prev, step: nextIdx, answers: newAnswers, ...reset }));
+      setTimeout(() => _addCoachMsg({ type:'onboarding-step', ...steps[nextIdx] }), 350);
+    } else if (level === 1) {
+      // L1 complete — offer L2
+      setOnboarding(prev => ({ ...prev, step: -1, answers: newAnswers, ...reset }));
       setTimeout(() => {
-        _addCoachMsg({ type:'onboarding-step', ...AP_STEPS[nextIdx] });
+        _addCoachMsg({ type:'text', text:'Nivel 1 completado. Tus datos básicos están guardados.' });
+        setTimeout(() => _addCoachMsg({ type:'onboarding-step', ...AP_L2_OFFER }), 380);
       }, 350);
     } else {
-      // All steps done — save profile
-      const saved = {
-        objective:        newAnswers.objective,
-        experience:       newAnswers.experience,
-        trainingDays:     newAnswers.trainingDays,
-        sessionDuration:  newAnswers.sessionDuration,
-        equipment:        newAnswers.equipment,
-        musclePriorities: newAnswers.musclePriorities || [],
-      };
-      apSaveProfile(saved);
-      setAtlasProfile(saved);
-      setOnboarding({ active: false, step: 0, answers: {}, pendingMulti: [] });
-      setTimeout(() => {
-        _addCoachMsg({
-          type:'text',
-          text:'✓ Perfil Atlas creado correctamente.\n\nAtlas Coach utilizará esta información para personalizar futuras recomendaciones de rutinas, distribución de volumen y selección de ejercicios.',
-        });
-      }, 350);
+      _finishOnboarding(newAnswers);
     }
+  }
+
+  function _finishOnboarding(answers) {
+    const bm = answers.bodyMetrics || {};
+    const saved = {
+      objective:        answers.objective        || null,
+      experience:       answers.experience       || null,
+      trainingDays:     answers.trainingDays     || null,
+      sessionDuration:  answers.sessionDuration  || null,
+      equipment:        answers.equipment        || null,
+      musclePriorities: answers.musclePriorities || [],
+      sex:              answers.sex              || null,
+      age:              answers.age              ? Number(answers.age) : null,
+      height:           bm.height               ? Number(bm.height)   : null,
+      weight:           bm.weight               ? Number(bm.weight)   : null,
+      injuries:         answers.injuries         || [],
+      injuryNotes:      answers.injuryNotes      || null,
+      activityLevel:    answers.activityLevel    || null,
+      mainObstacle:     answers.mainObstacle     || null,
+    };
+    apSaveProfile(saved);
+    setAtlasProfile(saved);
+    setOnboarding(_OB_RESET);
+    setTimeout(() => _addCoachMsg({
+      type:'text',
+      text:'✓ Perfil Atlas creado correctamente.\n\nAtlas Coach utilizará esta información para personalizar futuras recomendaciones de rutinas, distribución de volumen y selección de ejercicios.',
+    }), 350);
   }
 
   function sendMessage() {
@@ -1294,11 +1543,20 @@ function AtlasCoachSection() {
                   msg={msg}
                   onSendToBuilder={sendToBuilder}
                   onboardingProps={onboarding.active ? {
-                    answers:        onboarding.answers,
-                    pendingMulti:   onboarding.pendingMulti,
-                    onAnswer:       handleOnboardingAnswer,
-                    onMultiToggle:  handleMultiToggle,
-                    onMultiConfirm: handleMultiConfirm,
+                    answers:              onboarding.answers,
+                    pendingMulti:         onboarding.pendingMulti,
+                    pendingInput:         onboarding.pendingInput,
+                    pendingInputs:        onboarding.pendingInputs,
+                    pendingNote:          onboarding.pendingNote,
+                    onAnswer:             handleOnboardingAnswer,
+                    onMultiToggle:        handleMultiToggle,
+                    onMultiConfirm:       handleMultiConfirm,
+                    onInputChange:        handleInputChange,
+                    onInputConfirm:       handleInputConfirm,
+                    onBodyMetricsChange:  handleBodyMetricsChange,
+                    onBodyMetricsConfirm: handleBodyMetricsConfirm,
+                    onNoteChange:         handleNoteChange,
+                    onSkip:               handleSkip,
                   } : null}
                 />
               ))}
