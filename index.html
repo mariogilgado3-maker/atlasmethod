@@ -96,12 +96,20 @@ function Routes() {
   );
 }
 
+const APP_ROUTES = new Set(['/coach', '/builder', '/laboratorio']);
+
+function ConditionalFooter() {
+  const { route } = useRoute();
+  if (APP_ROUTES.has(route)) return null;
+  return <Footer />;
+}
+
 function App() {
   return (
     <StoreProvider>
       <AppNav />
       <Routes />
-      <Footer />
+      <ConditionalFooter />
     </StoreProvider>
   );
 }

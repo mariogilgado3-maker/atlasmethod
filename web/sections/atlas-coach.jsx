@@ -1508,7 +1508,7 @@ function AtlasCoachSection() {
   const isMobile = window.innerWidth < 680;
 
   return (
-    <section style={{ height:'100vh', paddingTop:64, boxSizing:'border-box', display:'flex', flexDirection:'column', background:AC.page, overflow:'hidden' }}>
+    <section style={{ height:'calc(100vh - 57px)', display:'flex', flexDirection:'column', background:AC.page, overflow:'hidden' }}>
       <div style={{ flex:1, display:'flex', overflow:'hidden', minHeight:0 }}>
 
         {!isMobile && (
