@@ -258,6 +258,63 @@ const AP_L2_OFFER = {
   isL2Offer: true,
 };
 
+// ── Atlas Profile translation maps ───────────────────────────────────────────
+const AP_OBJ_MAP  = { muscle:'hipertrofia', fat_loss:'pérdida de grasa', recomp:'recomposición corporal', performance:'rendimiento deportivo', health:'salud y bienestar' };
+const AP_EXP_MAP  = { beginner:'principiante', intermediate:'intermedio', advanced:'avanzado' };
+const AP_EQP_MAP  = { full_gym:'gimnasio completo', basic_gym:'gimnasio básico', home:'casa', calisthenics:'calistenia', mixed:'mixto' };
+const AP_MUS_MAP  = { chest:'pecho', back:'espalda', shoulders:'hombros', arms:'brazos', legs:'piernas', glutes:'glúteos', calves:'gemelos', forearms:'antebrazos' };
+const AP_DAYS_SPLIT = { 2:'upper_lower', 3:'ppl', 4:'upper_lower', 5:'ppl', 6:'ppl' };
+
+// Per-injury: which muscle groups to cap in the routine builder
+const AP_INJURY_GROUP_CAPS = {
+  shoulder:   { hombro: 1 },
+  knee:       { piernas: 1 },
+  lower_back: {},
+  elbow:      {},
+  wrist:      {},
+  ankle:      { piernas: 1 },
+  neck:       { hombro: 1 },
+};
+
+// Per-injury: plain-text warnings injected into routine intro
+const AP_INJURY_WARNS = {
+  shoulder:   'He limitado el trabajo de hombro sobre la cabeza por tu limitación registrada.',
+  knee:       'He reducido el rango y volumen de sentadilla por tu rodilla.',
+  lower_back: 'He sustituido peso muerto convencional por variantes de menor riesgo para tu espalda lumbar.',
+  elbow:      'He evitado extensiones y curls con agarre pronado por tu codo.',
+  wrist:      'Uso mancuernas o agarre neutro en lugar de barra recta por tu muñeca.',
+  ankle:      'He evitado prensa y sentadilla completa por tu tobillo.',
+  neck:       'He eliminado movimientos con carga directa sobre el cuello.',
+};
+
+// Merges atlas.profile.v1 (English keys) into the shape the engine expects
+function acMergeAtlasProfile(atlasProfile, coachProfile) {
+  if (!atlasProfile) return coachProfile || null;
+  const activeInjuries = (atlasProfile.injuries || []).filter(i => i !== 'none');
+  const pastInjuries   = (atlasProfile.previousInjuries || []).filter(i => i !== 'none');
+  return {
+    // Legacy engine keys (Spanish)
+    objetivo:     AP_OBJ_MAP[atlasProfile.objective]  || coachProfile?.objetivo     || 'hipertrofia',
+    nivel:        AP_EXP_MAP[atlasProfile.experience] || coachProfile?.nivel        || 'intermedio',
+    dias:         atlasProfile.trainingDays            || coachProfile?.dias         || 3,
+    tiempo:       atlasProfile.sessionDuration         || coachProfile?.tiempo       || 60,
+    equipamiento: AP_EQP_MAP[atlasProfile.equipment]  || coachProfile?.equipamiento || 'gimnasio',
+    // New keys passed through
+    objective:        atlasProfile.objective,
+    experience:       atlasProfile.experience,
+    musclePriorities: atlasProfile.musclePriorities || [],
+    injuries:         activeInjuries,
+    previousInjuries: pastInjuries,
+    avoidExercises:   atlasProfile.avoidExercises || null,
+    activityLevel:    atlasProfile.activityLevel   || null,
+    mainObstacle:     atlasProfile.mainObstacle    || null,
+    sex:              atlasProfile.sex             || null,
+    age:              atlasProfile.age             || null,
+    height:           atlasProfile.height          || null,
+    weight:           atlasProfile.weight          || null,
+  };
+}
+
 // ── Rich context builder ──────────────────────────────────────────────────────
 function acBuildRichContext(state, profile) {
   const log      = state.log || [];
@@ -332,7 +389,7 @@ function acBuildRichContext(state, profile) {
     : totalSetsWeek > 30 ? 'moderate' : 'low';
 
   // Adherence
-  const targetDays = profile?.dias || 3;
+  const targetDays = profile?.dias || profile?.trainingDays || 3;
   const adherenceRate = weekSessions.length / targetDays;
 
   // Most trained exercise
@@ -341,6 +398,22 @@ function acBuildRichContext(state, profile) {
     (s.exercises || []).forEach(ex => { exCount[ex.name] = (exCount[ex.name] || 0) + 1; });
   });
   const mostTrained = Object.entries(exCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+  // Muscle priority volume gaps (how far priority muscles are from target)
+  const musclePriorities = profile?.musclePriorities || [];
+  const priorityGaps = [];
+  const MUS_VOL_CHECK = { chest:pushVol, back:pullVol, legs:legVol };
+  musclePriorities.forEach(m => {
+    const vol = MUS_VOL_CHECK[m];
+    if (vol !== undefined && vol < 8) priorityGaps.push({ muscle: m, vol, label: AP_MUS_MAP[m] || m });
+  });
+
+  // Injury risk: pushing shoulder-heavy volume with shoulder injury
+  const injuries = profile?.injuries || [];
+  const injuryRisks = [];
+  if (injuries.includes('shoulder') && pushVol > pullVol * 1.2 && pushVol > 3) {
+    injuryRisks.push({ muscle:'hombro', warn:`${pushVol} series de empuje vs ${pullVol} de tracción con limitación en hombro` });
+  }
 
   return {
     log, sessions,
@@ -356,6 +429,7 @@ function acBuildRichContext(state, profile) {
     mostTrained,
     streak: sessions.streak || 0,
     completed: sessions.completed || 0,
+    musclePriorities, priorityGaps, injuries, injuryRisks,
   };
 }
 
@@ -399,23 +473,32 @@ function acExtractParams(text) {
 }
 
 // ── Detailed routine builder ──────────────────────────────────────────────────
-function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs) {
+function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps = {}, avoidKeywords = []) {
   const byGroup = {};
   allExs.forEach(ex => {
+    if (avoidKeywords.length) {
+      const nm = (ex.name || '').toLowerCase();
+      if (avoidKeywords.some(kw => kw && nm.includes(kw))) return;
+    }
     const g = acExGroup(ex);
     if (!byGroup[g]) byGroup[g] = [];
     byGroup[g].push(ex);
   });
 
   const scheme = {
-    hipertrofia: { sets: 3, setsComp: 4, reps: '8-12', rir: 2, rest: '90-120s' },
-    fuerza:      { sets: 4, setsComp: 5, reps: '3-6',  rir: 1, rest: '3-5 min' },
-    recomp:      { sets: 3, setsComp: 4, reps: '10-15', rir: 2, rest: '60-90s' },
-    rendimiento: { sets: 4, setsComp: 5, reps: '4-8',  rir: 1, rest: '2-3 min' },
+    hipertrofia:            { sets: 3, setsComp: 4, reps: '8-12',  rir: 2, rest: '90-120s' },
+    'pérdida de grasa':     { sets: 3, setsComp: 3, reps: '12-15', rir: 2, rest: '60s'     },
+    'recomposición corporal':{ sets: 3, setsComp: 4, reps: '10-14', rir: 2, rest: '75s'     },
+    fuerza:                 { sets: 4, setsComp: 5, reps: '3-6',   rir: 1, rest: '3-5 min' },
+    rendimiento:            { sets: 4, setsComp: 5, reps: '4-8',   rir: 1, rest: '2-3 min' },
+    'rendimiento deportivo':{ sets: 4, setsComp: 5, reps: '4-8',   rir: 1, rest: '2-3 min' },
   }[goal] || { sets: 3, setsComp: 4, reps: '8-12', rir: 2, rest: '90s' };
 
   function pick(group, n, isCompound) {
-    return (byGroup[group] || []).slice(0, n).map((ex, i) => {
+    const cap = groupCaps[group];
+    const effectiveN = cap !== undefined ? Math.min(n, cap) : n;
+    if (effectiveN === 0) return [];
+    return (byGroup[group] || []).slice(0, effectiveN).map((ex, i) => {
       const setsN = isCompound && i === 0 ? scheme.setsComp : scheme.sets;
       return {
         id: ex.id,
@@ -465,67 +548,122 @@ function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs) {
 
 // ── Response generators ───────────────────────────────────────────────────────
 function acResponseGreeting(ctx, profile, memory) {
+  const injuries = profile?.injuries || [];
+  const musclePriorities = profile?.musclePriorities || [];
+
   if (ctx.totalSessions === 0) {
-    return profile
-      ? { type:'text', text:`Hola. Perfil cargado — ${profile.objetivo}, nivel ${profile.nivel}, ${profile.dias} días/sem. No tienes sesiones registradas aún. ¿Empezamos con un plan de entrenamiento?` }
-      : { type:'text', text:`Hola. Soy Atlas Coach. Para darte recomendaciones personalizadas configura tu perfil (panel inferior izquierdo). ¿Cuál es tu objetivo principal?` };
+    if (!profile) {
+      return { type:'text', text:`Hola. Soy Atlas Coach. Completa tu Perfil Atlas para que pueda adaptar cada recomendación a tu objetivo, nivel y limitaciones. ¿Por dónde empezamos?` };
+    }
+    const parts = [`Hola. He cargado tu perfil — objetivo: ${profile.objetivo}, nivel ${profile.nivel}, ${profile.dias} días/sem.`];
+    if (injuries.length) parts.push(`Tengo en cuenta tus limitaciones en ${injuries.map(i => i.replace(/_/g,' ')).join(' y ')}.`);
+    if (musclePriorities.length) parts.push(`Grupos prioritarios: ${musclePriorities.map(m => AP_MUS_MAP[m] || m).join(', ')}.`);
+    parts.push(`Sin sesiones registradas aún. ¿Generamos tu primer plan?`);
+    return { type:'text', text: parts.join(' ') };
   }
+
   const parts = [];
   if (ctx.daysSinceLast === 0) parts.push('Entrenaste hoy.');
   else if (ctx.daysSinceLast === 1) parts.push('Entrenaste ayer.');
   else if (ctx.daysSinceLast < 99) parts.push(`Llevas ${ctx.daysSinceLast} días sin entrenar.`);
   if (ctx.streak >= 3) parts.push(`${ctx.streak} días de racha.`);
-  if (ctx.pushPullRatio > 1.5 && ctx.pushVol > 3) parts.push(`Esta semana tienes más empuje que tracción (${ctx.pushVol} vs ${ctx.pullVol} series).`);
-  else if (ctx.plateaus.length > 0) parts.push(`Hay un posible plateau en ${ctx.plateaus[0].name}.`);
-  else if (ctx.lowVolGroups.length > 0) parts.push(`${ctx.lowVolGroups[0]} con poco volumen esta semana.`);
+  if (ctx.injuryRisks?.length > 0) {
+    parts.push(`⚠ Atención: ${ctx.injuryRisks[0].warn}.`);
+  } else if (ctx.priorityGaps?.length > 0) {
+    parts.push(`${ctx.priorityGaps[0].label} — tu músculo prioritario — tiene poco volumen esta semana (${ctx.priorityGaps[0].vol} series).`);
+  } else if (ctx.pushPullRatio > 1.5 && ctx.pushVol > 3) {
+    parts.push(`Más empuje que tracción esta semana (${ctx.pushVol} vs ${ctx.pullVol} series).`);
+  } else if (ctx.plateaus.length > 0) {
+    parts.push(`Posible plateau en ${ctx.plateaus[0].name}.`);
+  } else if (ctx.lowVolGroups.length > 0) {
+    parts.push(`${ctx.lowVolGroups[0]} con poco volumen esta semana.`);
+  }
+  if (memory?.lesiones?.length > 0) parts.push(`Recuerdo que tienes molestias en ${memory.lesiones.slice(0,2).join(' y ')}.`);
   parts.push('¿En qué te ayudo?');
   return { type:'text', text: parts.join(' ') };
 }
 
 function acResponseRoutine(params, ctx, profile, memory, allExs) {
-  const goal  = params.goal  || profile?.objetivo || 'hipertrofia';
-  const tiempo = params.tiempo || profile?.tiempo || 60;
-  const level = profile?.nivel || 'intermedio';
+  const goal           = params.goal   || profile?.objetivo        || 'hipertrofia';
+  const tiempo         = params.tiempo || profile?.tiempo          || 60;
+  const level          = profile?.nivel                            || 'intermedio';
+  const injuries       = profile?.injuries                         || [];
+  const musclePriorities = profile?.musclePriorities              || [];
+  const avoidExercises = profile?.avoidExercises                  || null;
+  const days           = profile?.dias || ctx.targetDays          || 3;
 
+  // Smart split selection
   let splitKey = params.split || null;
   if (!splitKey) {
-    if (params.target === 'push') splitKey = 'push';
-    else if (params.target === 'pull') splitKey = 'pull';
-    else if (params.target === 'legs') splitKey = 'legs';
-    else if (params.target === 'arms') splitKey = 'arms';
+    if      (params.target === 'push')      splitKey = 'push';
+    else if (params.target === 'pull')      splitKey = 'pull';
+    else if (params.target === 'legs')      splitKey = 'legs';
+    else if (params.target === 'arms')      splitKey = 'arms';
     else if (params.target === 'shoulders') splitKey = 'shoulders';
-    else if (ctx.targetDays >= 4) splitKey = 'upper_lower';
-    else if (ctx.targetDays >= 3) splitKey = 'ppl';
-    else splitKey = 'fullbody';
+    else {
+      // Prefer split that benefits priority muscles
+      const prioSplits = musclePriorities.map(m =>
+        m === 'back' ? 'pull' : m === 'chest' ? 'push' : m === 'legs' || m === 'glutes' ? 'legs' : null
+      ).filter(Boolean);
+      splitKey = AP_DAYS_SPLIT[days] || (days >= 4 ? 'upper_lower' : days >= 3 ? 'ppl' : 'fullbody');
+      // If user asked for a specific priority and it maps to a single day, honour it
+      if (prioSplits.length === 1 && params.raw?.length < 15) splitKey = prioSplits[0];
+    }
   }
 
-  const sessions = acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs);
+  // Build injury-aware group caps and keyword filter
+  const groupCaps = {};
+  injuries.forEach(inj => {
+    const caps = AP_INJURY_GROUP_CAPS[inj] || {};
+    Object.entries(caps).forEach(([g, n]) => {
+      groupCaps[g] = Math.min(groupCaps[g] ?? 99, n);
+    });
+  });
+  const avoidKeywords = (avoidExercises || '').toLowerCase()
+    .split(/[,;]/).map(s => s.trim()).filter(Boolean);
+
+  const sessions = acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps, avoidKeywords);
   if (!sessions.length || sessions.every(s => !s.exercises.length)) {
     return { type:'text', text:'No pude armar la rutina con los ejercicios disponibles. Prueba con otro tipo de split.' };
   }
 
-  // Context-aware intro
-  let intro = '';
-  const avoided = memory?.evitados || [];
-  if (ctx.daysSinceLast > 6) {
-    intro = `Llevas ${ctx.daysSinceLast} días sin entrenar. Aquí tienes la sesión — empieza en el 70–80% de tus cargas habituales:`;
-  } else if (ctx.pushPullRatio > 1.5 && !['pull','legs'].includes(splitKey)) {
-    intro = `Tu tracción está por debajo de tu empuje esta semana. Prioriza espalda pronto. Aquí tienes la sesión:`;
-  } else if (ctx.plateaus.length > 0 && splitKey === 'fullbody') {
-    intro = `Noto plateau en ${ctx.plateaus[0].name}. Hoy haz los mismos ejercicios pero intenta superar los ${ctx.plateaus[0].kg} kg aunque sea en una sola serie:`;
-  } else {
-    const intros = {
-      push:'Rutina de empuje — pecho, hombros y tríceps:',
-      pull:'Rutina de tracción — espalda y bíceps:',
-      legs:'Rutina de piernas y glúteos:',
-      fullbody:`Full Body para ${goal} — ${tiempo} min:`,
-      ppl:`Plan Push/Pull/Legs — ${sessions.length} sesiones:`,
-      upper_lower:'Plan Upper/Lower — 2 sesiones por semana:',
-      arms:'Sesión de brazos:',
-      shoulders:'Sesión de hombros:',
-    };
-    intro = intros[splitKey] || 'Aquí tienes la rutina:';
+  // ── Build explanatory intro ────────────────────────────────────────────────
+  const reasonParts = [];
+
+  // Goal
+  reasonParts.push(`objetivo: ${goal}`);
+
+  // Level
+  reasonParts.push(`nivel ${level}`);
+
+  // Muscle priorities
+  if (musclePriorities.length > 0) {
+    const labels = musclePriorities.slice(0,3).map(m => AP_MUS_MAP[m] || m).join(', ');
+    reasonParts.push(`priorizando ${labels}`);
   }
+
+  // Training days explanation
+  reasonParts.push(`${days} días/sem → split ${splitKey.toUpperCase().replace('_',' ')}`);
+
+  // Session duration
+  if (tiempo) reasonParts.push(`~${tiempo} min por sesión`);
+
+  let intro = `He generado este plan teniendo en cuenta tu ${reasonParts.join(', ')}.`;
+
+  // Context adjustments
+  const contextNotes = [];
+  if (ctx.daysSinceLast > 6) contextNotes.push(`Llevas ${ctx.daysSinceLast} días sin entrenar — empieza al 70–80% de tus cargas habituales.`);
+  if (ctx.pushPullRatio > 1.5 && !['pull','legs'].includes(splitKey)) contextNotes.push(`Tu tracción está por debajo de tu empuje esta semana; prioriza espalda en tu próxima sesión.`);
+  if (ctx.plateaus.length > 0) contextNotes.push(`Noto plateau en ${ctx.plateaus[0].name} (${ctx.plateaus[0].kg} kg). Intenta superar ese peso en al menos una serie.`);
+
+  // Injury explanations
+  const injuryNotes = injuries
+    .map(inj => AP_INJURY_WARNS[inj])
+    .filter(Boolean);
+  if (avoidExercises) injuryNotes.push(`He excluido ejercicios indicados por ti: ${avoidExercises}.`);
+
+  if (contextNotes.length) intro += '\n\n' + contextNotes.join(' ');
+  if (injuryNotes.length) intro += '\n\n⚠ Ajustes por tu perfil:\n' + injuryNotes.map(n => `• ${n}`).join('\n');
 
   return {
     type: 'routine',
@@ -582,10 +720,32 @@ function acResponseAnalysis(ctx, profile) {
     issues.push({ sev:'warning', icon:'⚠', title:'Volumen semanal muy alto', detail:`${ctx.totalSetsWeek} series esta semana (media de ${ctx.avgSetsPerSess.toFixed(1)}/sesión). Pasadas las 20–22 series efectivas por sesión la calidad del estímulo cae.`, rec:'Considera un deload: reduce el volumen al 50–60% manteniendo la intensidad.' });
   }
 
+  // ── Atlas Profile–specific checks ─────────────────────────────────────────
+  // Injury risk check
+  if (ctx.injuryRisks?.length > 0) {
+    ctx.injuryRisks.forEach(risk => {
+      issues.push({ sev:'warning', icon:'⚠', title:`Riesgo por limitación en ${risk.muscle}`, detail:`${risk.warn}. Este desequilibrio puede agravar la zona lesionada.`, rec:`Añade tracción antes de tu próxima sesión de empuje.` });
+    });
+  }
+
+  // Muscle priority volume gap
+  if (ctx.priorityGaps?.length > 0) {
+    ctx.priorityGaps.forEach(gap => {
+      issues.push({ sev:'warning', icon:'⊕', title:`${gap.label} — músculo prioritario con poco volumen`, detail:`Has marcado ${gap.label} como prioritario pero solo acumula ${gap.vol} series esta semana. Para hipertrofia necesitas 10–16 series semanales repartidas en 2 sesiones.`, rec:`Añade una sesión de ${gap.label} o incluye 2–3 series extra en tu próximo entrenamiento.` });
+    });
+  }
+
+  // Goal-specific check
+  const objetivo = profile?.objetivo || '';
+  if (objetivo.includes('grasa') && ctx.totalSetsWeek < 20 && ctx.weekSessions < 2) {
+    issues.push({ sev:'info', icon:'ℹ', title:'Frecuencia baja para pérdida de grasa', detail:'Para pérdida de grasa el volumen semanal y la consistencia son clave. Con menos de 2 sesiones por semana el déficit calórico generado por el entrenamiento es mínimo.', rec:'Intenta mantener al menos 3 sesiones semanales, aunque sean más cortas.' });
+  }
+
   const warns = issues.filter(i => i.sev === 'warning');
+  const profileNote = profile ? ` (objetivo: ${profile.objetivo}, nivel ${profile.nivel})` : '';
   const summary = warns.length > 0
-    ? `He revisado ${Math.min(ctx.totalSessions, 10)} sesiones. ${warns.length} punto${warns.length > 1 ? 's' : ''} que deberías corregir.`
-    : `He revisado ${Math.min(ctx.totalSessions, 10)} sesiones. Tu entrenamiento va bien, con algunos ajustes menores.`;
+    ? `He revisado ${Math.min(ctx.totalSessions, 10)} sesiones${profileNote}. ${warns.length} punto${warns.length > 1 ? 's' : ''} a corregir.`
+    : `He revisado ${Math.min(ctx.totalSessions, 10)} sesiones${profileNote}. Tu entrenamiento va bien.`;
 
   return {
     type: 'analysis',
@@ -683,35 +843,53 @@ function acGenerateSmartResponse(userText, state, profile, memory, allExs) {
 // ── Dynamic context chips ─────────────────────────────────────────────────────
 function acGetDynamicChips(ctx, profile) {
   const chips = [];
+  const musclePriorities = profile?.musclePriorities || [];
+  const injuries = profile?.injuries || [];
+
   if (ctx.daysSinceLast > 4 && ctx.daysSinceLast < 99) chips.push(`¿Retomamos hoy?`);
   if (ctx.plateaus.length > 0) chips.push(`Estancado en ${ctx.plateaus[0].name.split(' ')[0]}`);
-  if (ctx.pushPullRatio > 1.5) chips.push('Necesito más tracción');
+  if (ctx.injuryRisks?.length > 0) chips.push('Ajustar rutina por lesión');
+  else if (ctx.priorityGaps?.length > 0) chips.push(`Más volumen de ${ctx.priorityGaps[0].label}`);
+  else if (ctx.pushPullRatio > 1.5) chips.push('Necesito más tracción');
   if (ctx.fatigueLevel === 'high') chips.push('¿Debo hacer deload?');
-  if (ctx.totalSessions === 0) chips.push('Hazme un plan para empezar');
-  chips.push(`Analiza mi historial`);
-  chips.push(`Rutina ${profile?.objetivo || 'para hoy'}`);
-  if (!chips.includes('¿Debo hacer deload?')) chips.push('¿Debo hacer deload?');
+  if (ctx.totalSessions === 0) chips.push('Crear mi plan de entrenamiento');
+  if (musclePriorities.length > 0) {
+    const prio = musclePriorities[0];
+    chips.push(`Rutina para ${AP_MUS_MAP[prio] || prio}`);
+  }
+  chips.push(`Analizar mi historial`);
+  chips.push(`Rutina de ${profile?.objetivo || 'hoy'}`);
   return [...new Set(chips)].slice(0, 4);
 }
 
 // ── Welcome message ───────────────────────────────────────────────────────────
 function acWelcomeMessage(state, profile, memory) {
   const ctx = acBuildRichContext(state, profile);
+  const injuries = profile?.injuries || [];
+  const musclePriorities = profile?.musclePriorities || [];
+
   if (ctx.totalSessions === 0) {
-    if (!profile) return 'Hola. Configura tu perfil en el panel inferior del sidebar para que pueda darte recomendaciones personalizadas. ¿Con qué empezamos?';
-    return `Hola. Perfil cargado — ${profile.objetivo}, nivel ${profile.nivel}. Sin sesiones registradas aún. ¿Quieres que genere tu primer plan de entrenamiento?`;
+    if (!profile) return 'Hola. Completa tu Perfil Atlas para recibir recomendaciones personalizadas. ¿Por dónde empezamos?';
+    const lines = [`Hola. He cargado tu perfil: ${profile.objetivo}, nivel ${profile.nivel}, ${profile.dias} días/sem.`];
+    if (injuries.length) lines.push(`Tengo en cuenta tus limitaciones: ${injuries.map(i => i.replace(/_/g,' ')).join(', ')}.`);
+    if (musclePriorities.length) lines.push(`Grupos prioritarios: ${musclePriorities.map(m => AP_MUS_MAP[m] || m).join(', ')}.`);
+    lines.push('¿Genero tu primer plan?');
+    return lines.join(' ');
   }
+
   const parts = [];
   if (ctx.daysSinceLast === 0) parts.push('Entrenaste hoy.');
   else if (ctx.daysSinceLast === 1) parts.push('Entrenaste ayer.');
   else if (ctx.daysSinceLast < 99) parts.push(`Llevas ${ctx.daysSinceLast} días sin entrenar.`);
   if (ctx.streak >= 3) parts.push(`${ctx.streak} días de racha.`);
-  if (ctx.pushPullRatio > 1.5 && ctx.pushVol > 3) parts.push(`Esta semana más empuje que tracción (${ctx.pushVol}:${ctx.pullVol}).`);
+  if (ctx.injuryRisks?.length > 0) parts.push(`⚠ ${ctx.injuryRisks[0].warn}.`);
+  else if (ctx.priorityGaps?.length > 0) parts.push(`${ctx.priorityGaps[0].label} — prioritario — lleva poco volumen esta semana.`);
+  else if (ctx.pushPullRatio > 1.5 && ctx.pushVol > 3) parts.push(`Más empuje que tracción esta semana (${ctx.pushVol}:${ctx.pullVol}).`);
   else if (ctx.plateaus.length > 0) parts.push(`Posible plateau en ${ctx.plateaus[0].name}.`);
   else if (ctx.lowVolGroups.length > 0) parts.push(`${ctx.lowVolGroups[0]} con poco volumen esta semana.`);
   else if (ctx.fatigueLevel === 'high') parts.push('Volumen semanal alto — considera un deload.');
+  if (memory?.lesiones?.length > 0) parts.push(`Recuerdo molestias en ${memory.lesiones.slice(0,2).join(' y ')}.`);
   parts.push('¿En qué te ayudo?');
-  if (memory?.lesiones?.length > 0) parts.splice(-1, 0, `Recuerdo que tienes molestias en ${memory.lesiones.slice(0,2).join(' y ')}.`);
   return parts.join(' ');
 }
 
@@ -1320,8 +1498,11 @@ function AtlasCoachSection() {
     try { return ExerciseService.getAll(); } catch { return []; }
   }, []);
 
-  const ctx = React.useMemo(() => acBuildRichContext(state, profile), [state, profile]);
-  const chips = React.useMemo(() => acGetDynamicChips(ctx, profile), [ctx, profile]);
+  // Merge atlas.profile.v1 (onboarding) with legacy coach profile — atlas.profile.v1 takes priority
+  const mergedProfile = React.useMemo(() => acMergeAtlasProfile(atlasProfile, profile), [atlasProfile, profile]);
+
+  const ctx   = React.useMemo(() => acBuildRichContext(state, mergedProfile), [state, mergedProfile]);
+  const chips = React.useMemo(() => acGetDynamicChips(ctx, mergedProfile), [ctx, mergedProfile]);
 
   const activeChat = chats.find(c => c.id === activeChatId) || null;
   const messages   = activeChat?.messages || [];
@@ -1350,7 +1531,7 @@ function AtlasCoachSection() {
   function startNewChat() {
     const id  = `chat-${Date.now()}`;
     const mem = acLoadMemory();
-    const welcome = acWelcomeMessage(state, profile, mem);
+    const welcome = acWelcomeMessage(state, mergedProfile, mem);
     const chat = {
       id, title:'Nueva conversación',
       messages: [{ id:`${id}-init`, role:'coach', content:{ type:'text', text:welcome }, ts:Date.now() }],
@@ -1584,7 +1765,7 @@ function AtlasCoachSection() {
     setTimeout(() => {
       let response;
       try {
-        response = acGenerateSmartResponse(userText, state, profile, currentMemory, allExs);
+        response = acGenerateSmartResponse(userText, state, mergedProfile, currentMemory, allExs);
       } catch (err) {
         response = { type:'text', text:'Hubo un error al procesar tu mensaje. Por favor intenta de nuevo.' };
       }
