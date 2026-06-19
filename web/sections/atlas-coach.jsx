@@ -180,7 +180,7 @@ const AP_STEPS_L2 = [
   },
   {
     id: 'injuries',
-    question: '¿Tienes alguna lesión o limitación física?',
+    question: '¿Tienes alguna lesión o limitación física actual?',
     options: [
       { v: 'shoulder',   l: 'Hombro'         },
       { v: 'knee',       l: 'Rodilla'         },
@@ -195,6 +195,30 @@ const AP_STEPS_L2 = [
     maxSelect: 7,
     hasNoteField: true,
     noneOption: 'none',
+  },
+  {
+    id: 'previousInjuries',
+    question: '¿Has tenido lesiones importantes en el pasado?',
+    options: [
+      { v: 'shoulder_past',  l: 'Hombro'        },
+      { v: 'knee_past',      l: 'Rodilla'        },
+      { v: 'back_past',      l: 'Espalda lumbar' },
+      { v: 'elbow_past',     l: 'Codo'           },
+      { v: 'wrist_past',     l: 'Muñeca'         },
+      { v: 'ankle_past',     l: 'Tobillo'        },
+      { v: 'none',           l: 'Sin antecedentes relevantes' },
+    ],
+    multi: true,
+    maxSelect: 6,
+    noneOption: 'none',
+    skippable: true,
+  },
+  {
+    id: 'avoidExercises',
+    question: '¿Hay ejercicios que prefieres evitar o que te causan molestias?',
+    inputType: 'text',
+    placeholder: 'Ej: Sentadilla profunda, press de banca con barra…',
+    skippable: true,
   },
   {
     id: 'activityLevel',
@@ -749,6 +773,48 @@ function AtlasProfileCard({ onStart, onDismiss }) {
   );
 }
 
+const OBJ_SHORT = { muscle:'Hipertrofia', fat_loss:'Perder grasa', recomp:'Recomposición', performance:'Rendimiento', health:'Salud' };
+const EXP_SHORT = { beginner:'Principiante', intermediate:'Intermedio', advanced:'Avanzado' };
+
+function AtlasProfileStatus({ profile, onEdit }) {
+  const chips = [
+    OBJ_SHORT[profile.objective] || profile.objective,
+    EXP_SHORT[profile.experience] || profile.experience,
+    profile.trainingDays ? `${profile.trainingDays} días/sem` : null,
+  ].filter(Boolean);
+
+  return (
+    <div style={{
+      borderRadius: 14,
+      border: '1px solid rgba(34,197,94,0.22)',
+      background: 'rgba(22,163,74,0.06)',
+      padding: '14px 18px',
+      marginBottom: 28,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 14,
+      flexWrap: 'wrap',
+      animation: 'fadeIn .3s ease',
+    }}>
+      <div style={{ display:'flex', alignItems:'center', gap:7, flexShrink:0 }}>
+        <span style={{ width:7, height:7, borderRadius:'50%', background:'#4ADE80', display:'block' }} />
+        <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700, color:'#4ADE80', letterSpacing:1.2 }}>PERFIL ATLAS ACTIVO</span>
+      </div>
+      <div style={{ display:'flex', gap:6, flex:1, flexWrap:'wrap' }}>
+        {chips.map(c => (
+          <span key={c} style={{ padding:'3px 10px', borderRadius:6, background:'rgba(74,222,128,0.10)', border:'1px solid rgba(74,222,128,0.20)', fontFamily:'Inter,system-ui', fontSize:11, fontWeight:600, color:'rgba(232,237,248,0.70)' }}>{c}</span>
+        ))}
+      </div>
+      <button onClick={onEdit} style={{
+        padding:'6px 14px', borderRadius:8, cursor:'pointer',
+        background:'transparent', border:'1px solid rgba(255,255,255,0.14)',
+        color:'rgba(232,237,248,0.50)', fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700,
+        flexShrink:0,
+      }}>Editar perfil</button>
+    </div>
+  );
+}
+
 // Renders one onboarding step inside the chat bubble
 function AcOnboardingStep({
   step, answered, pendingMulti, pendingInput, pendingInputs, pendingNote,
@@ -779,6 +845,9 @@ function AcOnboardingStep({
     if (inputType === 'body-metrics') {
       const h = answered?.height, w = answered?.weight;
       return <div style={{ marginTop:8, fontFamily:'ui-monospace,Menlo,monospace', fontSize:13, color:'#93C5FD' }}>{[h && `${h} cm`, w && `${w} kg`].filter(Boolean).join(' · ') || 'Omitido'}</div>;
+    }
+    if (inputType === 'text') {
+      return <div style={{ marginTop:8, fontFamily:'Inter,system-ui', fontSize:12, color:'#93C5FD', fontStyle: answered ? 'normal' : 'italic', opacity: answered ? 1 : 0.4 }}>{answered || 'Omitido'}</div>;
     }
     if (answered === null) {
       return <div style={{ marginTop:8, fontFamily:'Inter,system-ui', fontSize:12, color:'rgba(232,237,248,0.30)', fontStyle:'italic' }}>Omitido</div>;
@@ -834,6 +903,27 @@ function AcOnboardingStep({
         <div style={{ display:'flex', gap:8 }}>
           <button onClick={onBodyMetricsConfirm} disabled={!hasAny}
             style={{ ...btnSty, background: hasAny ? '#3B82F6' : 'rgba(59,130,246,0.18)', color: hasAny ? '#fff' : 'rgba(255,255,255,0.30)' }}>
+            Confirmar
+          </button>
+          {skipBtn}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Free text input ──────────────────────────────────────────────────────────
+  if (inputType === 'text') {
+    return (
+      <div style={{ marginTop:10 }}>
+        <textarea value={pendingInput || ''} onChange={e => onInputChange(e.target.value)}
+          placeholder={step.placeholder || ''}
+          rows={2}
+          style={{ width:'100%', boxSizing:'border-box', padding:'9px 12px', borderRadius:9, marginBottom:8, resize:'none',
+            border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)',
+            color:'rgba(232,237,248,0.80)', fontFamily:'Inter,system-ui', fontSize:12, lineHeight:1.55 }} />
+        <div style={{ display:'flex', gap:8 }}>
+          <button onClick={onInputConfirm} disabled={!pendingInput?.trim()}
+            style={{ ...btnSty, background: pendingInput?.trim() ? '#3B82F6' : 'rgba(59,130,246,0.18)', color: pendingInput?.trim() ? '#fff' : 'rgba(255,255,255,0.30)' }}>
             Confirmar
           </button>
           {skipBtn}
@@ -1314,6 +1404,12 @@ function AtlasCoachSection() {
     setTimeout(() => _addCoachMsg({ type:'onboarding-step', ...AP_STEPS[0] }), 400);
   }
 
+  function editProfile() {
+    setOnboarding({ ..._OB_RESET, active: true });
+    _addCoachMsg({ type:'text', text:'Vamos a actualizar tu Perfil Atlas. Puedes modificar cualquier dato.' });
+    setTimeout(() => _addCoachMsg({ type:'onboarding-step', ...AP_STEPS[0] }), 400);
+  }
+
   function handleOnboardingAnswer(stepId, value) {
     // L2 offer
     if (stepId === 'l2-offer') {
@@ -1382,12 +1478,13 @@ function AtlasCoachSection() {
   function handleInputConfirm() {
     const steps   = onboarding.level === 1 ? AP_STEPS : AP_STEPS_L2;
     const step    = steps[onboarding.step];
-    if (!step || step.inputType !== 'number') return;
+    if (!step || (step.inputType !== 'number' && step.inputType !== 'text')) return;
     const val = onboarding.pendingInput;
-    if (!val) return;
+    if (!val || (typeof val === 'string' && !val.trim())) return;
+    const stored  = step.inputType === 'text' ? val.trim() : Number(val);
     _markStepAnswered(step.id, val);
-    _addUserMsg(val + (step.unit ? ' ' + step.unit : ''));
-    const newAnswers = { ...onboarding.answers, [step.id]: Number(val) };
+    _addUserMsg(step.inputType === 'text' ? val.trim() : val + (step.unit ? ' ' + step.unit : ''));
+    const newAnswers = { ...onboarding.answers, [step.id]: stored };
     _advanceOnboarding(onboarding.step, newAnswers, onboarding.level);
   }
 
@@ -1453,17 +1550,19 @@ function AtlasCoachSection() {
       age:              answers.age              ? Number(answers.age) : null,
       height:           bm.height               ? Number(bm.height)   : null,
       weight:           bm.weight               ? Number(bm.weight)   : null,
-      injuries:         answers.injuries         || [],
-      injuryNotes:      answers.injuryNotes      || null,
-      activityLevel:    answers.activityLevel    || null,
-      mainObstacle:     answers.mainObstacle     || null,
+      injuries:          answers.injuries          || [],
+      injuryNotes:       answers.injuryNotes       || null,
+      previousInjuries:  answers.previousInjuries  || [],
+      avoidExercises:    answers.avoidExercises     || null,
+      activityLevel:     answers.activityLevel      || null,
+      mainObstacle:      answers.mainObstacle       || null,
     };
     apSaveProfile(saved);
     setAtlasProfile(saved);
     setOnboarding(_OB_RESET);
     setTimeout(() => _addCoachMsg({
       type:'text',
-      text:'✓ Perfil Atlas creado correctamente.\n\nAtlas Coach utilizará esta información para personalizar futuras recomendaciones de rutinas, distribución de volumen y selección de ejercicios.',
+      text:'✓ Perfil Atlas guardado correctamente.\n\nAtlas Coach utilizará esta información para personalizar futuras recomendaciones de rutinas, distribución de volumen y selección de ejercicios.\n\nPuedes editar tu perfil en cualquier momento desde la barra superior del chat.',
     }), 350);
   }
 
@@ -1534,9 +1633,10 @@ function AtlasCoachSection() {
           {/* Messages */}
           <div style={{ flex:1, overflowY:'auto', padding: isMobile ? '20px 16px' : '28px 32px', minHeight:0 }}>
             <div style={{ maxWidth:700, margin:'0 auto' }}>
-              {showCard && (
-                <AtlasProfileCard onStart={startOnboarding} onDismiss={dismissCard} />
-              )}
+              {atlasProfile
+                ? <AtlasProfileStatus profile={atlasProfile} onEdit={editProfile} />
+                : showCard && <AtlasProfileCard onStart={startOnboarding} onDismiss={dismissCard} />
+              }
               {messages.map(msg => (
                 <AcMessageBubble
                   key={msg.id}
