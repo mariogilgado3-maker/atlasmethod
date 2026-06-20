@@ -1,6 +1,9 @@
 // Atlas Aula Engine — content recommendation and learning paths
 // Pure functions, no side effects, no React
 
+(function () {
+  'use strict';
+
 const OBJECTIVE_WEIGHTS = {
   muscle:      { hipertrofia:3, fuerza:2,   recuperacion:1.5, nutricion:1.5, cognitivo:1, sueno:1,   keywords:['hipertrofia','volumen','frecuencia','sobrecarga','proteína','mTOR'] },
   fat_loss:    { nutricion:3,   recuperacion:2, hipertrofia:1, sueno:1.5,   cognitivo:1, fuerza:1,   keywords:['proteína','déficit','adherencia','calorías'] },
@@ -141,3 +144,5 @@ Object.assign(window, {
   aulaScoreArticle, aulaGetRecommended,
   aulaGetLearningPath, aulaGetRelatedArticles, aulaFindByKeywords,
 });
+
+})();
