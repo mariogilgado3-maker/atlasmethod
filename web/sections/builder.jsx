@@ -1609,11 +1609,11 @@ function ExRow({ ex, onRemove, onEdit }) {
 function SetConfig({ ex, initSets, onConfirm, onBack }) {
   const [sets, setSets] = React.useState(() =>
     initSets && initSets.length > 0
-      ? initSets.map(s => ({ kg: s.kg || '', reps: s.reps || '10' }))
-      : [{ kg:'', reps:'10' }, { kg:'', reps:'10' }, { kg:'', reps:'10' }]
+      ? initSets.map(s => ({ kg: s.kg || '', reps: s.reps || '10', rir: s.rir || '' }))
+      : [{ kg:'', reps:'10', rir:'' }, { kg:'', reps:'10', rir:'' }, { kg:'', reps:'10', rir:'' }]
   );
   const upd = (i,f,v) => setSets(p => p.map((s,idx) => idx===i ? {...s,[f]:v} : s));
-  const add = () => setSets(p => [...p, { kg:'', reps:'10' }]);
+  const add = () => setSets(p => [...p, { kg:'', reps:'10', rir:'' }]);
   const rem = i => setSets(p => p.filter((_,idx) => idx!==i));
   const g = exGroup(ex);
   const inp = {
@@ -1640,17 +1640,18 @@ function SetConfig({ ex, initSets, onConfirm, onBack }) {
         </div>
       </div>
       <div style={{ flex:1, overflowY:'auto' }}>
-        <div style={{ display:'grid', gridTemplateColumns:'20px 1fr 1fr 20px', gap:6, marginBottom:8 }}>
-          {['','Kg','Reps',''].map((h,i) => (
+        <div style={{ display:'grid', gridTemplateColumns:'20px 1fr 1fr 48px 20px', gap:6, marginBottom:8 }}>
+          {['','Kg','Reps','RIR',''].map((h,i) => (
             <span key={i} style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8,
               color:BD.muted, fontWeight:700, textAlign:'center', letterSpacing:0.5 }}>{h}</span>
           ))}
         </div>
         {sets.map((set, i) => (
-          <div key={i} style={{ display:'grid', gridTemplateColumns:'20px 1fr 1fr 20px', gap:6, alignItems:'center', marginBottom:7 }}>
+          <div key={i} style={{ display:'grid', gridTemplateColumns:'20px 1fr 1fr 48px 20px', gap:6, alignItems:'center', marginBottom:7 }}>
             <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:10, color:BD.muted, textAlign:'center' }}>{i+1}</span>
             <input {...inp} value={set.kg}   placeholder="—"  step={0.5} onChange={e => upd(i,'kg',  e.target.value)} />
             <input {...inp} value={set.reps} placeholder="10" step={1}   onChange={e => upd(i,'reps',e.target.value)} />
+            <input {...inp} value={set.rir || ''} placeholder="—" min={0} max={5} step={1} onChange={e => upd(i,'rir',e.target.value)} />
             {sets.length > 1
               ? <button onClick={() => rem(i)} style={{ width:20, height:20, border:'none', background:'rgba(239,68,68,0.14)',
                   color:'rgba(239,68,68,0.80)', borderRadius:5, cursor:'pointer', fontSize:10,

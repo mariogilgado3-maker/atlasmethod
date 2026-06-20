@@ -57,18 +57,23 @@ function DashboardSection() {
   const calDays = getLast30Days(log);
   const recentSessions = log.slice(0, 5);
 
-  // Chart from log
+  // Chart from log — real weekly volume in kg when available
   const chartData = React.useMemo(() => {
-    if (log.length < 2) {
-      // Mock data if no log
-      return [40, 45, 50, 52, 58, 62, 68, 72, 78, 82, 88, 92];
+    if (log.length < 2) return [];
+    if (typeof peGetWeeklyVolume !== 'undefined') {
+      const weeks = peGetWeeklyVolume(log, 12);
+      const vols  = weeks.map(w => w.totalVolume);
+      if (vols.some(v => v > 0)) return vols;
+      return weeks.map(w => w.totalSets);
     }
-    // Use last 12 sessions, cumulative series count as proxy for volume
-    const last12 = log.slice(0, 12).reverse();
-    return last12.map(entry => {
-      const totalSets = (entry.exercises || []).reduce((acc, ex) => acc + (ex.sets || []).length, 0);
-      return totalSets || 0;
-    });
+    return log.slice(0, 12).reverse().map(entry =>
+      (entry.exercises || []).reduce((acc, ex) => acc + (ex.sets || []).length, 0)
+    );
+  }, [log]);
+
+  const progressData = React.useMemo(() => {
+    if (typeof peGetProgressSummary === 'undefined' || log.length < 2) return null;
+    return peGetProgressSummary(log);
   }, [log]);
 
   const levelColors = {
@@ -188,7 +193,7 @@ function DashboardSection() {
 
           {/* Progress chart */}
           <div style={{ background: '#FAFAF7', borderRadius: 20, border: '1px solid rgba(15,26,46,0.06)', padding: '20px 24px' }}>
-            <div style={sectionLabelStyle}>Progresión de volumen</div>
+            <div style={sectionLabelStyle}>Volumen semanal (kg)</div>
             <DashProgressChart data={chartData} />
           </div>
         </div>
@@ -245,7 +250,61 @@ function DashboardSection() {
           )}
         </div>
 
-        {/* Row 4 — achievements */}
+        {/* Row 4 — Exercise progression */}
+        {progressData && (progressData.topProgress.length > 0 || progressData.stagnant.length > 0) && (
+          <div style={{ background: '#FAFAF7', borderRadius: 20, border: '1px solid rgba(15,26,46,0.06)', padding: '20px 24px', marginBottom: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={sectionLabelStyle}>Progresión de ejercicios</div>
+              {progressData.deload?.needed && (
+                <span style={{ padding: '3px 10px', borderRadius: 999, background: 'rgba(180,80,0,0.08)', border: '1px solid rgba(180,80,0,0.18)', fontFamily: '"Inter",system-ui', fontSize: 11, fontWeight: 700, color: '#B45000' }}>
+                  Deload recomendado
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div>
+                <div style={{ fontFamily: '"Inter",system-ui', fontSize: 11, fontWeight: 700, color: '#1F8B3A', letterSpacing: 0.3, textTransform: 'uppercase', marginBottom: 10 }}>
+                  En progresión ↑
+                </div>
+                {progressData.topProgress.length === 0
+                  ? <div style={{ fontFamily: '"Inter",system-ui', fontSize: 12, color: '#9498A4' }}>Registra cargas para ver tu evolución</div>
+                  : progressData.topProgress.map((e, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: i < progressData.topProgress.length - 1 ? '1px solid rgba(15,26,46,0.05)' : 'none' }}>
+                      <span style={{ fontFamily: '"Inter",system-ui', fontSize: 12, fontWeight: 600, color: '#0F1A2E' }}>{e.name}</span>
+                      <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: '#1F8B3A', fontWeight: 700 }}>+{e.delta} kg</span>
+                    </div>
+                  ))
+                }
+              </div>
+              <div>
+                <div style={{ fontFamily: '"Inter",system-ui', fontSize: 11, fontWeight: 700, color: '#B45000', letterSpacing: 0.3, textTransform: 'uppercase', marginBottom: 10 }}>
+                  Sin progreso
+                </div>
+                {progressData.stagnant.length === 0
+                  ? <div style={{ fontFamily: '"Inter",system-ui', fontSize: 12, color: '#9498A4' }}>Sin estancamientos detectados</div>
+                  : progressData.stagnant.slice(0, 3).map((e, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: i < Math.min(progressData.stagnant.length, 3) - 1 ? '1px solid rgba(15,26,46,0.05)' : 'none' }}>
+                      <span style={{ fontFamily: '"Inter",system-ui', fontSize: 12, fontWeight: 600, color: '#0F1A2E' }}>{e.name}</span>
+                      <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: '#B45000', fontWeight: 700 }}>{e.sessions} ses.</span>
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+            {progressData.deload?.needed && (
+              <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 10, background: 'rgba(180,80,0,0.05)', border: '1px solid rgba(180,80,0,0.14)' }}>
+                <div style={{ fontFamily: '"Inter",system-ui', fontSize: 12, color: '#B45000', fontWeight: 600, marginBottom: 4 }}>
+                  Señales de fatiga acumulada detectadas:
+                </div>
+                {progressData.deload.reasons.map((r, i) => (
+                  <div key={i} style={{ fontFamily: '"Inter",system-ui', fontSize: 11, color: '#7A3A00' }}>• {r}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Row 5 — achievements */}
         <div style={{ background: '#FAFAF7', borderRadius: 20, border: '1px solid rgba(15,26,46,0.06)', padding: '20px 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div style={sectionLabelStyle}>Logros</div>

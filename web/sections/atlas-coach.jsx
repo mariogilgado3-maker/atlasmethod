@@ -450,6 +450,7 @@ function acBuildRichContext(state, profile) {
     completed: sessions.completed || 0,
     musclePriorities, priorityGaps, injuries, injuryRisks,
     builderPlan, activeRoutine,
+    progressSummary: typeof peGetProgressSummary !== 'undefined' ? peGetProgressSummary(log) : null,
   };
 }
 
@@ -464,6 +465,7 @@ function acDetectIntent(text) {
   if (/cu[aá]ntas series|volumen|frecuencia|mejor.*frecuencia|fallo muscular|rir|rpe/.test(t)) return 'programming';
   if (/recupera|descans|hrv|fatiga|sobreentren|puedo.*entrenar|debo descansar|deload/.test(t)) return 'recovery';
   if (/revisa.*rutina|cómo.*está.*mi.*plan|analiza.*mi.*rutina|mi.*rutina.*actual|qué.*tiene.*mi.*plan|mi.*plan.*actual/.test(t)) return 'builder-review';
+  if (/estoy progresando|cu[aá]nto.*mejor|mi evoluci[oó]n|he mejorado|cu[aá]nto he.*subid|qu[eé].*progres|mis resultados|mi historial de carga/.test(t)) return 'progress-check';
   if (/perfil|mi.*objetivo|mi.*nivel|cambiar.*objetivo|actualiz.*perfil/.test(t)) return 'profile';
   if (/^(hola|hey|buenas|buenos|qu[eé] hay|ola)/.test(t)) return 'greeting';
   return 'general';
@@ -823,11 +825,24 @@ function acResponseInjury(text, memory) {
 }
 
 function acResponsePlateau(ctx) {
+  const ps = ctx.progressSummary;
+  const engineStagnant = ps?.stagnant || [];
+
+  if (engineStagnant.length > 0) {
+    const lines = [`He analizado tu historial completo. Detecto ${engineStagnant.length} ejercicio${engineStagnant.length !== 1 ? 's' : ''} sin progreso:\n`];
+    engineStagnant.slice(0, 4).forEach(e => {
+      lines.push(`• ${e.name} — ${e.sessions} sesiones en ${e.kg} kg (${e.trend === 'declining' ? 'en descenso' : 'estancado'})`);
+    });
+    lines.push(`\nCausas más frecuentes: (1) fatiga acumulada que enmascara tu fuerza real, (2) volumen insuficiente como estímulo, (3) patrón de movimiento sobreautomatizado.\n\nAcción recomendada: microdeload 3–5 días al 60% del volumen, luego retoma con los mismos pesos. Normalmente se rompe el estancamiento la primera o segunda semana.`);
+    return { type:'text', text: lines.join('\n') };
+  }
+
   if (ctx.plateaus.length > 0) {
     const p = ctx.plateaus[0];
-    return { type:'text', text:`Detecto plateau en ${p.name} — llevas al menos ${p.sessions} sesiones en ${p.kg} kg.\n\nLas tres causas más comunes: (1) fatiga acumulada que oculta tu fuerza real, (2) el volumen actual ya no es estímulo suficiente, (3) el ejercicio se ha vuelto demasiado eficiente (necesitas variación).\n\nSolución más rápida: haz un microdeload de 3–5 días, vuelve con el 80% del peso y normalmente la barrera se rompe sola la primera o segunda semana.` };
+    return { type:'text', text:`Detecto plateau en ${p.name} — llevas ${p.sessions} sesiones en ${p.kg} kg.\n\nCausas más comunes: fatiga acumulada, volumen insuficiente como estímulo nuevo, o exceso de automatización en el patrón.\n\nSolución: microdeload de 3–5 días y retoma al 80% del peso habitual.` };
   }
-  return { type:'text', text:'No detecto plateaus claros en tu historial reciente. Si sientes que no avanzas, puede ser que las cargas no estén registradas o que sea un tema de percepción. ¿Qué ejercicio específico sientes que no avanza?' };
+
+  return { type:'text', text:'No detecto estancamientos en tu historial. Si lo percibes en un ejercicio concreto, dime cuál y lo analizo en detalle.' };
 }
 
 function acResponseProgramming(text) {
@@ -848,13 +863,58 @@ function acResponseProgramming(text) {
 }
 
 function acResponseRecovery(ctx) {
+  const deload = ctx.progressSummary?.deload;
+
+  if (deload?.needed) {
+    const bullets = deload.reasons.map(r => `• ${r}`).join('\n');
+    return { type:'text', text:`Basándome en tu historial real, los datos apuntan a que necesitas una semana de descarga:\n\n${bullets}\n\nProtocolo de deload: reduce el volumen al 50–60% (menos series, mismos pesos) durante 5–7 días. No bajes la intensidad — solo el volumen. Después de la descarga el rendimiento normalmente supera el nivel previo.` };
+  }
+
   if (ctx.fatigueLevel === 'high') {
-    return { type:'text', text:`Tu volumen esta semana es alto (${ctx.totalSetsWeek} series, media de ${ctx.avgSetsPerSess.toFixed(0)}/sesión). Si el rendimiento está bajando o el sueño está peor, es una señal clara de fatiga acumulada.\n\nOpciones: (1) deload esta semana — 50% del volumen habitual manteniendo los pesos, (2) eliminar 1 sesión y compensar la semana siguiente, (3) continuar y monitorizar HRV si tienes herramienta.` };
+    return { type:'text', text:`Tu volumen esta semana es alto (${ctx.totalSetsWeek} series, media de ${ctx.avgSetsPerSess.toFixed(0)}/sesión). Si el rendimiento está bajando o el sueño está peor, es señal de fatiga acumulada.\n\nOpciones: (1) deload esta semana — 50% del volumen manteniendo pesos, (2) eliminar 1 sesión y compensar la siguiente semana.` };
   }
+
   if (ctx.daysSinceLast > 2) {
-    return { type:'text', text:`Llevas ${ctx.daysSinceLast} días descansando. El músculo se mantiene bien hasta 2–3 semanas de parón. Cuando retomes, empieza en el 80% de tus cargas habituales — probablemente lo superarás sin problema.` };
+    return { type:'text', text:`Llevas ${ctx.daysSinceLast} días sin entrenar. El músculo se mantiene hasta 2–3 semanas de parón. Cuando retomes, empieza en el 80% de tus cargas habituales.` };
   }
-  return { type:'text', text:'Tu fatiga parece moderada o baja esta semana. Los indicadores clave de recuperación insuficiente son: RPE más alto de lo habitual para las mismas cargas, DOMS que no se resuelve entre sesiones, y peor calidad del sueño. Si no aparecen esas señales, puedes continuar con el plan normal.' };
+
+  return { type:'text', text:'Tu fatiga parece moderada o baja esta semana. Indicadores de recuperación insuficiente: RPE más alto para las mismas cargas, DOMS persistente entre sesiones, peor calidad del sueño. Si no aparecen esas señales, continúa con el plan normal.' };
+}
+
+function acResponseProgress(ctx) {
+  const ps = ctx.progressSummary;
+
+  if (!ps || ctx.log.length < 2) {
+    return { type:'text', text:'Aún no hay suficiente historial para analizar tu progresión. Completa 2–3 sesiones registrando pesos y repeticiones en el Builder y podré darte un análisis real de tu evolución.' };
+  }
+
+  const parts = [];
+
+  if (ps.topProgress.length > 0) {
+    const list = ps.topProgress.map(e => `• ${e.name} — +${e.delta} kg (+${e.pct}%) en ${e.sessions} registros`).join('\n');
+    parts.push(`Ejercicios que más han mejorado:\n${list}`);
+  }
+
+  if (ps.stagnant.length > 0) {
+    const list = ps.stagnant.slice(0, 3).map(e => `• ${e.name} — ${e.sessions} registros en ${e.kg} kg`).join('\n');
+    parts.push(`Sin progreso detectado:\n${list}`);
+  }
+
+  if (ps.thisWeekVolume > 0) {
+    parts.push(`Volumen esta semana: ${ps.thisWeekSets} series · ${ps.thisWeekVolume.toLocaleString('es-ES')} kg totales levantados.`);
+  }
+
+  if (ps.deload?.needed) {
+    parts.push('⚠ Señales de fatiga detectadas. Escribe "necesito un deload" para el protocolo completo.');
+  } else if (ps.topProgress.length > 0) {
+    parts.push('Progresión sólida. Mantén la carga progresiva y registra pesos en cada sesión para que el análisis sea preciso.');
+  }
+
+  if (parts.length === 0) {
+    return { type:'text', text:'No hay datos de carga suficientes. Registra kg y repeticiones en cada ejercicio del Builder y podré analizar tu evolución semana a semana.' };
+  }
+
+  return { type:'text', text: parts.join('\n\n') };
 }
 
 function acResponseBuilderReview(ctx, profile) {
@@ -943,7 +1003,8 @@ function acGenerateSmartResponse(userText, state, profile, memory, allExs) {
     case 'plateau':     return acResponsePlateau(ctx);
     case 'programming': return acResponseProgramming(userText);
     case 'recovery':    return acResponseRecovery(ctx);
-    case 'builder-review': return acResponseBuilderReview(ctx, profile);
+    case 'builder-review':  return acResponseBuilderReview(ctx, profile);
+    case 'progress-check':  return acResponseProgress(ctx);
     case 'profile':
       return { type:'text', text:'Puedes actualizar tu perfil en el panel inferior del sidebar (objetivo, nivel, días/semana, tiempo y equipamiento). Cuando lo guardes, usaré esos datos para todas mis recomendaciones.' };
     default:
