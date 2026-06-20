@@ -272,3 +272,388 @@
     },
   });
 })();
+
+// ── Atlas Scientific Engine ────────────────────────────────────────────────────
+// Analyzes real training data against sports science benchmarks.
+// Source references: Israetel 2019, Schoenfeld 2010/2016/2017, Zourdos 2016.
+// Depends on: AtlasEngine.SCIENCE (MEV/MAV/MRV),
+//             peGetExerciseHistory, peDetectProgress (loaded before this file).
+
+const AtlasScientificEngine = (function () {
+  'use strict';
+
+  // ── Muscle name → SCIENCE key ──────────────────────────────────────────────
+  // Handles exercise muscle names exactly as stored by builder.jsx save():
+  //   muscles: ex.muscles.primary  → flat array of strings like 'Pectoral mayor'
+  const MUSCLE_KEY_MAP = {
+    // Chest
+    'pectoral mayor': 'pecho', 'pectoral superior': 'pecho', 'pectoral': 'pecho',
+    // Shoulders
+    'deltoides ant': 'delt_ant', 'deltoides anterior': 'delt_ant',
+    'deltoides lat': 'delt_lat', 'deltoides lateral': 'delt_lat',
+    'deltoides post': 'delt_post', 'deltoides posterior': 'delt_post',
+    // Arms
+    'bíceps': 'biceps', 'biceps': 'biceps', 'braquial': 'biceps', 'braquiorradial': 'antebrazo',
+    'tríceps': 'triceps', 'triceps': 'triceps', 'antebrazo': 'antebrazo',
+    // Back
+    'dorsal ancho': 'dorsal', 'dorsal': 'dorsal',
+    'trapecio medio': 'trapecio', 'trapecio': 'trapecio', 'romboides': 'trapecio',
+    'erectores espinales': 'erectores', 'erectores': 'erectores', 'lumbar': 'lumbar',
+    // Core
+    'core': 'core', 'transverso': 'core', 'recto abdominal': 'core', 'abdominales': 'core',
+    'oblicuos': 'oblicuos',
+    // Legs
+    'cuádriceps': 'cuadriceps', 'cuadriceps': 'cuadriceps', 'recto femoral': 'cuadriceps',
+    'isquiotibiales': 'isquio', 'isquios': 'isquio', 'bíceps femoral': 'isquio',
+    'glúteos': 'gluteos', 'glúteo mayor': 'gluteos', 'gluteos': 'gluteos',
+    'gemelos': 'gemelos', 'pantorrilla': 'gemelos', 'sóleo': 'gemelos',
+    'aductores': 'aductores', 'abductores': 'abductores', 'tibial anterior': 'tibial',
+  };
+
+  function resolveMuscleName(raw) {
+    if (!raw) return null;
+    const k = raw.toLowerCase().replace(/\./g, '').trim();
+    if (MUSCLE_KEY_MAP[k]) return MUSCLE_KEY_MAP[k];
+    for (const [pattern, key] of Object.entries(MUSCLE_KEY_MAP)) {
+      if (k.startsWith(pattern)) return key;
+    }
+    return null;
+  }
+
+  // Handles both flat array (from log) and {primary, secondary} object
+  function getMuscles(ex) {
+    if (!ex?.muscles) return { primary: [], secondary: [] };
+    if (Array.isArray(ex.muscles)) return { primary: ex.muscles, secondary: [] };
+    return { primary: ex.muscles.primary || [], secondary: ex.muscles.secondary || [] };
+  }
+
+  // ── Per-muscle weekly sets ─────────────────────────────────────────────────
+  // Primary muscles: full set credit. Secondary: 0.5 (rounded down).
+  function seGetMuscleWeeklySets(log, nWeeks) {
+    const cutoff = Date.now() - (nWeeks || 1) * 7 * 86400000;
+    const tally  = {};
+    for (const session of log) {
+      if ((session.dateTs || 0) < cutoff) continue;
+      for (const ex of session.exercises || []) {
+        const setsN              = (ex.sets || []).length || 1;
+        const { primary, secondary } = getMuscles(ex);
+        for (const m of primary) {
+          const key = resolveMuscleName(m);
+          if (key) tally[key] = (tally[key] || 0) + setsN;
+        }
+        for (const m of secondary) {
+          const key = resolveMuscleName(m);
+          if (key) tally[key] = (tally[key] || 0) + Math.floor(setsN * 0.5);
+        }
+      }
+    }
+    return tally;
+  }
+
+  // ── Per-muscle session frequency (sessions / week) ─────────────────────────
+  function seGetMuscleFrequency(log, nWeeks) {
+    const cutoff = Date.now() - (nWeeks || 1) * 7 * 86400000;
+    const days   = {};
+    for (const session of log) {
+      if ((session.dateTs || 0) < cutoff) continue;
+      const day = session.date || String(Math.floor(session.dateTs / 86400000));
+      for (const ex of session.exercises || []) {
+        const { primary } = getMuscles(ex);
+        for (const m of primary) {
+          const key = resolveMuscleName(m);
+          if (!key) continue;
+          if (!days[key]) days[key] = new Set();
+          days[key].add(day);
+        }
+      }
+    }
+    const result = {};
+    for (const [key, set] of Object.entries(days)) result[key] = set.size;
+    return result;
+  }
+
+  // ── Intensity estimation per exercise (Epley + RIR) ───────────────────────
+  // Returns: { avgPct, avgRPE, est1RM, label }
+  function seEstimateIntensity(sets) {
+    if (!sets?.length) return null;
+    const valid = sets.filter(s => Number(s.kg) > 0 && Number(s.reps) > 0);
+    if (!valid.length) return null;
+    const rows = valid.map(s => {
+      const kg   = Number(s.kg);
+      const reps = Number(s.reps);
+      const rir  = (s.rir !== undefined && s.rir !== '') ? Number(s.rir) : null;
+      const rep1 = rir !== null && !isNaN(rir) ? reps + rir : reps;
+      const e1RM = kg * (1 + rep1 / 30);
+      const pct  = Math.min(1, kg / e1RM);
+      const rpe  = rir !== null && !isNaN(rir)
+        ? Math.min(10, 10 - rir)
+        : reps <= 3 ? 9 : reps <= 5 ? 8.5 : reps <= 8 ? 8 : reps <= 12 ? 7.5 : 7;
+      return { pct, rpe, e1RM };
+    });
+    const avgPct = rows.reduce((s, r) => s + r.pct, 0) / rows.length;
+    const avgRPE = rows.reduce((s, r) => s + r.rpe, 0) / rows.length;
+    const max1RM = Math.max(...rows.map(r => r.e1RM));
+    return {
+      avgPct:  Math.round(avgPct * 100),
+      avgRPE:  +avgRPE.toFixed(1),
+      est1RM:  +max1RM.toFixed(1),
+      label:   avgPct >= 0.85 ? 'muy alta' : avgPct >= 0.75 ? 'alta'
+             : avgPct >= 0.65 ? 'moderada-alta' : avgPct >= 0.55 ? 'moderada' : 'baja',
+    };
+  }
+
+  // ── Recovery status ────────────────────────────────────────────────────────
+  function seGetRecoveryStatus(log) {
+    if (!log?.length) return { status: 'sin_datos', readiness: 100, daysSinceLast: null };
+    const weekAgo      = Date.now() - 7 * 86400000;
+    const last7        = log.filter(s => (s.dateTs || 0) >= weekAgo);
+    const daysTraining = new Set(last7.map(s => s.date)).size;
+    const daysSinceLast = log[0]?.dateTs ? Math.floor((Date.now() - log[0].dateTs) / 86400000) : 99;
+    const totalSets7   = last7.reduce((t, s) =>
+      t + (s.exercises || []).reduce((ts, ex) => ts + (ex.sets?.length || 1), 0), 0);
+
+    const sorted = [...log].sort((a, b) => b.dateTs - a.dateTs);
+    const gaps   = [];
+    for (let i = 0; i < Math.min(sorted.length - 1, 7); i++) {
+      const g = Math.floor((sorted[i].dateTs - sorted[i + 1].dateTs) / 86400000);
+      if (g >= 0) gaps.push(g);
+    }
+    const avgGap = gaps.length ? +(gaps.reduce((s, g) => s + g, 0) / gaps.length).toFixed(1) : null;
+
+    let readiness = 100;
+    if (daysSinceLast === 0) readiness -= 15;
+    else if (daysSinceLast === 1) readiness -= 5;
+    if (daysTraining >= 6) readiness -= 30;
+    else if (daysTraining >= 5) readiness -= 18;
+    else if (daysTraining >= 4) readiness -= 8;
+    if (totalSets7 > 60) readiness -= 20;
+    else if (totalSets7 > 45) readiness -= 10;
+    else if (totalSets7 > 30) readiness -= 5;
+    readiness = Math.max(0, Math.min(100, readiness));
+
+    const status = readiness >= 80 ? 'recovered' : readiness >= 55 ? 'partial' : 'fatigued';
+    const label  = status === 'recovered' ? 'recuperado'
+                 : status === 'partial'   ? 'recuperación parcial' : 'fatigado';
+    return { status, label, readiness, daysSinceLast, daysTraining, totalSets7, avgGap };
+  }
+
+  // ── Fatigue Score 0–100 ────────────────────────────────────────────────────
+  // F1 Volume (35pts) + F2 Frequency (25pts) + F3 Intensity (25pts) + F4 Recency (15pts)
+  function seGetFatigueScore(log, profile) {
+    if (!log?.length) return { score: 0, level: 'sin datos', factors: [] };
+    const weekAgo    = Date.now() - 7 * 86400000;
+    const last7      = log.filter(s => (s.dateTs || 0) >= weekAgo);
+    const targetDays = Number(profile?.trainingDays || profile?.dias || 4);
+    const factors    = [];
+    let score        = 0;
+
+    // F1: Volume
+    const totalSets = last7.reduce((t, s) =>
+      t + (s.exercises || []).reduce((ts, ex) => ts + (ex.sets?.length || 1), 0), 0);
+    const f1 = Math.min(35, Math.round((totalSets / 70) * 35));
+    score += f1;
+    if (f1 >= 18) factors.push(`Volumen: ${totalSets} series/sem`);
+
+    // F2: Frequency
+    const daysTraining = new Set(last7.map(s => s.date)).size;
+    const f2 = Math.min(25, Math.round((daysTraining / Math.max(targetDays + 1, 5)) * 25));
+    score += f2;
+    if (daysTraining > targetDays) factors.push(`Frecuencia: ${daysTraining} días (objetivo ${targetDays})`);
+
+    // F3: Intensity
+    const intSamples = [];
+    for (const session of last7) {
+      for (const ex of session.exercises || []) {
+        const est = seEstimateIntensity(ex.sets || []);
+        if (est) intSamples.push(est.avgPct);
+      }
+    }
+    const avgIntPct = intSamples.length ? intSamples.reduce((s, x) => s + x, 0) / intSamples.length : 0;
+    const f3 = Math.min(25, Math.round((avgIntPct / 100) * 25));
+    score += f3;
+    if (avgIntPct > 70) factors.push(`Intensidad estimada: ~${Math.round(avgIntPct)}% 1RM`);
+
+    // F4: Recency
+    const daysSinceLast = log[0]?.dateTs ? Math.floor((Date.now() - log[0].dateTs) / 86400000) : 99;
+    const f4 = daysSinceLast === 0 ? 15 : daysSinceLast === 1 ? 8 : 0;
+    score += f4;
+
+    score = Math.min(100, Math.round(score));
+    const level = score >= 75 ? 'muy alta' : score >= 55 ? 'alta' : score >= 35 ? 'moderada' : 'baja';
+    return { score, level, factors, totalSets, daysTraining, avgIntPct: Math.round(avgIntPct) };
+  }
+
+  // ── MEV/MAV/MRV zone per muscle ───────────────────────────────────────────
+  function seGetVolumeStatus(log, profile) {
+    const weeklySets = seGetMuscleWeeklySets(log, 1);
+    const SCIENCE    = window.AtlasEngine?.SCIENCE || {};
+    const result     = {};
+    for (const [key, sci] of Object.entries(SCIENCE)) {
+      const current = weeklySets[key] || 0;
+      let zone, warning;
+      if      (current === 0)          { zone = 'none';        warning = null; }
+      else if (current < sci.mev)      { zone = 'below_mev';  warning = null; }
+      else if (current <= sci.mav)     { zone = 'mev_to_mav'; warning = null; }
+      else if (current <= sci.mrv)     { zone = 'mav_to_mrv'; warning = `${sci.name}: ${current} series — cerca del MRV (${sci.mrv})`; }
+      else                             { zone = 'above_mrv';  warning = `${sci.name}: ${current} series supera MRV (${sci.mrv})`; }
+      result[key] = { key, name: sci.name, current, mev: sci.mev, mav: sci.mav, mrv: sci.mrv, freq: sci.freq, zone, warning };
+    }
+    return result;
+  }
+
+  // ── Overload risk alerts ───────────────────────────────────────────────────
+  function seGetOverloadRisks(log, profile) {
+    const volStatus = seGetVolumeStatus(log, profile);
+    const frequency = seGetMuscleFrequency(log, 1);
+    const SCIENCE   = window.AtlasEngine?.SCIENCE || {};
+    const risks     = [];
+
+    for (const vs of Object.values(volStatus)) {
+      if (vs.zone === 'above_mrv') {
+        risks.push({ type: 'volume', muscle: vs.name, message: vs.warning, severity: 'high' });
+      } else if (vs.zone === 'mav_to_mrv' && vs.current >= vs.mrv - 2) {
+        risks.push({ type: 'volume', muscle: vs.name, message: vs.warning, severity: 'medium' });
+      }
+    }
+    for (const [key, freq] of Object.entries(frequency)) {
+      const sci = SCIENCE[key];
+      if (sci && freq > sci.freq + 1) {
+        risks.push({
+          type: 'frequency', muscle: sci.name,
+          message: `${sci.name}: frecuencia ${freq}×/sem supera la recomendada (${sci.freq}×).`,
+          severity: freq > sci.freq + 2 ? 'high' : 'medium',
+        });
+      }
+    }
+    const rec = seGetRecoveryStatus(log);
+    if (rec.daysTraining >= 6 && rec.totalSets7 > 40) {
+      risks.push({ type: 'recovery', muscle: null,
+        message: `${rec.daysTraining} días entrenados esta semana con ${rec.totalSets7} series — riesgo de sobreentrenamiento.`,
+        severity: 'high' });
+    }
+    return risks;
+  }
+
+  // ── Stagnation per muscle group ───────────────────────────────────────────
+  function seGetMuscleStagnation(log) {
+    if (typeof peGetAllExercises === 'undefined') return [];
+    const SCIENCE = window.AtlasEngine?.SCIENCE || {};
+
+    // Map exercise name → primary muscle key using first log occurrence
+    const exToMuscle = {};
+    for (const session of log) {
+      for (const ex of session.exercises || []) {
+        if (exToMuscle[ex.name]) continue;
+        const { primary } = getMuscles(ex);
+        const key = primary.map(resolveMuscleName).find(Boolean);
+        if (key) exToMuscle[ex.name] = key;
+      }
+    }
+
+    // Group by muscle
+    const byMuscle = {};
+    for (const [exName, muscleKey] of Object.entries(exToMuscle)) {
+      if (!byMuscle[muscleKey]) byMuscle[muscleKey] = [];
+      byMuscle[muscleKey].push(exName);
+    }
+
+    const result = [];
+    for (const [muscleKey, exercises] of Object.entries(byMuscle)) {
+      const sci    = SCIENCE[muscleKey];
+      const trends = exercises
+        .map(name => {
+          const hist  = peGetExerciseHistory(log, name);
+          const trend = peDetectProgress(hist);
+          return { name, ...trend };
+        })
+        .filter(e => e.trend !== 'insufficient');
+
+      if (!trends.length) continue;
+      const progressing = trends.filter(e => e.trend === 'progressing').length;
+      const stagnant    = trends.filter(e => e.trend === 'stagnant').length;
+      const declining   = trends.filter(e => e.trend === 'declining').length;
+
+      if (stagnant + declining > 0 && progressing === 0) {
+        result.push({
+          muscleKey,
+          name:      sci?.name || muscleKey,
+          status:    declining > 0 ? 'declining' : 'stagnant',
+          exercises: trends.filter(e => e.trend !== 'progressing'),
+        });
+      }
+    }
+    return result;
+  }
+
+  // ── Full scientific panel ─────────────────────────────────────────────────
+  // Ready to display: volumeStatus, frequency, fatigue, recovery, overload, stagnation
+  function seGetScientificPanel(log, profile) {
+    if (!log?.length) return null;
+    const volumeStatus = seGetVolumeStatus(log, profile);
+    const frequency    = seGetMuscleFrequency(log, 1);
+    const weeklySets   = seGetMuscleWeeklySets(log, 1);
+    const fatigue      = seGetFatigueScore(log, profile);
+    const recovery     = seGetRecoveryStatus(log);
+    const overload     = seGetOverloadRisks(log, profile);
+    const stagnation   = typeof peGetAllExercises !== 'undefined'
+      ? seGetMuscleStagnation(log) : [];
+
+    const topMuscles = Object.entries(weeklySets)
+      .sort((a, b) => b[1] - a[1]).slice(0, 6)
+      .map(([key, sets]) => ({ key, sets, name: window.AtlasEngine?.SCIENCE?.[key]?.name || key }));
+
+    const mrvAlerts = Object.values(volumeStatus)
+      .filter(v => ['mav_to_mrv', 'above_mrv'].includes(v.zone) && v.current > 0)
+      .sort((a, b) => (b.current / b.mrv) - (a.current / a.mrv));
+
+    const belowMEV = Object.values(volumeStatus)
+      .filter(v => v.zone === 'below_mev' && v.current > 0)
+      .map(v => ({ ...v, gap: v.mev - v.current }));
+
+    return {
+      volumeStatus, frequency, weeklySets,
+      fatigue, recovery, overload, stagnation,
+      topMuscles, mrvAlerts, belowMEV,
+      generatedAt: Date.now(),
+    };
+  }
+
+  // ── Coach-facing text lines ────────────────────────────────────────────────
+  function seGetCoachSummary(log, profile) {
+    const panel = seGetScientificPanel(log, profile);
+    if (!panel) return null;
+    const w = panel.weeklySets;
+    const lines = [];
+    const push = (w.pecho || 0) + (w.delt_ant || 0) + (w.delt_lat || 0) + (w.triceps || 0);
+    const pull = (w.dorsal || 0) + (w.trapecio || 0) + (w.biceps || 0);
+    const legs = (w.cuadriceps || 0) + (w.isquio || 0) + (w.gluteos || 0);
+    if (push > 0) lines.push(`Empuje: ${push} series/sem`);
+    if (pull > 0) lines.push(`Tracción: ${pull} series/sem`);
+    if (legs > 0) lines.push(`Piernas: ${legs} series/sem`);
+    lines.push(`Fatiga estimada: ${panel.fatigue.score}/100 (${panel.fatigue.level})`);
+    panel.mrvAlerts.forEach(a => lines.push(`⚠ ${a.name}: ${a.current} series (MRV ${a.mrv})`));
+    if (panel.fatigue.score >= 70 || panel.overload.some(r => r.severity === 'high')) {
+      lines.push('Considera un período de deload (reducir volumen 40–50% durante 1 semana)');
+    }
+    return lines.join('\n');
+  }
+
+  // ── Public API ─────────────────────────────────────────────────────────────
+  return {
+    MUSCLE_KEY_MAP,
+    resolveMuscleName,
+    getMuscles,
+    seGetMuscleWeeklySets,
+    seGetMuscleFrequency,
+    seEstimateIntensity,
+    seGetRecoveryStatus,
+    seGetFatigueScore,
+    seGetVolumeStatus,
+    seGetMuscleStagnation,
+    seGetOverloadRisks,
+    seGetScientificPanel,
+    seGetCoachSummary,
+  };
+})();
+
+Object.assign(window, { AtlasScientificEngine });

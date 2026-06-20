@@ -463,6 +463,7 @@ function acBuildRichContext(state, profile) {
     musclePriorities, priorityGaps, injuries, injuryRisks,
     builderPlan, activeRoutine,
     progressSummary: typeof peGetProgressSummary !== 'undefined' ? peGetProgressSummary(log) : null,
+    sePanel: typeof AtlasScientificEngine !== 'undefined' ? AtlasScientificEngine.seGetScientificPanel(log, profile) : null,
   };
 }
 
@@ -474,6 +475,7 @@ function acDetectIntent(text) {
   if (/analiza|an[aá]lisis|c[oó]mo.*voy|qu[eé] tal.*entrena|revisar?|mi historial|mi progreso/.test(t)) return 'analysis';
   if (/me duele|me molesta|tengo.*dolor|lesi[oó]n|lastim|dolor en|molestia en/.test(t)) return 'injury';
   if (/estancado|plateau|no progres|no avanzo|mismo peso|sin cambios/.test(t)) return 'plateau';
+  if (/mi volumen de|volumen.*m[uú]sculo|cu[aá]ntas series.*tengo|mav|mrv|mev|zona de volumen|en qu[eé] zona|series.*m[uú]sculo|mi.*frecuencia real|frecuencia.*m[uú]sculo/.test(t)) return 'volume-science';
   if (/cu[aá]ntas series|volumen|frecuencia|mejor.*frecuencia|fallo muscular|rir|rpe/.test(t)) return 'programming';
   if (/recupera|descans|hrv|fatiga|sobreentren|puedo.*entrenar|debo descansar|deload/.test(t)) return 'recovery';
   if (/revisa.*rutina|cómo.*está.*mi.*plan|analiza.*mi.*rutina|mi.*rutina.*actual|qué.*tiene.*mi.*plan|mi.*plan.*actual/.test(t)) return 'builder-review';
@@ -772,6 +774,32 @@ function acResponseAnalysis(ctx, profile) {
     issues.push({ sev:'warning', icon:'⚠', title:'Volumen semanal muy alto', detail:`${ctx.totalSetsWeek} series esta semana (media de ${ctx.avgSetsPerSess.toFixed(1)}/sesión). Pasadas las 20–22 series efectivas por sesión la calidad del estímulo cae.`, rec:'Considera un deload: reduce el volumen al 50–60% manteniendo la intensidad.' });
   }
 
+  // Scientific panel: MRV violations
+  if (ctx.sePanel?.mrvAlerts?.length > 0) {
+    const a = ctx.sePanel.mrvAlerts[0];
+    const overZone = a.zone === 'above_mrv';
+    issues.push({
+      sev: overZone ? 'warning' : 'info',
+      icon: overZone ? '⚠' : 'ℹ',
+      title: overZone
+        ? `${a.name}: por encima del MRV (${a.current}/${a.mrv} series/sem)`
+        : `${a.name}: cerca del MRV (${a.current}/${a.mrv} series/sem)`,
+      detail: `El MRV (Máximo Volumen Recuperable) para ${a.name} es ${a.mrv} series semanales según Israetel et al. Con ${a.current} series estás ${overZone ? 'por encima — el volumen extra genera fatiga sin estímulo adicional' : 'en la zona de alerta — al límite de lo recuperable'}.`,
+      rec: `Reduce ${Math.max(1, a.current - a.mav)} series de ${a.name} la próxima semana y mantén la intensidad.`,
+    });
+  }
+
+  // Scientific panel: fatigue score
+  if (ctx.sePanel?.fatigue?.score >= 70) {
+    const f = ctx.sePanel.fatigue;
+    issues.push({
+      sev: 'warning', icon: '⚠',
+      title: `Fatiga acumulada alta: ${f.score}/100`,
+      detail: `Score de fatiga calculado sobre volumen (${f.totalSets} series), frecuencia (${f.daysTraining} días) e intensidad estimada (~${f.avgIntPct}% 1RM). ${f.factors.slice(0,2).join('; ')}.`,
+      rec: 'Un deload de 5–7 días al 50% del volumen habitual resolvería el exceso de fatiga sin perder masa muscular.',
+    });
+  }
+
   // ── Atlas Profile–specific checks ─────────────────────────────────────────
   // Injury risk check
   if (ctx.injuryRisks?.length > 0) {
@@ -803,7 +831,13 @@ function acResponseAnalysis(ctx, profile) {
     type: 'analysis',
     summary,
     issues,
-    stats: { sessions: ctx.totalSessions, week: ctx.weekSessions, push: ctx.pushVol, pull: ctx.pullVol, streak: ctx.streak, fatigue: ctx.fatigueLevel },
+    stats: {
+      sessions: ctx.totalSessions, week: ctx.weekSessions, push: ctx.pushVol,
+      pull: ctx.pullVol, streak: ctx.streak, fatigue: ctx.fatigueLevel,
+      fatigueScore: ctx.sePanel?.fatigue?.score ?? null,
+      mrvAlerts: ctx.sePanel?.mrvAlerts ?? [],
+      topMuscles: ctx.sePanel?.topMuscles ?? [],
+    },
     relatedArticles: ['volumen-frecuencia', 'sobrecarga-progresiva', 'rpe-rir'],
   };
 }
@@ -858,9 +892,20 @@ function acResponsePlateau(ctx) {
   return { type:'text', text:'No detecto estancamientos en tu historial. Si lo percibes en un ejercicio concreto, dime cuál y lo analizo en detalle.' };
 }
 
-function acResponseProgramming(text) {
+function acResponseProgramming(text, ctx) {
   const t = text.toLowerCase();
   if (/series|volumen/.test(t)) {
+    const sePanel = ctx?.sePanel;
+    const tracked = sePanel ? Object.values(sePanel.volumeStatus).filter(v => v.current > 0).sort((a, b) => b.current - a.current) : [];
+    if (tracked.length > 0) {
+      const zoneLabel = z => z === 'mev_to_mav' ? '✓ óptimo' : z === 'mav_to_mrv' ? '⚠ cerca MRV' : z === 'above_mrv' ? '⛔ sobre MRV' : '↓ bajo MEV';
+      const lines = ['Tu volumen semanal actual por músculo:'];
+      tracked.slice(0, 7).forEach(vs => {
+        lines.push(`• ${vs.name}: ${vs.current} series — MEV ${vs.mev} · MAV ${vs.mav} · MRV ${vs.mrv}  ${zoneLabel(vs.zone)}`);
+      });
+      lines.push('\nMantén el volumen entre MEV y MAV para estímulo óptimo sin fatiga excesiva. Superar el MRV genera fatiga sin retorno adaptativo adicional (Israetel et al. 2019).');
+      return { type:'text', text: lines.join('\n'), relatedArticles: ['volumen-frecuencia', 'hipertrofia-mecanismos'] };
+    }
     return { type:'text', text:'Para hipertrofia: 10–20 series por músculo por semana repartidas en 2+ sesiones. El MEV (mínimo efectivo) está en 8–10 series. Superar 20 series sin recuperación suficiente puede ser contraproducente. Empieza bajo y sube 1–2 series por semana si toleras la carga.', relatedArticles: ['volumen-frecuencia', 'hipertrofia-mecanismos'] };
   }
   if (/frecuencia/.test(t)) {
@@ -876,22 +921,34 @@ function acResponseProgramming(text) {
 }
 
 function acResponseRecovery(ctx) {
-  const deload = ctx.progressSummary?.deload;
+  const deload   = ctx.progressSummary?.deload;
+  const sePanel  = ctx.sePanel;
+  const fatigue  = sePanel?.fatigue;
+  const recovery = sePanel?.recovery;
 
   if (deload?.needed) {
-    const bullets = deload.reasons.map(r => `• ${r}`).join('\n');
-    return { type:'text', text:`Basándome en tu historial real, los datos apuntan a que necesitas una semana de descarga:\n\n${bullets}\n\nProtocolo de deload: reduce el volumen al 50–60% (menos series, mismos pesos) durante 5–7 días. No bajes la intensidad — solo el volumen. Después de la descarga el rendimiento normalmente supera el nivel previo.`, relatedArticles: ['deload', 'hrv-monitoreo', 'recuperacion-sueno'] };
+    const bullets      = deload.reasons.map(r => `• ${r}`).join('\n');
+    const fatigueNote  = fatigue ? `\n\nFatiga acumulada calculada: ${fatigue.score}/100 (${fatigue.level}).` : '';
+    return { type:'text', text:`Basándome en tu historial real, los datos apuntan a que necesitas una semana de descarga:\n\n${bullets}${fatigueNote}\n\nProtocolo de deload: reduce el volumen al 50–60% (menos series, mismos pesos) durante 5–7 días. No bajes la intensidad — solo el volumen. Después de la descarga el rendimiento normalmente supera el nivel previo.`, relatedArticles: ['deload', 'hrv-monitoreo', 'recuperacion-sueno'] };
+  }
+
+  if (fatigue && fatigue.score >= 70) {
+    const factors = fatigue.factors.length ? `\n\nFactores detectados:\n${fatigue.factors.map(f => `• ${f}`).join('\n')}` : '';
+    return { type:'text', text:`Tu score de fatiga es ${fatigue.score}/100 (${fatigue.level}).${factors}\n\nOpciones: (1) deload esta semana — 50% del volumen manteniendo los mismos pesos, (2) eliminar 1 sesión y compensar la siguiente semana. Recuerda que el músculo no crece durante el entrenamiento, sino en la recuperación.`, relatedArticles: ['deload', 'hrv-monitoreo', 'recuperacion-sueno'] };
   }
 
   if (ctx.fatigueLevel === 'high') {
-    return { type:'text', text:`Tu volumen esta semana es alto (${ctx.totalSetsWeek} series, media de ${ctx.avgSetsPerSess.toFixed(0)}/sesión). Si el rendimiento está bajando o el sueño está peor, es señal de fatiga acumulada.\n\nOpciones: (1) deload esta semana — 50% del volumen manteniendo pesos, (2) eliminar 1 sesión y compensar la siguiente semana.` };
+    const scoreNote = fatigue ? ` (score: ${fatigue.score}/100)` : '';
+    return { type:'text', text:`Tu volumen esta semana es alto (${ctx.totalSetsWeek} series, media de ${ctx.avgSetsPerSess.toFixed(0)}/sesión)${scoreNote}. Si el rendimiento está bajando o el sueño está peor, es señal de fatiga acumulada.\n\nOpciones: (1) deload esta semana — 50% del volumen manteniendo pesos, (2) eliminar 1 sesión y compensar la siguiente semana.` };
   }
 
   if (ctx.daysSinceLast > 2) {
-    return { type:'text', text:`Llevas ${ctx.daysSinceLast} días sin entrenar. El músculo se mantiene hasta 2–3 semanas de parón. Cuando retomes, empieza en el 80% de tus cargas habituales.` };
+    const readyNote = recovery ? ` Readiness estimado: ${recovery.readiness}/100 (${recovery.label}).` : '';
+    return { type:'text', text:`Llevas ${ctx.daysSinceLast} días sin entrenar.${readyNote} El músculo se mantiene hasta 2–3 semanas de parón. Cuando retomes, empieza en el 80% de tus cargas habituales.` };
   }
 
-  return { type:'text', text:'Tu fatiga parece moderada o baja esta semana. Indicadores de recuperación insuficiente: RPE más alto para las mismas cargas, DOMS persistente entre sesiones, peor calidad del sueño. Si no aparecen esas señales, continúa con el plan normal.' };
+  const scoreNote = fatigue ? `\n\nFatiga actual: ${fatigue.score}/100 (${fatigue.level}). Readiness: ${recovery?.readiness ?? '—'}/100.` : '';
+  return { type:'text', text:`Tu fatiga parece moderada o baja esta semana.${scoreNote}\n\nIndicadores de recuperación insuficiente: RPE más alto para las mismas cargas, DOMS persistente entre sesiones, peor calidad del sueño. Si no aparecen esas señales, continúa con el plan normal.`, relatedArticles: ['hrv-monitoreo', 'recuperacion-sueno'] };
 }
 
 function acResponseProgress(ctx) {
@@ -1002,6 +1059,55 @@ function acResponseBuilderReview(ctx, profile) {
   return { type:'text', text: parts.join('\n\n'), relatedArticles: ['sobrecarga-progresiva', 'volumen-frecuencia', 'rpe-rir'] };
 }
 
+// ── Volume science response (MEV/MAV/MRV breakdown) ──────────────────────────
+function acResponseVolumeScience(ctx, profile) {
+  const panel = ctx.sePanel;
+  if (!panel || !ctx.log?.length) {
+    return { type:'text', text:'Sin sesiones registradas con datos de músculo. Registra tus entrenamientos en el Builder con pesos y el motor científico analizará tu volumen por músculo en tiempo real.', relatedArticles:['volumen-frecuencia'] };
+  }
+
+  const tracked = Object.values(panel.volumeStatus)
+    .filter(v => v.current > 0)
+    .sort((a, b) => b.current - a.current);
+
+  if (!tracked.length) {
+    return { type:'text', text:'No detecto volumen por músculo esta semana. Asegúrate de registrar sesiones con ejercicios en el Builder.', relatedArticles:['volumen-frecuencia'] };
+  }
+
+  const zoneLabel = z => z === 'mev_to_mav' ? '✓ MAV' : z === 'mav_to_mrv' ? '⚠ MRV' : z === 'above_mrv' ? '⛔ MRV+' : '↓ MEV';
+  const frequency = panel.frequency;
+
+  const lines = [`Análisis de volumen semanal (basado en ${ctx.totalSessions} sesiones):\n`];
+  tracked.forEach(vs => {
+    const freq  = frequency[vs.key] ? `${frequency[vs.key]}×/sem` : '';
+    const zone  = zoneLabel(vs.zone);
+    lines.push(`• ${vs.name}: ${vs.current} series ${freq ? `(${freq})` : ''} — ${zone} [MEV ${vs.mev} · MAV ${vs.mav} · MRV ${vs.mrv}]`);
+  });
+
+  if (panel.mrvAlerts.length) {
+    lines.push(`\n⚠ Alertas MRV:`);
+    panel.mrvAlerts.forEach(a => {
+      const excess = a.current - a.mav;
+      lines.push(`• ${a.name}: ${a.current} series — reduce ${excess} series para volver a rango MAV.`);
+    });
+  }
+
+  if (panel.belowMEV.length) {
+    lines.push(`\n↓ Por debajo de MEV (estímulo insuficiente):`);
+    panel.belowMEV.slice(0, 4).forEach(v => {
+      lines.push(`• ${v.name}: ${v.current}/${v.mev} series — añade ${v.gap} series más.`);
+    });
+  }
+
+  lines.push(`\nFatiga estimada: ${panel.fatigue.score}/100 (${panel.fatigue.level}).`);
+
+  return {
+    type: 'text',
+    text: lines.join('\n'),
+    relatedArticles: ['volumen-frecuencia', 'hipertrofia-mecanismos', 'deload'],
+  };
+}
+
 // ── Master response generator ─────────────────────────────────────────────────
 function acGenerateSmartResponse(userText, state, profile, memory, allExs) {
   const intent = acDetectIntent(userText);
@@ -1014,8 +1120,9 @@ function acGenerateSmartResponse(userText, state, profile, memory, allExs) {
     case 'analysis':    return acResponseAnalysis(ctx, profile);
     case 'injury':      return acResponseInjury(userText, memory);
     case 'plateau':     return acResponsePlateau(ctx);
-    case 'programming': return acResponseProgramming(userText);
-    case 'recovery':    return acResponseRecovery(ctx);
+    case 'programming':    return acResponseProgramming(userText, ctx);
+    case 'recovery':       return acResponseRecovery(ctx);
+    case 'volume-science':  return acResponseVolumeScience(ctx, profile);
     case 'builder-review':  return acResponseBuilderReview(ctx, profile);
     case 'progress-check':  return acResponseProgress(ctx);
     case 'profile':
@@ -1033,10 +1140,11 @@ function acGetDynamicChips(ctx, profile) {
 
   if (ctx.daysSinceLast > 4 && ctx.daysSinceLast < 99) chips.push(`¿Retomamos hoy?`);
   if (ctx.plateaus.length > 0) chips.push(`Estancado en ${ctx.plateaus[0].name.split(' ')[0]}`);
+  if (ctx.sePanel?.mrvAlerts?.length > 0) chips.push(`${ctx.sePanel.mrvAlerts[0].name} cerca del MRV`);
   if (ctx.injuryRisks?.length > 0) chips.push('Ajustar rutina por lesión');
   else if (ctx.priorityGaps?.length > 0) chips.push(`Más volumen de ${ctx.priorityGaps[0].label}`);
   else if (ctx.pushPullRatio > 1.5) chips.push('Necesito más tracción');
-  if (ctx.fatigueLevel === 'high') chips.push('¿Debo hacer deload?');
+  if (ctx.fatigueLevel === 'high' || ctx.sePanel?.fatigue?.score >= 65) chips.push('¿Debo hacer deload?');
   if (ctx.totalSessions === 0) chips.push('Crear mi plan de entrenamiento');
   if (musclePriorities.length > 0) {
     const prio = musclePriorities[0];
