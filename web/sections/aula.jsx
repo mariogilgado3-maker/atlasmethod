@@ -608,7 +608,7 @@ function AulaExplore({ onCategory }) {
 }
 
 // ── Article detail (kept from v1, style polish) ───────────────────────────────
-function AulaDetail({ article, isRead, onBack, onMarkRead }) {
+function AulaDetail({ article, isRead, onBack, onMarkRead, allArticles, completedIds, onOpen, onAskCoach }) {
   const [openSecs, setOpenSecs] = React.useState({ 0:true });
   const [showAi, setShowAi]     = React.useState(false);
   const m  = ALcat[article.category] || ALcat.fuerza;
@@ -711,6 +711,147 @@ function AulaDetail({ article, isRead, onBack, onMarkRead }) {
           </>
         )}
       </div>
+
+      {/* Related articles */}
+      {allArticles && onOpen && (
+        <AulaRelated allArticles={allArticles} currentId={article.id} completedIds={completedIds || []} onOpen={onOpen} />
+      )}
+
+      {/* Ask Coach */}
+      {onAskCoach && (
+        <div style={{ padding: '14px 18px', borderRadius: 14, background: 'rgba(15,26,46,0.03)', border: `1px solid ${AL.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 16 }}>
+          <span style={{ fontFamily: '"Inter",system-ui', fontSize: 13, color: AL.sub }}>¿Tienes dudas sobre este tema?</span>
+          <button onClick={onAskCoach} style={{ padding: '7px 16px', borderRadius: 9, border: 'none', background: AL.navy, color: '#FAFAF7', fontFamily: '"Inter",system-ui', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+            Pregunta al Coach →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── For You — personalized article strip ──────────────────────────────────────
+function AulaForYou({ articles, profile, completedIds, onOpen }) {
+  if (typeof aulaGetRecommended === 'undefined' || !profile) return null;
+  const recommended = aulaGetRecommended(articles, profile, completedIds, 4);
+  if (!recommended.length) return null;
+
+  const OBJ_LABELS = { muscle:'Hipertrofia', fat_loss:'Pérdida de grasa', recomp:'Recomposición', performance:'Rendimiento', health:'Salud y bienestar' };
+  const objLabel = OBJ_LABELS[profile.objective] || 'tu objetivo';
+
+  return (
+    <div style={{ marginBottom: 48 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 6 }}>
+        <h2 style={{ fontFamily: '"Inter",system-ui', fontSize: 22, fontWeight: 800, color: AL.navy, letterSpacing: -0.8, margin: 0 }}>Para ti</h2>
+        <span style={{ fontFamily: '"Inter",system-ui', fontSize: 13, color: AL.muted }}>seleccionado según tu objetivo: <strong style={{ color: AL.sub }}>{objLabel}</strong></span>
+      </div>
+      <p style={{ fontFamily: '"Inter",system-ui', fontSize: 12, color: AL.muted, margin: '0 0 20px' }}>
+        {profile.experience === 'beginner' ? 'Empezamos por los fundamentos.' : profile.experience === 'advanced' ? 'Contenido avanzado alineado con tu nivel.' : 'Contenido intermedio ordenado por relevancia.'}
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
+        {recommended.map((a, i) => (
+          <AulaCard key={a.id} article={a} isRead={completedIds.includes(a.id)} onOpen={onOpen} imgIdx={i} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Learning Path Strip ───────────────────────────────────────────────────────
+function AulaLearningPath({ articles, profile, completedIds, onOpen }) {
+  if (typeof aulaGetLearningPath === 'undefined' || !profile) return null;
+  const path = aulaGetLearningPath(profile);
+  const available = (path.steps || []).filter(s => articles.some(a => a.id === s.id));
+  if (available.length < 2) return null;
+
+  const doneCount = available.filter(s => completedIds.includes(s.id)).length;
+  const pct       = Math.round((doneCount / available.length) * 100);
+
+  return (
+    <div style={{ marginBottom: 40, padding: '20px 24px', borderRadius: 18, background: AL.card, border: `1px solid ${AL.border}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div>
+          <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 9, fontWeight: 700, color: AL.muted, letterSpacing: 1, marginBottom: 4 }}>RUTA DE APRENDIZAJE</div>
+          <div style={{ fontFamily: '"Inter",system-ui', fontSize: 15, fontWeight: 700, color: AL.navy }}>{path.label}</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 13, fontWeight: 700, color: path.color || AL.navy }}>{doneCount} / {available.length}</div>
+          <div style={{ fontFamily: '"Inter",system-ui', fontSize: 11, color: AL.muted }}>completados</div>
+        </div>
+      </div>
+      <div style={{ height: 4, borderRadius: 999, background: 'rgba(15,26,46,0.08)', marginBottom: 16, overflow: 'hidden' }}>
+        <div style={{ height: '100%', borderRadius: 999, background: path.color || AL.navy, width: `${pct}%`, transition: 'width .4s ease' }} />
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {available.map((step, i) => {
+          const done    = completedIds.includes(step.id);
+          const article = articles.find(a => a.id === step.id);
+          return (
+            <button
+              key={step.id}
+              onClick={() => article && onOpen(step.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '6px 13px', borderRadius: 999,
+                border: done ? 'none' : `1px solid rgba(15,26,46,0.12)`,
+                background: done ? (path.color || AL.navy) : 'transparent',
+                color: done ? '#FFFFFF' : AL.sub,
+                fontFamily: '"Inter",system-ui', fontSize: 12, fontWeight: 600,
+                cursor: article ? 'pointer' : 'default',
+                transition: 'all .15s',
+              }}
+            >
+              <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 9, opacity: 0.6 }}>{i + 1}</span>
+              {step.label}
+              {done && <span>✓</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Related articles (inside detail view) ─────────────────────────────────────
+function AulaRelated({ allArticles, currentId, completedIds, onOpen }) {
+  if (typeof aulaGetRelatedArticles === 'undefined') return null;
+  const related = aulaGetRelatedArticles(allArticles, currentId, 3);
+  if (!related.length) return null;
+  return (
+    <div style={{ marginTop: 32, marginBottom: 24 }}>
+      <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 9, fontWeight: 700, color: AL.muted, letterSpacing: 1, marginBottom: 14 }}>ARTÍCULOS RELACIONADOS</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {related.map(a => {
+          const done = completedIds.includes(a.id);
+          const m    = ALcat[a.category] || ALcat.fuerza;
+          return (
+            <button
+              key={a.id}
+              onClick={() => onOpen(a.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '12px 16px', borderRadius: 12,
+                border: `1px solid ${AL.border}`, background: AL.card,
+                cursor: 'pointer', textAlign: 'left', transition: 'all .15s', width: '100%',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#F5F5F0'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = AL.card; }}
+            >
+              <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: m.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: m.dot }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 700, color: AL.navy, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title}</div>
+                <div style={{ fontFamily: '"Inter",system-ui', fontSize: 11, color: AL.muted, marginTop: 2 }}>{a.readTime} min · {(ALcat[a.category] || ALcat.fuerza).label}</div>
+              </div>
+              {done
+                ? <span style={{ fontFamily: '"Inter",system-ui', fontSize: 11, color: '#059669', fontWeight: 700, flexShrink: 0 }}>✓ Leído</span>
+                : <span style={{ fontFamily: '"Inter",system-ui', fontSize: 11, color: '#059669', fontWeight: 700, flexShrink: 0 }}>+{a.gems} 💎</span>
+              }
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -718,6 +859,7 @@ function AulaDetail({ article, isRead, onBack, onMarkRead }) {
 // ── Main section ──────────────────────────────────────────────────────────────
 function AulaSection() {
   const { state, actions } = useStore();
+  const { navigate }       = useRoute();
   const [articles, setArticles] = React.useState([]);
   const [loading, setLoading]   = React.useState(true);
   const [query, setQuery]       = React.useState('');
@@ -725,11 +867,21 @@ function AulaSection() {
   const [openId, setOpenId]     = React.useState(null);
   const [gemFlash, setGemFlash] = React.useState(null);
 
+  const atlasProfile = React.useMemo(() => {
+    try { return JSON.parse(localStorage.getItem('atlas.profile.v1') || 'null'); } catch { return null; }
+  }, []);
+
   React.useEffect(() => {
     setLoading(true);
     ArticlesService.getAll({ status:'published' }).then(data => {
       setArticles(data);
       setLoading(false);
+      // Open article deep-linked from Coach
+      const pending = localStorage.getItem('atlas.aula.pending.v1');
+      if (pending) {
+        localStorage.removeItem('atlas.aula.pending.v1');
+        setOpenId(pending);
+      }
     });
   }, []);
 
@@ -780,6 +932,10 @@ function AulaSection() {
             isRead={completed.includes(openId)}
             onBack={() => setOpenId(null)}
             onMarkRead={handleMarkRead}
+            allArticles={articles}
+            completedIds={completed}
+            onOpen={setOpenId}
+            onAskCoach={() => navigate('/coach')}
           />
         ) : (
           <>
@@ -790,6 +946,16 @@ function AulaSection() {
               query={query}
               onQuery={setQuery}
             />
+
+            {/* ── Personalized: For You ─────────────────────────────── */}
+            {!loading && atlasProfile && (
+              <AulaForYou articles={articles} profile={atlasProfile} completedIds={completed} onOpen={setOpenId} />
+            )}
+
+            {/* ── Learning path ─────────────────────────────────────── */}
+            {!loading && atlasProfile && (
+              <AulaLearningPath articles={articles} profile={atlasProfile} completedIds={completed} onOpen={setOpenId} />
+            )}
 
             {/* ── Category strip ────────────────────────────────────── */}
             <AlCatStrip active={category} onChange={setCategory} />

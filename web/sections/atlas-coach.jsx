@@ -266,6 +266,18 @@ const AP_MUS_MAP  = { chest:'pecho', back:'espalda', shoulders:'hombros', arms:'
 const AP_DAYS_SPLIT = { 2:'upper_lower', 3:'ppl', 4:'upper_lower', 5:'ppl', 6:'ppl' };
 
 // ── AtlasRoutine persistence ──────────────────────────────────────────────────
+const AC_ARTICLE_TITLES = {
+  'sobrecarga-progresiva':  'Sobrecarga progresiva',
+  'volumen-frecuencia':     'Volumen y frecuencia',
+  'hipertrofia-mecanismos': 'Mecanismos de hipertrofia',
+  'rpe-rir':                'RPE y RIR',
+  'nutricion-proteina':     'Proteína: cuánta y cuándo',
+  'recuperacion-sueno':     'Sueño y recuperación',
+  'deload':                 'Deload: cuándo y cómo',
+  'hrv-monitoreo':          'HRV como herramienta',
+  'periodizacion-bloques':  'Periodización por bloques',
+};
+
 const AR_KEY      = 'atlas.routine.active.v1';
 const AR_META_KEY = 'atlas.pendingWorkoutMeta';
 
@@ -792,6 +804,7 @@ function acResponseAnalysis(ctx, profile) {
     summary,
     issues,
     stats: { sessions: ctx.totalSessions, week: ctx.weekSessions, push: ctx.pushVol, pull: ctx.pullVol, streak: ctx.streak, fatigue: ctx.fatigueLevel },
+    relatedArticles: ['volumen-frecuencia', 'sobrecarga-progresiva', 'rpe-rir'],
   };
 }
 
@@ -808,7 +821,7 @@ function acResponseInjury(text, memory) {
 
   const part = found[0];
   if (!part) {
-    return { type:'text', text:'¿Dónde exactamente? Cuéntame si duele durante el movimiento, después, o en reposo — eso cambia completamente el enfoque.' };
+    return { type:'text', text:'¿Dónde exactamente? Cuéntame si duele durante el movimiento, después, o en reposo — eso cambia completamente el enfoque.', relatedArticles:['recuperacion-sueno','hrv-monitoreo'] };
   }
 
   const alts = {
@@ -834,12 +847,12 @@ function acResponsePlateau(ctx) {
       lines.push(`• ${e.name} — ${e.sessions} sesiones en ${e.kg} kg (${e.trend === 'declining' ? 'en descenso' : 'estancado'})`);
     });
     lines.push(`\nCausas más frecuentes: (1) fatiga acumulada que enmascara tu fuerza real, (2) volumen insuficiente como estímulo, (3) patrón de movimiento sobreautomatizado.\n\nAcción recomendada: microdeload 3–5 días al 60% del volumen, luego retoma con los mismos pesos. Normalmente se rompe el estancamiento la primera o segunda semana.`);
-    return { type:'text', text: lines.join('\n') };
+    return { type:'text', text: lines.join('\n'), relatedArticles: ['deload', 'volumen-frecuencia', 'sobrecarga-progresiva'] };
   }
 
   if (ctx.plateaus.length > 0) {
     const p = ctx.plateaus[0];
-    return { type:'text', text:`Detecto plateau en ${p.name} — llevas ${p.sessions} sesiones en ${p.kg} kg.\n\nCausas más comunes: fatiga acumulada, volumen insuficiente como estímulo nuevo, o exceso de automatización en el patrón.\n\nSolución: microdeload de 3–5 días y retoma al 80% del peso habitual.` };
+    return { type:'text', text:`Detecto plateau en ${p.name} — llevas ${p.sessions} sesiones en ${p.kg} kg.\n\nCausas más comunes: fatiga acumulada, volumen insuficiente como estímulo nuevo, o exceso de automatización en el patrón.\n\nSolución: microdeload de 3–5 días y retoma al 80% del peso habitual.`, relatedArticles: ['deload', 'sobrecarga-progresiva'] };
   }
 
   return { type:'text', text:'No detecto estancamientos en tu historial. Si lo percibes en un ejercicio concreto, dime cuál y lo analizo en detalle.' };
@@ -848,16 +861,16 @@ function acResponsePlateau(ctx) {
 function acResponseProgramming(text) {
   const t = text.toLowerCase();
   if (/series|volumen/.test(t)) {
-    return { type:'text', text:'Para hipertrofia: 10–20 series por músculo por semana repartidas en 2+ sesiones. El MEV (mínimo efectivo) está en 8–10 series. Superar 20 series sin recuperación suficiente puede ser contraproducente. Empieza bajo y sube 1–2 series por semana si toleras la carga.' };
+    return { type:'text', text:'Para hipertrofia: 10–20 series por músculo por semana repartidas en 2+ sesiones. El MEV (mínimo efectivo) está en 8–10 series. Superar 20 series sin recuperación suficiente puede ser contraproducente. Empieza bajo y sube 1–2 series por semana si toleras la carga.', relatedArticles: ['volumen-frecuencia', 'hipertrofia-mecanismos'] };
   }
   if (/frecuencia/.test(t)) {
-    return { type:'text', text:'Frecuencia 2× por músculo/semana supera a 1× con el mismo volumen total en términos de hipertrofia. Para fuerza, 2–3× da mejores resultados. La frecuencia 1× solo tiene sentido para avanzados en fases de intensificación.' };
+    return { type:'text', text:'Frecuencia 2× por músculo/semana supera a 1× con el mismo volumen total en términos de hipertrofia. Para fuerza, 2–3× da mejores resultados. La frecuencia 1× solo tiene sentido para avanzados en fases de intensificación.', relatedArticles: ['volumen-frecuencia'] };
   }
   if (/fallo|al fallo/.test(t)) {
-    return { type:'text', text:'El fallo muscular no es necesario para el crecimiento. Lo que importa es llegar a RIR 1–3 en las últimas series del ejercicio. Entrenar siempre al fallo acumula más fatiga de la que genera estímulo, especialmente en ejercicios compuestos. Úsalo puntualmente en ejercicios de aislamiento al final de la sesión.' };
+    return { type:'text', text:'El fallo muscular no es necesario para el crecimiento. Lo que importa es llegar a RIR 1–3 en las últimas series del ejercicio. Entrenar siempre al fallo acumula más fatiga de la que genera estímulo, especialmente en ejercicios compuestos. Úsalo puntualmente en ejercicios de aislamiento al final de la sesión.', relatedArticles: ['rpe-rir', 'hipertrofia-mecanismos'] };
   }
   if (/deload/.test(t)) {
-    return { type:'text', text:'Señales de que necesitas deload: RPE subiendo para las mismas cargas, sueño peor de lo habitual, pérdida de motivación para entrenar, DOMS persistente entre sesiones. El deload clásico: 1 semana al 50–60% del volumen habitual manteniendo la intensidad (mismo peso, menos series). No hace falta bajar el peso.' };
+    return { type:'text', text:'Señales de que necesitas deload: RPE subiendo para las mismas cargas, sueño peor de lo habitual, pérdida de motivación para entrenar, DOMS persistente entre sesiones. El deload clásico: 1 semana al 50–60% del volumen habitual manteniendo la intensidad (mismo peso, menos series). No hace falta bajar el peso.', relatedArticles: ['deload', 'hrv-monitoreo'] };
   }
   return { type:'text', text:'¿Qué aspecto de la programación quieres profundizar? Puedo explicar volumen óptimo, frecuencia, periodización, RIR/RPE, deload o cualquier concepto específico.' };
 }
@@ -867,7 +880,7 @@ function acResponseRecovery(ctx) {
 
   if (deload?.needed) {
     const bullets = deload.reasons.map(r => `• ${r}`).join('\n');
-    return { type:'text', text:`Basándome en tu historial real, los datos apuntan a que necesitas una semana de descarga:\n\n${bullets}\n\nProtocolo de deload: reduce el volumen al 50–60% (menos series, mismos pesos) durante 5–7 días. No bajes la intensidad — solo el volumen. Después de la descarga el rendimiento normalmente supera el nivel previo.` };
+    return { type:'text', text:`Basándome en tu historial real, los datos apuntan a que necesitas una semana de descarga:\n\n${bullets}\n\nProtocolo de deload: reduce el volumen al 50–60% (menos series, mismos pesos) durante 5–7 días. No bajes la intensidad — solo el volumen. Después de la descarga el rendimiento normalmente supera el nivel previo.`, relatedArticles: ['deload', 'hrv-monitoreo', 'recuperacion-sueno'] };
   }
 
   if (ctx.fatigueLevel === 'high') {
@@ -986,7 +999,7 @@ function acResponseBuilderReview(ctx, profile) {
 
   if (parts.length === 1) parts.push('No detecté puntos críticos. Continúa con el plan.');
 
-  return { type:'text', text: parts.join('\n\n') };
+  return { type:'text', text: parts.join('\n\n'), relatedArticles: ['sobrecarga-progresiva', 'volumen-frecuencia', 'rpe-rir'] };
 }
 
 // ── Master response generator ─────────────────────────────────────────────────
@@ -1477,9 +1490,40 @@ function AcAnalysisCard({ content }) {
   );
 }
 
-function AcCoachMessage({ content, onSendToBuilder, onboardingProps }) {
+function AcAulaChips({ articleIds, onOpenAula }) {
+  if (!articleIds?.length || !onOpenAula) return null;
+  return (
+    <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:8, paddingLeft:2 }}>
+      <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, fontWeight:700, color:'rgba(232,237,248,0.30)', letterSpacing:1, alignSelf:'center', flexShrink:0 }}>LEER EN AULA</span>
+      {articleIds.map(id => (
+        <button
+          key={id}
+          onClick={() => onOpenAula(id)}
+          style={{
+            padding:'4px 11px', borderRadius:999,
+            border:'1px solid rgba(59,130,246,0.22)',
+            background:'rgba(59,130,246,0.07)',
+            color:'#93C5FD', fontFamily:'"Inter",system-ui', fontSize:11, fontWeight:600,
+            cursor:'pointer', transition:'background .12s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.15)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.07)'; }}
+        >
+          {AC_ARTICLE_TITLES[id] || id} →
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function AcCoachMessage({ content, onSendToBuilder, onboardingProps, onOpenAula }) {
   const bubble = { padding:'13px 18px', borderRadius:'4px 18px 18px 18px', background:AC.card, border:`1px solid ${AC.border}`, fontFamily:'Inter,system-ui', fontSize:14, lineHeight:1.65, color:AC.text, whiteSpace:'pre-line' };
-  if (content.type === 'text') return <div style={bubble}>{content.text}</div>;
+  if (content.type === 'text') return (
+    <div>
+      <div style={bubble}>{content.text}</div>
+      <AcAulaChips articleIds={content.relatedArticles} onOpenAula={onOpenAula} />
+    </div>
+  );
   if (content.type === 'routine') return (
     <div>
       <div style={bubble}>{content.text}</div>
@@ -1496,7 +1540,12 @@ function AcCoachMessage({ content, onSendToBuilder, onboardingProps }) {
       ))}
     </div>
   );
-  if (content.type === 'analysis') return <AcAnalysisCard content={content} />;
+  if (content.type === 'analysis') return (
+    <div>
+      <AcAnalysisCard content={content} />
+      <AcAulaChips articleIds={content.relatedArticles} onOpenAula={onOpenAula} />
+    </div>
+  );
   if (content.type === 'onboarding-step') {
     const ob = onboardingProps || {};
     return (
@@ -1525,7 +1574,7 @@ function AcCoachMessage({ content, onSendToBuilder, onboardingProps }) {
   return <div style={bubble}>{String(content)}</div>;
 }
 
-function AcMessageBubble({ msg, onSendToBuilder, onboardingProps }) {
+function AcMessageBubble({ msg, onSendToBuilder, onboardingProps, onOpenAula }) {
   const isUser = msg.role === 'user';
   return (
     <div style={{ display:'flex', justifyContent:isUser?'flex-end':'flex-start', alignItems:'flex-end', gap:8, marginBottom:20, animation:'fadeIn .22s ease' }}>
@@ -1535,7 +1584,7 @@ function AcMessageBubble({ msg, onSendToBuilder, onboardingProps }) {
       <div style={{ maxWidth:'76%', minWidth:0 }}>
         {isUser
           ? <div style={{ padding:'11px 16px', borderRadius:'18px 18px 4px 18px', background:'#2563EB', color:'#fff', fontFamily:'Inter,system-ui', fontSize:14, lineHeight:1.55, wordBreak:'break-word' }}>{msg.content}</div>
-          : <AcCoachMessage content={msg.content} onSendToBuilder={onSendToBuilder} onboardingProps={onboardingProps} />
+          : <AcCoachMessage content={msg.content} onSendToBuilder={onSendToBuilder} onboardingProps={onboardingProps} onOpenAula={onOpenAula} />
         }
         <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:'rgba(232,237,248,0.22)', marginTop:5, textAlign:isUser?'right':'left' }}>
           {new Date(msg.ts).toLocaleTimeString('es', { hour:'2-digit', minute:'2-digit' })}
@@ -2017,6 +2066,7 @@ function AtlasCoachSection() {
                   key={msg.id}
                   msg={msg}
                   onSendToBuilder={sendToBuilder}
+                  onOpenAula={(id) => { localStorage.setItem('atlas.aula.pending.v1', id); navigate('/aula'); }}
                   onboardingProps={onboarding.active ? {
                     answers:              onboarding.answers,
                     pendingMulti:         onboarding.pendingMulti,
