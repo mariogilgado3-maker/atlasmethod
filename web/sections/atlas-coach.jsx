@@ -1525,10 +1525,11 @@ function AcRoutineCard({ session, sessionIndex, totalSessions, routineId, routin
                 routineId, routineName,
                 sessionIndex, totalSessions,
                 sessionName: session.name,
+                mode: 'execute',
               })}
-              style={{ width:'100%', padding:'11px 16px', borderRadius:10, border:'none', cursor:'pointer', background:AC.blue, color:'#fff', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, letterSpacing:-0.2, boxShadow:'0 4px 18px -4px rgba(59,130,246,0.45)' }}
+              style={{ width:'100%', padding:'11px 16px', borderRadius:10, border:'none', cursor:'pointer', background:'#22C55E', color:'#fff', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, letterSpacing:-0.2, boxShadow:'0 4px 18px -4px rgba(34,197,94,0.45)' }}
             >
-              Abrir en Builder →
+              ▶ Iniciar entrenamiento
             </button>
           </div>
         </>

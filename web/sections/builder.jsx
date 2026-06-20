@@ -1767,6 +1767,161 @@ function WorkoutBar({ workout, saved, duration, onSave, mobile }) {
   );
 }
 
+// ── Parse rest string → seconds ────────────────────────────────────────────────
+function parseRestSec(restStr) {
+  if (!restStr) return 90;
+  const m = String(restStr).match(/\d+/);
+  return m ? Math.max(10, Math.min(300, parseInt(m[0]))) : 90;
+}
+
+// ── Workout execution view (Coach → Builder active session) ───────────────────
+function WorkoutExecution({ session, onFinish, onCancel }) {
+  const [exs,       setExs]       = React.useState(session.exercises);
+  const [restTimer, setRestTimer] = React.useState(null);
+  const [elapsed,   setElapsed]   = React.useState(0);
+
+  React.useEffect(() => {
+    const iv = setInterval(() => setElapsed(Math.floor((Date.now() - session.startTime) / 1000)), 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  React.useEffect(() => {
+    if (!restTimer) return;
+    if (restTimer.rem <= 0) { setRestTimer(null); return; }
+    const t = setTimeout(() => setRestTimer(r => r ? { ...r, rem: r.rem - 1 } : null), 1000);
+    return () => clearTimeout(t);
+  }, [restTimer]);
+
+  function toggleSetDone(ei, si) {
+    setExs(prev => {
+      const next = prev.map((ex, i) => {
+        if (i !== ei) return ex;
+        const sets = ex.sets.map((s, j) => j === si ? { ...s, done: !s.done } : s);
+        return { ...ex, sets, done: sets.every(s => s.done) };
+      });
+      return next;
+    });
+    const rest = parseRestSec(exs[ei]?.rest);
+    setRestTimer({ rem: rest, total: rest });
+  }
+
+  function updateSetField(ei, si, field, val) {
+    setExs(prev => prev.map((ex, i) =>
+      i !== ei ? ex : { ...ex, sets: ex.sets.map((s, j) => j === si ? { ...s, [field]: val } : s) }
+    ));
+  }
+
+  const totalSets = exs.reduce((t, ex) => t + ex.sets.length, 0);
+  const doneSets  = exs.reduce((t, ex) => t + ex.sets.filter(s => s.done).length, 0);
+  const pct       = totalSets > 0 ? Math.round(doneSets / totalSets * 100) : 0;
+  const fmt       = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
+  const C = {
+    bg: '#060D18', card: '#0B1628', border: 'rgba(255,255,255,0.07)', text: '#E8EDF8',
+    sub: 'rgba(232,237,248,0.55)', muted: 'rgba(232,237,248,0.28)',
+    green: '#22C55E', blue: '#3B82F6',
+  };
+  const inp = {
+    background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`,
+    borderRadius: 6, color: C.text, padding: '5px 8px', fontSize: 13, fontWeight: 600,
+    width: '100%', boxSizing: 'border-box', textAlign: 'center', fontFamily: 'ui-monospace,Menlo,monospace',
+    outline: 'none',
+  };
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', background:C.bg, color:C.text, fontFamily:'Inter,system-ui,sans-serif' }}>
+
+      {/* Header */}
+      <div style={{ padding:'14px 20px', borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+          <button onClick={onCancel} style={{ background:'none', border:`1px solid ${C.border}`, borderRadius:8, color:C.sub, padding:'5px 12px', cursor:'pointer', fontSize:11, fontWeight:700, fontFamily:'Inter,system-ui' }}>
+            ← Cancelar
+          </button>
+          <div style={{ textAlign:'center' }}>
+            <div style={{ fontSize:13, fontWeight:700, color:C.text, letterSpacing:-0.3 }}>{session.sessionName}</div>
+            <div style={{ fontSize:12, color:C.sub, fontVariantNumeric:'tabular-nums', fontFamily:'ui-monospace,Menlo,monospace', marginTop:2 }}>{fmt(elapsed)}</div>
+          </div>
+          <div style={{ textAlign:'right' }}>
+            <div style={{ fontSize:11, color:C.muted }}>{doneSets}/{totalSets} series</div>
+            <div style={{ fontSize:10, color:C.green, fontWeight:700 }}>{pct}%</div>
+          </div>
+        </div>
+        <div style={{ height:3, borderRadius:2, background:'rgba(255,255,255,0.07)', overflow:'hidden' }}>
+          <div style={{ height:'100%', width:`${pct}%`, background:C.green, borderRadius:2, transition:'width .35s ease' }} />
+        </div>
+      </div>
+
+      {/* Rest timer */}
+      {restTimer && restTimer.rem > 0 && (
+        <div style={{ padding:'10px 20px', background:'rgba(59,130,246,0.07)', borderBottom:`1px solid rgba(59,130,246,0.14)`, display:'flex', alignItems:'center', gap:14, flexShrink:0 }}>
+          <span style={{ fontSize:16 }}>⏱</span>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:9, fontWeight:700, color:C.blue, letterSpacing:1.2, fontFamily:'ui-monospace,Menlo,monospace' }}>DESCANSO</div>
+            <div style={{ fontSize:20, fontWeight:800, color:C.text, fontVariantNumeric:'tabular-nums', fontFamily:'ui-monospace,Menlo,monospace', lineHeight:1.2 }}>{fmt(restTimer.rem)}</div>
+          </div>
+          <div style={{ width:36, height:36, borderRadius:'50%', border:'3px solid rgba(59,130,246,0.18)', position:'relative', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
+            <div style={{ position:'absolute', inset:0, borderRadius:'50%', background:`conic-gradient(${C.blue} ${Math.round((1 - restTimer.rem / restTimer.total) * 360)}deg, transparent 0)` }} />
+            <div style={{ width:28, height:28, borderRadius:'50%', background:C.bg, position:'relative', zIndex:1 }} />
+          </div>
+          <button onClick={() => setRestTimer(null)} style={{ background:'rgba(59,130,246,0.12)', border:`1px solid rgba(59,130,246,0.25)`, borderRadius:8, color:C.blue, padding:'6px 14px', cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'Inter,system-ui', flexShrink:0 }}>
+            Saltar →
+          </button>
+        </div>
+      )}
+
+      {/* Exercise list */}
+      <div style={{ flex:1, overflowY:'auto', padding:'12px 20px' }}>
+        {exs.map((ex, ei) => (
+          <div key={ex.id || ei} style={{ marginBottom:10, borderRadius:12, overflow:'hidden', border:`1px solid ${ex.done ? 'rgba(34,197,94,0.22)' : C.border}`, background: ex.done ? 'rgba(34,197,94,0.03)' : C.card }}>
+            <div style={{ padding:'11px 14px', display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ width:20, height:20, borderRadius:'50%', border:`2px solid ${ex.done ? C.green : C.border}`, background: ex.done ? 'rgba(34,197,94,0.12)' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                {ex.done && <span style={{ fontSize:9, color:C.green, fontWeight:900 }}>✓</span>}
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:700, color: ex.done ? C.muted : C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ex.name}</div>
+                <div style={{ fontSize:10, color:C.muted, marginTop:1 }}>
+                  {(Array.isArray(ex.muscles) ? ex.muscles[0] : ex.muscles?.primary?.[0]) || ''}
+                  {ex.repsRange ? ` · ${ex.repsRange} reps` : ''}
+                  {ex.rest ? ` · ${ex.rest} descanso` : ''}
+                </div>
+              </div>
+              <div style={{ fontSize:10, color: ex.done ? C.green : C.muted, fontWeight:700, flexShrink:0 }}>
+                {ex.sets.filter(s => s.done).length}/{ex.sets.length}
+              </div>
+            </div>
+            {!ex.done && (
+              <div style={{ borderTop:`1px solid ${C.border}`, padding:'8px 14px 10px' }}>
+                <div style={{ display:'grid', gridTemplateColumns:'22px 1fr 1fr 32px', gap:6, marginBottom:5 }}>
+                  {['', 'Kg', 'Reps', ''].map((h, i) => (
+                    <div key={i} style={{ fontSize:8, fontWeight:700, color:C.muted, letterSpacing:1.1, fontFamily:'ui-monospace,Menlo,monospace', textAlign: i===3 ? 'center' : 'left' }}>{h}</div>
+                  ))}
+                </div>
+                {ex.sets.map((s, si) => (
+                  <div key={si} style={{ display:'grid', gridTemplateColumns:'22px 1fr 1fr 32px', gap:6, marginBottom:4, alignItems:'center', opacity: s.done ? 0.35 : 1 }}>
+                    <div style={{ fontSize:10, color:C.muted, fontWeight:700, fontFamily:'ui-monospace,Menlo,monospace' }}>{si + 1}</div>
+                    <input type="number" min="0" step="0.5" value={s.kg} onChange={e => updateSetField(ei, si, 'kg', e.target.value)} placeholder="—" style={inp} />
+                    <input type="number" min="1" step="1"   value={s.reps} onChange={e => updateSetField(ei, si, 'reps', e.target.value)} placeholder="—" style={inp} />
+                    <button onClick={() => toggleSetDone(ei, si)} style={{ width:28, height:28, borderRadius:6, flexShrink:0, cursor:'pointer', border:`1px solid ${s.done ? 'rgba(34,197,94,0.50)' : C.border}`, background: s.done ? 'rgba(34,197,94,0.14)' : 'rgba(255,255,255,0.04)', color: s.done ? C.green : C.muted, fontSize:11, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900, transition:'all .15s', }}>✓</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        <div style={{ height:20 }} />
+      </div>
+
+      {/* Finish */}
+      <div style={{ padding:'14px 20px', borderTop:`1px solid ${C.border}`, background:C.bg, flexShrink:0 }}>
+        <button onClick={() => onFinish(exs)} style={{ width:'100%', padding:'13px', borderRadius:12, border:'none', cursor:'pointer', background: pct === 100 ? C.green : `rgba(34,197,94,${Math.max(0.10, pct / 200)})`, color: pct === 100 ? '#fff' : C.green, fontSize:14, fontWeight:700, letterSpacing:-0.2, fontFamily:'Inter,system-ui', transition:'all .2s', boxShadow: pct === 100 ? '0 4px 20px rgba(34,197,94,0.30)' : 'none' }}>
+          {pct === 100 ? '✓ Finalizar entrenamiento' : `Finalizar entrenamiento · ${pct}% completado`}
+        </button>
+        {pct < 100 && <div style={{ textAlign:'center', marginTop:8, fontSize:11, color:C.muted }}>Puedes finalizar aunque no hayas completado todas las series</div>}
+      </div>
+    </div>
+  );
+}
+
 // ── Componente principal ──────────────────────────────────────────────────────
 function BuilderSection() {
   const { state, actions } = useStore();
@@ -1785,6 +1940,7 @@ function BuilderSection() {
   const [saved,      setSaved]     = React.useState(false);
   const [flash,      setFlash]     = React.useState(false);
   const [showPlan,   setShowPlan]  = React.useState(false);
+  const [execSession,setExecSession]= React.useState(null);
 
   // Priorities persist in localStorage
   const [priorities, setPrioritiesRaw] = React.useState(() => {
@@ -1819,11 +1975,13 @@ function BuilderSection() {
     try {
       const exs = JSON.parse(raw);
       if (Array.isArray(exs) && exs.length > 0) {
-        setWorkout(exs);
         localStorage.removeItem('atlas.pendingWorkout');
-        if (meta) {
-          localStorage.removeItem('atlas.pendingWorkoutMeta');
-          setCoachBanner(meta);
+        if (meta) localStorage.removeItem('atlas.pendingWorkoutMeta');
+        if (meta?.mode === 'execute') {
+          setExecSession({ exercises: exs, meta, startTime: Date.now() });
+        } else {
+          setWorkout(exs);
+          if (meta) setCoachBanner(meta);
         }
       }
     } catch {}
@@ -1914,7 +2072,51 @@ function BuilderSection() {
     setTimeout(() => { setSaved(false); setWorkout([]); setMuscle(null); setQuery(''); setMode('empty'); }, 3000);
   }
 
+  function startExecution() {
+    if (!workout.length) return;
+    setExecSession({ exercises: workout, meta: coachBanner, startTime: Date.now() });
+    setCoachBanner(null);
+  }
+
+  function finishExecution(completedExs) {
+    const duration = execSession ? Math.round((Date.now() - execSession.startTime) / 1000) : 0;
+    const meta = execSession?.meta || null;
+    actions.logSession(
+      completedExs.map(ex => ({
+        id: ex.id, name: ex.name, group: exGroup(ex),
+        muscles: Array.isArray(ex.muscles) ? ex.muscles : (ex.muscles?.primary || []),
+        sets: ex.sets.filter(s => s.done),
+      })),
+      { duration, routineName: meta?.routineName, sessionName: meta?.sessionName }
+    );
+    setExecSession(null);
+    setWorkout([]);
+    setMuscle(null);
+    setQuery('');
+    setMode('empty');
+    setFlash(true);
+    setTimeout(() => setFlash(false), 3000);
+  }
+
   const renderMode = mode === 'empty' && hasFilter ? 'results' : mode;
+
+  if (execSession) {
+    return (
+      <WorkoutExecution
+        session={{
+          exercises: execSession.exercises,
+          startTime: execSession.startTime,
+          sessionName: execSession.meta?.sessionName || execSession.meta?.routineName || 'Entrenamiento',
+        }}
+        onFinish={finishExecution}
+        onCancel={() => {
+          setWorkout(execSession.exercises);
+          setExecSession(null);
+          setMode('workout');
+        }}
+      />
+    );
+  }
 
   return (
     <section style={{ minHeight:'100vh', background:BD.page }}>
@@ -1935,6 +2137,11 @@ function BuilderSection() {
                 {' · '}{coachBanner.sessionName || ''}
               </span>
             </div>
+            {workout.length > 0 && (
+              <button onClick={startExecution} style={{ background:'#22C55E', border:'none', borderRadius:8, color:'#fff', padding:'7px 14px', cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'Inter,system-ui', flexShrink:0, boxShadow:'0 3px 12px rgba(34,197,94,0.30)' }}>
+                ▶ Iniciar
+              </button>
+            )}
             <button onClick={() => setCoachBanner(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(147,197,253,0.35)', fontSize:14, padding:'2px 6px', flexShrink:0 }}>✕</button>
           </div>
         )}
@@ -1944,7 +2151,7 @@ function BuilderSection() {
             background:'#0F1A2E', color:BD.text, padding:'10px 18px',
             borderRadius:999, fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700,
             animation:'fadeIn .3s ease', boxShadow:'0 8px 32px rgba(0,0,0,0.5)', whiteSpace:'nowrap' }}>
-            💎 +30 gemas · Sesión guardada
+            ✓ +30 gemas · Entrenamiento completado
           </div>
         )}
 
