@@ -1809,14 +1809,21 @@ function BuilderSection() {
 
   const allExs = React.useMemo(() => ExerciseService.getAll(), []);
 
+  const [coachBanner, setCoachBanner] = React.useState(null);
+
   React.useEffect(() => {
-    const raw = localStorage.getItem('atlas.pendingWorkout');
+    const raw  = localStorage.getItem('atlas.pendingWorkout');
+    const meta = (() => { try { return JSON.parse(localStorage.getItem('atlas.pendingWorkoutMeta') || 'null'); } catch { return null; } })();
     if (!raw) return;
     try {
       const exs = JSON.parse(raw);
       if (Array.isArray(exs) && exs.length > 0) {
         setWorkout(exs);
         localStorage.removeItem('atlas.pendingWorkout');
+        if (meta) {
+          localStorage.removeItem('atlas.pendingWorkoutMeta');
+          setCoachBanner(meta);
+        }
       }
     } catch {}
   }, []);
@@ -1911,6 +1918,25 @@ function BuilderSection() {
   return (
     <section style={{ minHeight:'100vh', background:BD.page }}>
       <div style={{ maxWidth:1060, margin:'0 auto', padding: mobile ? '48px 16px 120px' : '64px 28px 120px' }}>
+
+        {coachBanner && (
+          <div style={{
+            display:'flex', alignItems:'center', gap:14,
+            padding:'11px 18px', borderRadius:12,
+            background:'rgba(37,99,235,0.07)', border:'1px solid rgba(37,99,235,0.16)',
+            marginBottom:20, animation:'fadeIn .25s ease', flexWrap:'wrap',
+          }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, flex:1, minWidth:0 }}>
+              <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700, color:'#93C5FD', letterSpacing:1.1 }}>ATLAS COACH</span>
+              <span style={{ fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600, color:'rgba(147,197,253,0.80)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {coachBanner.routineName || 'Plan generado'}
+                {coachBanner.totalSessions > 1 ? ` · Día ${(coachBanner.sessionIndex || 0) + 1}/${coachBanner.totalSessions}` : ''}
+                {' · '}{coachBanner.sessionName || ''}
+              </span>
+            </div>
+            <button onClick={() => setCoachBanner(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(147,197,253,0.35)', fontSize:14, padding:'2px 6px', flexShrink:0 }}>✕</button>
+          </div>
+        )}
 
         {flash && (
           <div style={{ position:'fixed', top:72, right:20, zIndex:400,

@@ -265,6 +265,17 @@ const AP_EQP_MAP  = { full_gym:'gimnasio completo', basic_gym:'gimnasio básico'
 const AP_MUS_MAP  = { chest:'pecho', back:'espalda', shoulders:'hombros', arms:'brazos', legs:'piernas', glutes:'glúteos', calves:'gemelos', forearms:'antebrazos' };
 const AP_DAYS_SPLIT = { 2:'upper_lower', 3:'ppl', 4:'upper_lower', 5:'ppl', 6:'ppl' };
 
+// ── AtlasRoutine persistence ──────────────────────────────────────────────────
+const AR_KEY      = 'atlas.routine.active.v1';
+const AR_META_KEY = 'atlas.pendingWorkoutMeta';
+
+function arSave(routine) {
+  try { localStorage.setItem(AR_KEY, JSON.stringify({ ...routine, updatedAt: Date.now() })); } catch {}
+}
+function arLoad() {
+  try { return JSON.parse(localStorage.getItem(AR_KEY) || 'null'); } catch { return null; }
+}
+
 // Per-injury: which muscle groups to cap in the routine builder
 const AP_INJURY_GROUP_CAPS = {
   shoulder:   { hombro: 1 },
@@ -415,6 +426,14 @@ function acBuildRichContext(state, profile) {
     injuryRisks.push({ muscle:'hombro', warn:`${pushVol} series de empuje vs ${pullVol} de tracción con limitación en hombro` });
   }
 
+  // Read active Builder plan for Coach read-back
+  const builderPlan = (() => {
+    try { return JSON.parse(localStorage.getItem('atlas.builder.plan.v1') || 'null'); } catch { return null; }
+  })();
+  const activeRoutine = (() => {
+    try { return JSON.parse(localStorage.getItem(AR_KEY) || 'null'); } catch { return null; }
+  })();
+
   return {
     log, sessions,
     totalSessions: log.length,
@@ -430,6 +449,7 @@ function acBuildRichContext(state, profile) {
     streak: sessions.streak || 0,
     completed: sessions.completed || 0,
     musclePriorities, priorityGaps, injuries, injuryRisks,
+    builderPlan, activeRoutine,
   };
 }
 
@@ -443,6 +463,7 @@ function acDetectIntent(text) {
   if (/estancado|plateau|no progres|no avanzo|mismo peso|sin cambios/.test(t)) return 'plateau';
   if (/cu[aá]ntas series|volumen|frecuencia|mejor.*frecuencia|fallo muscular|rir|rpe/.test(t)) return 'programming';
   if (/recupera|descans|hrv|fatiga|sobreentren|puedo.*entrenar|debo descansar|deload/.test(t)) return 'recovery';
+  if (/revisa.*rutina|cómo.*está.*mi.*plan|analiza.*mi.*rutina|mi.*rutina.*actual|qué.*tiene.*mi.*plan|mi.*plan.*actual/.test(t)) return 'builder-review';
   if (/perfil|mi.*objetivo|mi.*nivel|cambiar.*objetivo|actualiz.*perfil/.test(t)) return 'profile';
   if (/^(hola|hey|buenas|buenos|qu[eé] hay|ola)/.test(t)) return 'greeting';
   return 'general';
@@ -665,11 +686,28 @@ function acResponseRoutine(params, ctx, profile, memory, allExs) {
   if (contextNotes.length) intro += '\n\n' + contextNotes.join(' ');
   if (injuryNotes.length) intro += '\n\n⚠ Ajustes por tu perfil:\n' + injuryNotes.map(n => `• ${n}`).join('\n');
 
+  // Save full AtlasRoutine as shared persistent entity
+  const routineId = `routine-${Date.now()}`;
+  const atlasRoutine = {
+    id:         routineId,
+    name:       `${splitKey.toUpperCase().replace('_',' ')} · ${goal}`,
+    objective:  goal,
+    frequency:  days,
+    split:      splitKey,
+    sessions,
+    priorities: musclePriorities,
+    createdAt:  Date.now(),
+    source:     'coach',
+  };
+  arSave(atlasRoutine);
+
   return {
     type: 'routine',
     text: intro,
     sessions,
     builderPayload: sessions[0]?.exercises || [],
+    routineId,
+    routineName: atlasRoutine.name,
   };
 }
 
@@ -819,6 +857,78 @@ function acResponseRecovery(ctx) {
   return { type:'text', text:'Tu fatiga parece moderada o baja esta semana. Los indicadores clave de recuperación insuficiente son: RPE más alto de lo habitual para las mismas cargas, DOMS que no se resuelve entre sesiones, y peor calidad del sueño. Si no aparecen esas señales, puedes continuar con el plan normal.' };
 }
 
+function acResponseBuilderReview(ctx, profile) {
+  const plan    = ctx.builderPlan;
+  const routine = ctx.activeRoutine;
+  const source  = plan || routine;
+
+  if (!source) {
+    return { type:'text', text:'No encuentro ninguna rutina guardada. Genera una desde aquí con "Crea mi rutina" y ábrela en Builder para que pueda analizarla.' };
+  }
+
+  const exercises        = plan?.exercises || routine?.sessions?.[0]?.exercises || [];
+  const musclePriorities = profile?.musclePriorities || [];
+  const injuries         = profile?.injuries          || [];
+
+  const parts = [];
+
+  const planName = plan?.name || routine?.name || 'tu rutina';
+  parts.push(`He revisado ${planName} (${exercises.length} ejercicios).`);
+
+  // Count sets per muscle keyword
+  const setsByKw = {};
+  exercises.forEach(ex => {
+    const sets = ex.setsCount ?? (Array.isArray(ex.sets) ? ex.sets.length : 3);
+    (ex.muscles?.primary || []).forEach(m => {
+      const k = m.toLowerCase();
+      setsByKw[k] = (setsByKw[k] || 0) + sets;
+    });
+  });
+
+  const volFor = (kw) => Object.entries(setsByKw)
+    .filter(([k]) => k.includes(kw))
+    .reduce((t, [,v]) => t + v, 0);
+
+  // Priority muscle check
+  const MUS_KW = { chest:'pectoral', back:'dorsal', shoulders:'deltoid', arms:'bíceps', legs:'cuádricep', glutes:'glúteo' };
+  musclePriorities.forEach(prio => {
+    const kw   = MUS_KW[prio] || prio;
+    const vol  = volFor(kw);
+    const label = AP_MUS_MAP[prio] || prio;
+    if (vol === 0) {
+      parts.push(`${label} — marcado como prioritario — no aparece en la rutina. Añade al menos 2 ejercicios específicos.`);
+    } else if (vol < 8) {
+      parts.push(`${label} — solo ${vol} series en esta sesión. Para tu objetivo necesitas 10–16 series semanales; con esta frecuencia, añade ${10 - vol} series más.`);
+    } else {
+      parts.push(`${label} — ${vol} series. Dentro del rango óptimo.`);
+    }
+  });
+
+  // Injury conflict check
+  const INJURY_PATTERNS = {
+    shoulder: ['deltoid','tríceps','pectoral'],
+    knee:     ['cuádricep','isquio'],
+    lower_back: ['dorsal','glúteo'],
+  };
+  injuries.forEach(inj => {
+    const muscleKws = INJURY_PATTERNS[inj] || [];
+    const vol = muscleKws.reduce((t, kw) => t + volFor(kw), 0);
+    if (vol > 12) {
+      const warn = AP_INJURY_WARNS[inj] || `Tienes limitación en ${inj.replace(/_/g,' ')}`;
+      parts.push(`⚠ ${warn} y la rutina tiene ${vol} series en esa zona. Considera reducirlo o añadir más trabajo antagónico.`);
+    }
+  });
+
+  // Frequency note if multi-session routine
+  if (routine?.sessions?.length > 1) {
+    parts.push(`Tu plan ${routine.split?.toUpperCase() || ''} tiene ${routine.sessions.length} sesiones. Estás analizando la sesión que tienes en Builder — para ver el plan completo vuelve al Coach.`);
+  }
+
+  if (parts.length === 1) parts.push('No detecté puntos críticos. Continúa con el plan.');
+
+  return { type:'text', text: parts.join('\n\n') };
+}
+
 // ── Master response generator ─────────────────────────────────────────────────
 function acGenerateSmartResponse(userText, state, profile, memory, allExs) {
   const intent = acDetectIntent(userText);
@@ -833,6 +943,7 @@ function acGenerateSmartResponse(userText, state, profile, memory, allExs) {
     case 'plateau':     return acResponsePlateau(ctx);
     case 'programming': return acResponseProgramming(userText);
     case 'recovery':    return acResponseRecovery(ctx);
+    case 'builder-review': return acResponseBuilderReview(ctx, profile);
     case 'profile':
       return { type:'text', text:'Puedes actualizar tu perfil en el panel inferior del sidebar (objetivo, nivel, días/semana, tiempo y equipamiento). Cuando lo guardes, usaré esos datos para todas mis recomendaciones.' };
     default:
@@ -1182,14 +1293,18 @@ function AcTypingIndicator() {
   );
 }
 
-function AcRoutineCard({ session, onSendToBuilder }) {
+function AcRoutineCard({ session, sessionIndex, totalSessions, routineId, routineName, onSendToBuilder }) {
   const [open, setOpen] = React.useState(true);
+  const label = totalSessions > 1 ? `Día ${sessionIndex + 1} de ${totalSessions}` : null;
   return (
     <div style={{ marginTop:10, borderRadius:14, overflow:'hidden', border:`1px solid ${AC.border}`, background:AC.card2, animation:'fadeIn .25s ease' }}>
       {/* Header */}
       <div onClick={() => setOpen(o=>!o)} style={{ padding:'14px 18px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:`1px solid ${AC.border}`, cursor:'pointer' }}>
         <div>
-          <div style={{ fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, color:AC.text, letterSpacing:-0.2 }}>{session.name}</div>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <div style={{ fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, color:AC.text, letterSpacing:-0.2 }}>{session.name}</div>
+            {label && <span style={{ padding:'1px 7px', borderRadius:999, background:'rgba(59,130,246,0.12)', border:'1px solid rgba(59,130,246,0.20)', fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, fontWeight:700, color:'#93C5FD', letterSpacing:0.5 }}>{label}</span>}
+          </div>
           <div style={{ display:'flex', gap:16, marginTop:5 }}>
             {[
               `${session.exercises.length} ejerc`,
@@ -1223,7 +1338,14 @@ function AcRoutineCard({ session, onSendToBuilder }) {
             </div>
           ))}
           <div style={{ padding:'12px 18px', borderTop:`1px solid rgba(255,255,255,0.05)` }}>
-            <button onClick={() => onSendToBuilder(session.exercises)} style={{ width:'100%', padding:'11px 16px', borderRadius:10, border:'none', cursor:'pointer', background:AC.blue, color:'#fff', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, letterSpacing:-0.2, boxShadow:'0 4px 18px -4px rgba(59,130,246,0.45)' }}>
+            <button
+              onClick={() => onSendToBuilder(session.exercises, {
+                routineId, routineName,
+                sessionIndex, totalSessions,
+                sessionName: session.name,
+              })}
+              style={{ width:'100%', padding:'11px 16px', borderRadius:10, border:'none', cursor:'pointer', background:AC.blue, color:'#fff', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, letterSpacing:-0.2, boxShadow:'0 4px 18px -4px rgba(59,130,246,0.45)' }}
+            >
               Abrir en Builder →
             </button>
           </div>
@@ -1301,7 +1423,15 @@ function AcCoachMessage({ content, onSendToBuilder, onboardingProps }) {
     <div>
       <div style={bubble}>{content.text}</div>
       {(content.sessions || []).map((session, si) => (
-        <AcRoutineCard key={si} session={session} onSendToBuilder={onSendToBuilder} />
+        <AcRoutineCard
+          key={si}
+          session={session}
+          sessionIndex={si}
+          totalSessions={content.sessions.length}
+          routineId={content.routineId}
+          routineName={content.routineName}
+          onSendToBuilder={onSendToBuilder}
+        />
       ))}
     </div>
   );
@@ -1776,8 +1906,11 @@ function AtlasCoachSection() {
     }, 500 + Math.random() * 400);
   }
 
-  function sendToBuilder(exercises) {
+  function sendToBuilder(exercises, meta) {
     localStorage.setItem('atlas.pendingWorkout', JSON.stringify(exercises));
+    if (meta) {
+      try { localStorage.setItem(AR_META_KEY, JSON.stringify(meta)); } catch {}
+    }
     navigate('/builder');
   }
 
