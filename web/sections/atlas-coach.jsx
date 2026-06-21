@@ -57,6 +57,287 @@ function acSaveMemory(m) {
   try { localStorage.setItem(AC_MEMORY_KEY, JSON.stringify({ ...m, updatedAt: Date.now() })); } catch {}
 }
 
+// ── Atlas Profile storage ─────────────────────────────────────────────────────
+const AP_PROFILE_KEY   = 'atlas.profile.v1';
+const AP_DISMISSED_KEY = 'atlas.profile.dismissed';
+
+function apLoadProfile() {
+  try { return JSON.parse(localStorage.getItem(AP_PROFILE_KEY) || 'null'); } catch { return null; }
+}
+function apSaveProfile(p) {
+  try { localStorage.setItem(AP_PROFILE_KEY, JSON.stringify({ ...p, completedAt: Date.now() })); } catch {}
+}
+function apIsDismissed() {
+  return localStorage.getItem(AP_DISMISSED_KEY) === 'true';
+}
+function apSetDismissed() {
+  try { localStorage.setItem(AP_DISMISSED_KEY, 'true'); } catch {}
+}
+
+// ── Onboarding steps ──────────────────────────────────────────────────────────
+const AP_STEPS = [
+  {
+    id: 'objective',
+    question: '¿Cuál es tu objetivo principal?',
+    options: [
+      { v: 'muscle',      l: 'Ganar masa muscular'    },
+      { v: 'fat_loss',    l: 'Perder grasa'           },
+      { v: 'recomp',      l: 'Recomposición corporal' },
+      { v: 'performance', l: 'Rendimiento deportivo'  },
+      { v: 'health',      l: 'Salud y bienestar'      },
+    ],
+    multi: false,
+  },
+  {
+    id: 'experience',
+    question: '¿Cuál es tu nivel de experiencia?',
+    options: [
+      { v: 'beginner',     l: 'Principiante' },
+      { v: 'intermediate', l: 'Intermedio'   },
+      { v: 'advanced',     l: 'Avanzado'     },
+    ],
+    multi: false,
+  },
+  {
+    id: 'trainingDays',
+    question: '¿Cuántos días entrenas por semana?',
+    options: [
+      { v: 2, l: '2 días' },
+      { v: 3, l: '3 días' },
+      { v: 4, l: '4 días' },
+      { v: 5, l: '5 días' },
+      { v: 6, l: '6+ días' },
+    ],
+    multi: false,
+  },
+  {
+    id: 'sessionDuration',
+    question: '¿Cuánto tiempo tienes por sesión?',
+    options: [
+      { v: 30, l: '30 min'  },
+      { v: 45, l: '45 min'  },
+      { v: 60, l: '60 min'  },
+      { v: 90, l: '90+ min' },
+    ],
+    multi: false,
+  },
+  {
+    id: 'equipment',
+    question: '¿Qué equipamiento tienes disponible?',
+    options: [
+      { v: 'full_gym',      l: 'Gimnasio completo' },
+      { v: 'basic_gym',     l: 'Gimnasio básico'   },
+      { v: 'home',          l: 'Casa'              },
+      { v: 'calisthenics',  l: 'Calistenia'        },
+      { v: 'mixed',         l: 'Mixto'             },
+    ],
+    multi: false,
+  },
+  {
+    id: 'musclePriorities',
+    question: 'Selecciona tus prioridades musculares (hasta 3):',
+    options: [
+      { v: 'chest',     l: 'Pecho'      },
+      { v: 'back',      l: 'Espalda'    },
+      { v: 'shoulders', l: 'Hombros'    },
+      { v: 'arms',      l: 'Brazos'     },
+      { v: 'legs',      l: 'Piernas'    },
+      { v: 'glutes',    l: 'Glúteos'    },
+      { v: 'calves',    l: 'Gemelos'    },
+      { v: 'forearms',  l: 'Antebrazos' },
+    ],
+    multi: true,
+    maxSelect: 3,
+  },
+];
+
+// ── Onboarding Level 2 steps (optional) ──────────────────────────────────────
+const AP_STEPS_L2 = [
+  {
+    id: 'sex',
+    question: '¿Cuál es tu sexo?',
+    options: [
+      { v: 'male',   l: 'Hombre'              },
+      { v: 'female', l: 'Mujer'               },
+      { v: 'other',  l: 'Prefiero no indicar' },
+    ],
+    multi: false,
+  },
+  {
+    id: 'age',
+    question: '¿Cuántos años tienes?',
+    inputType: 'number',
+    placeholder: 'Tu edad',
+    unit: 'años',
+    min: 10, max: 99,
+    skippable: true,
+  },
+  {
+    id: 'bodyMetrics',
+    question: '¿Cuáles son tu altura y peso aproximados?',
+    inputType: 'body-metrics',
+    skippable: true,
+  },
+  {
+    id: 'injuries',
+    question: '¿Tienes alguna lesión o limitación física actual?',
+    options: [
+      { v: 'shoulder',   l: 'Hombro'         },
+      { v: 'knee',       l: 'Rodilla'         },
+      { v: 'lower_back', l: 'Espalda lumbar'  },
+      { v: 'elbow',      l: 'Codo'            },
+      { v: 'wrist',      l: 'Muñeca'          },
+      { v: 'ankle',      l: 'Tobillo'         },
+      { v: 'neck',       l: 'Cuello'          },
+      { v: 'none',       l: 'Ninguna'         },
+    ],
+    multi: true,
+    maxSelect: 7,
+    hasNoteField: true,
+    noneOption: 'none',
+  },
+  {
+    id: 'previousInjuries',
+    question: '¿Has tenido lesiones importantes en el pasado?',
+    options: [
+      { v: 'shoulder_past',  l: 'Hombro'        },
+      { v: 'knee_past',      l: 'Rodilla'        },
+      { v: 'back_past',      l: 'Espalda lumbar' },
+      { v: 'elbow_past',     l: 'Codo'           },
+      { v: 'wrist_past',     l: 'Muñeca'         },
+      { v: 'ankle_past',     l: 'Tobillo'        },
+      { v: 'none',           l: 'Sin antecedentes relevantes' },
+    ],
+    multi: true,
+    maxSelect: 6,
+    noneOption: 'none',
+    skippable: true,
+  },
+  {
+    id: 'avoidExercises',
+    question: '¿Hay ejercicios que prefieres evitar o que te causan molestias?',
+    inputType: 'text',
+    placeholder: 'Ej: Sentadilla profunda, press de banca con barra…',
+    skippable: true,
+  },
+  {
+    id: 'activityLevel',
+    question: '¿Cuál es tu nivel de actividad diaria?',
+    options: [
+      { v: 'sedentary',   l: 'Sedentario'           },
+      { v: 'moderate',    l: 'Moderadamente activo'  },
+      { v: 'active',      l: 'Activo'               },
+      { v: 'very_active', l: 'Muy activo'            },
+    ],
+    multi: false,
+  },
+  {
+    id: 'mainObstacle',
+    question: '¿Qué es lo que más te dificulta progresar actualmente?',
+    options: [
+      { v: 'knowledge',   l: 'Falta de conocimientos' },
+      { v: 'consistency', l: 'Falta de constancia'    },
+      { v: 'time',        l: 'Falta de tiempo'        },
+      { v: 'planning',    l: 'No sé cómo planificar'  },
+      { v: 'results',     l: 'No veo resultados'      },
+      { v: 'motivation',  l: 'Falta de motivación'    },
+    ],
+    multi: false,
+  },
+];
+
+// Injected between L1 and L2 to offer optional continuation
+const AP_L2_OFFER = {
+  id: 'l2-offer',
+  question: '¿Quieres mejorar aún más la precisión de las recomendaciones?',
+  options: [
+    { v: 'yes', l: 'Añadir información adicional' },
+    { v: 'no',  l: 'Finalizar por ahora'          },
+  ],
+  multi: false,
+  isL2Offer: true,
+};
+
+// ── Atlas Profile translation maps ───────────────────────────────────────────
+const AP_OBJ_MAP  = { muscle:'hipertrofia', fat_loss:'pérdida de grasa', recomp:'recomposición corporal', performance:'rendimiento deportivo', health:'salud y bienestar' };
+const AP_EXP_MAP  = { beginner:'principiante', intermediate:'intermedio', advanced:'avanzado' };
+const AP_EQP_MAP  = { full_gym:'gimnasio completo', basic_gym:'gimnasio básico', home:'casa', calisthenics:'calistenia', mixed:'mixto' };
+const AP_MUS_MAP  = { chest:'pecho', back:'espalda', shoulders:'hombros', arms:'brazos', legs:'piernas', glutes:'glúteos', calves:'gemelos', forearms:'antebrazos' };
+const AP_DAYS_SPLIT = { 2:'upper_lower', 3:'ppl', 4:'upper_lower', 5:'ppl', 6:'ppl' };
+
+// ── AtlasRoutine persistence ──────────────────────────────────────────────────
+const AC_ARTICLE_TITLES = {
+  'sobrecarga-progresiva':  'Sobrecarga progresiva',
+  'volumen-frecuencia':     'Volumen y frecuencia',
+  'hipertrofia-mecanismos': 'Mecanismos de hipertrofia',
+  'rpe-rir':                'RPE y RIR',
+  'nutricion-proteina':     'Proteína: cuánta y cuándo',
+  'recuperacion-sueno':     'Sueño y recuperación',
+  'deload':                 'Deload: cuándo y cómo',
+  'hrv-monitoreo':          'HRV como herramienta',
+  'periodizacion-bloques':  'Periodización por bloques',
+};
+
+const AR_KEY      = 'atlas.routine.active.v1';
+const AR_META_KEY = 'atlas.pendingWorkoutMeta';
+
+function arSave(routine) {
+  try { localStorage.setItem(AR_KEY, JSON.stringify({ ...routine, updatedAt: Date.now() })); } catch {}
+}
+function arLoad() {
+  try { return JSON.parse(localStorage.getItem(AR_KEY) || 'null'); } catch { return null; }
+}
+
+// Per-injury: which muscle groups to cap in the routine builder
+const AP_INJURY_GROUP_CAPS = {
+  shoulder:   { hombro: 1 },
+  knee:       { piernas: 1 },
+  lower_back: {},
+  elbow:      {},
+  wrist:      {},
+  ankle:      { piernas: 1 },
+  neck:       { hombro: 1 },
+};
+
+// Per-injury: plain-text warnings injected into routine intro
+const AP_INJURY_WARNS = {
+  shoulder:   'He limitado el trabajo de hombro sobre la cabeza por tu limitación registrada.',
+  knee:       'He reducido el rango y volumen de sentadilla por tu rodilla.',
+  lower_back: 'He sustituido peso muerto convencional por variantes de menor riesgo para tu espalda lumbar.',
+  elbow:      'He evitado extensiones y curls con agarre pronado por tu codo.',
+  wrist:      'Uso mancuernas o agarre neutro en lugar de barra recta por tu muñeca.',
+  ankle:      'He evitado prensa y sentadilla completa por tu tobillo.',
+  neck:       'He eliminado movimientos con carga directa sobre el cuello.',
+};
+
+// Merges atlas.profile.v1 (English keys) into the shape the engine expects
+function acMergeAtlasProfile(atlasProfile, coachProfile) {
+  if (!atlasProfile) return coachProfile || null;
+  const activeInjuries = (atlasProfile.injuries || []).filter(i => i !== 'none');
+  const pastInjuries   = (atlasProfile.previousInjuries || []).filter(i => i !== 'none');
+  return {
+    // Legacy engine keys (Spanish)
+    objetivo:     AP_OBJ_MAP[atlasProfile.objective]  || coachProfile?.objetivo     || 'hipertrofia',
+    nivel:        AP_EXP_MAP[atlasProfile.experience] || coachProfile?.nivel        || 'intermedio',
+    dias:         atlasProfile.trainingDays            || coachProfile?.dias         || 3,
+    tiempo:       atlasProfile.sessionDuration         || coachProfile?.tiempo       || 60,
+    equipamiento: AP_EQP_MAP[atlasProfile.equipment]  || coachProfile?.equipamiento || 'gimnasio',
+    // New keys passed through
+    objective:        atlasProfile.objective,
+    experience:       atlasProfile.experience,
+    musclePriorities: atlasProfile.musclePriorities || [],
+    injuries:         activeInjuries,
+    previousInjuries: pastInjuries,
+    avoidExercises:   atlasProfile.avoidExercises || null,
+    activityLevel:    atlasProfile.activityLevel   || null,
+    mainObstacle:     atlasProfile.mainObstacle    || null,
+    sex:              atlasProfile.sex             || null,
+    age:              atlasProfile.age             || null,
+    height:           atlasProfile.height          || null,
+    weight:           atlasProfile.weight          || null,
+  };
+}
+
 // ── Rich context builder ──────────────────────────────────────────────────────
 function acBuildRichContext(state, profile) {
   const log      = state.log || [];
@@ -131,7 +412,7 @@ function acBuildRichContext(state, profile) {
     : totalSetsWeek > 30 ? 'moderate' : 'low';
 
   // Adherence
-  const targetDays = profile?.dias || 3;
+  const targetDays = profile?.dias || profile?.trainingDays || 3;
   const adherenceRate = weekSessions.length / targetDays;
 
   // Most trained exercise
@@ -140,6 +421,30 @@ function acBuildRichContext(state, profile) {
     (s.exercises || []).forEach(ex => { exCount[ex.name] = (exCount[ex.name] || 0) + 1; });
   });
   const mostTrained = Object.entries(exCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+  // Muscle priority volume gaps (how far priority muscles are from target)
+  const musclePriorities = profile?.musclePriorities || [];
+  const priorityGaps = [];
+  const MUS_VOL_CHECK = { chest:pushVol, back:pullVol, legs:legVol };
+  musclePriorities.forEach(m => {
+    const vol = MUS_VOL_CHECK[m];
+    if (vol !== undefined && vol < 8) priorityGaps.push({ muscle: m, vol, label: AP_MUS_MAP[m] || m });
+  });
+
+  // Injury risk: pushing shoulder-heavy volume with shoulder injury
+  const injuries = profile?.injuries || [];
+  const injuryRisks = [];
+  if (injuries.includes('shoulder') && pushVol > pullVol * 1.2 && pushVol > 3) {
+    injuryRisks.push({ muscle:'hombro', warn:`${pushVol} series de empuje vs ${pullVol} de tracción con limitación en hombro` });
+  }
+
+  // Read active Builder plan for Coach read-back
+  const builderPlan = (() => {
+    try { return JSON.parse(localStorage.getItem('atlas.builder.plan.v1') || 'null'); } catch { return null; }
+  })();
+  const activeRoutine = (() => {
+    try { return JSON.parse(localStorage.getItem(AR_KEY) || 'null'); } catch { return null; }
+  })();
 
   return {
     log, sessions,
@@ -155,6 +460,11 @@ function acBuildRichContext(state, profile) {
     mostTrained,
     streak: sessions.streak || 0,
     completed: sessions.completed || 0,
+    musclePriorities, priorityGaps, injuries, injuryRisks,
+    builderPlan, activeRoutine,
+    progressSummary: typeof peGetProgressSummary !== 'undefined' ? peGetProgressSummary(log) : null,
+    sePanel: typeof AtlasScientificEngine !== 'undefined' ? AtlasScientificEngine.seGetScientificPanel(log, profile) : null,
+    apePanel: typeof AtlasProgressionEngine !== 'undefined' ? AtlasProgressionEngine.getFullPanel(log, profile) : null,
   };
 }
 
@@ -163,58 +473,118 @@ function acDetectIntent(text) {
   const t = text.toLowerCase();
   if (/hazme|g[eé]nera|crea|dame.*rutina|rutina.*para|plan.*para|d[íi]a de|quiero.*entrena|qu[eé] hago hoy/.test(t)) return 'routine';
   if (/quiero.*trabajar|mejorar.*pecho|mejorar.*espalda|mejorar.*pierna|foco en/.test(t)) return 'routine';
+  // Standalone split names → routine
+  if (/\b(upper\s*lower|upper\/lower|superior\s*inferior|ppl|push\s*pull\s*leg|full\s*body|cuerpo entero|torso pierna)\b/.test(t)) return 'routine';
+  if (/quiero\s*(una?\s*)?(upper|ppl|push|pull|full|torso|rutina)/.test(t)) return 'routine';
+  // Modification intents — change existing plan
+  if (/prioriz|m[aá]s volumen|m[aá]s.*hombr|m[aá]s.*pecho|m[aá]s.*espalda|m[aá]s.*pierna|m[aá]s.*gl[uú]teo|m[aá]s.*brazo/.test(t)) return 'routine-modify';
+  if (/cambia.*rutina|modifica.*rutina|actualiza.*rutina|regenera|cambia.*split|nuevo.*split|cambia.*plan|nuevo.*plan/.test(t)) return 'routine-modify';
+  if (/entreno en casa|sin gimnasio|sin gym|solo mancuerna|en casa|sin equipo|solo bandas/.test(t)) return 'routine-modify';
+  if (/solo\s*\d\s*d[íi]a|entreno\s*\d\s*d[íi]a|tengo\s*\d\s*d[íi]a|cambio.*d[íi]a|menos d[íi]a/.test(t)) return 'routine-modify';
+  if (/tengo molestia|tengo.*molestia|me molesta.*en|molestia en|evitar|no puedo.*hacer/.test(t)) return 'routine-modify';
   if (/analiza|an[aá]lisis|c[oó]mo.*voy|qu[eé] tal.*entrena|revisar?|mi historial|mi progreso/.test(t)) return 'analysis';
-  if (/me duele|me molesta|tengo.*dolor|lesi[oó]n|lastim|dolor en|molestia en/.test(t)) return 'injury';
+  if (/me duele|me molesta|tengo.*dolor|lesi[oó]n|lastim|dolor en/.test(t)) return 'injury';
   if (/estancado|plateau|no progres|no avanzo|mismo peso|sin cambios/.test(t)) return 'plateau';
+  if (/mi volumen de|volumen.*m[uú]sculo|cu[aá]ntas series.*tengo|mav|mrv|mev|zona de volumen|en qu[eé] zona|series.*m[uú]sculo|mi.*frecuencia real|frecuencia.*m[uú]sculo/.test(t)) return 'volume-science';
   if (/cu[aá]ntas series|volumen|frecuencia|mejor.*frecuencia|fallo muscular|rir|rpe/.test(t)) return 'programming';
   if (/recupera|descans|hrv|fatiga|sobreentren|puedo.*entrenar|debo descansar|deload/.test(t)) return 'recovery';
+  if (/revisa.*rutina|cómo.*está.*mi.*plan|analiza.*mi.*rutina|mi.*rutina.*actual|qué.*tiene.*mi.*plan|mi.*plan.*actual/.test(t)) return 'builder-review';
+  if (/estoy progresando|cu[aá]nto.*mejor|mi evoluci[oó]n|he mejorado|cu[aá]nto he.*subid|qu[eé].*progres|mis resultados|mi historial de carga/.test(t)) return 'progress-check';
+  if (/adherencia|cu[aá]nto.*entreno|cumpl|consistencia|racha|sesiones.*mes|mi.*progreso.*global|atlas.*score/.test(t)) return 'progress-check';
   if (/perfil|mi.*objetivo|mi.*nivel|cambiar.*objetivo|actualiz.*perfil/.test(t)) return 'profile';
   if (/^(hola|hey|buenas|buenos|qu[eé] hay|ola)/.test(t)) return 'greeting';
   return 'general';
 }
 
+// Maps from free-text muscle mentions to group keys used in acBuildDetailedRoutine
+const PRIO_TO_GROUP = {
+  chest:'pecho', pecho:'pecho',
+  back:'espalda', espalda:'espalda', dorsal:'espalda',
+  shoulders:'hombro', hombros:'hombro', hombro:'hombro',
+  arms:'biceps', brazos:'biceps', biceps:'biceps', triceps:'triceps',
+  legs:'piernas', piernas:'piernas', glutes:'gluteos', gluteos:'gluteos', glúteos:'gluteos',
+  core:'core', abdomen:'core',
+};
+
 function acExtractParams(text) {
   const t = text.toLowerCase();
   const p = {};
+
+  // Equipment
   if (/mancuerna/.test(t)) p.equipment = 'mancuernas';
-  else if (/en casa|sin.*gym|bodyweight|peso corporal/.test(t)) p.equipment = 'casa';
+  else if (/en casa|sin.*gym|sin gimnasio|bodyweight|peso corporal|sin equipo|solo bandas/.test(t)) p.equipment = 'casa';
+
+  // Duration
   const timeM = t.match(/(\d+)\s*min/);
   if (timeM) p.tiempo = parseInt(timeM[1]);
+
+  // Single-session target
   if (/pecho|push|empuje/.test(t)) p.target = 'push';
   else if (/espalda|pull|tracci[oó]n|dorsal/.test(t)) p.target = 'pull';
   else if (/pierna|cuadricep|sentadilla/.test(t)) p.target = 'legs';
   else if (/brazo|b[íi]cep|tr[íi]cep/.test(t)) p.target = 'arms';
   else if (/hombro/.test(t)) p.target = 'shoulders';
   else if (/full|completo|todo/.test(t)) p.target = 'full';
-  if (/ppl|push.*pull.*leg/.test(t)) p.split = 'ppl';
-  else if (/upper.*lower|superior.*inferior/.test(t)) p.split = 'upper_lower';
-  else if (/full.?body|cuerpo entero/.test(t)) p.split = 'fullbody';
+
+  // Split detection (standalone or in phrase)
+  if (/\b(ppl|push\s*pull\s*leg)\b/.test(t)) p.split = 'ppl';
+  else if (/\b(upper\s*lower|upper\/lower|superior\s*inferior|torso\s*pierna)\b/.test(t)) p.split = 'upper_lower';
+  else if (/\b(full[\s-]?body|cuerpo entero)\b/.test(t)) p.split = 'fullbody';
+
+  // Goal
   if (/fuerza|strength/.test(t)) p.goal = 'fuerza';
   else if (/hipertrofia|ganar m[uú]sculo/.test(t)) p.goal = 'hipertrofia';
   else if (/recomp|perder|definir/.test(t)) p.goal = 'recomp';
+
+  // Days
   const diasM = t.match(/(\d)\s*d[íi]a/);
   if (diasM) p.dias = parseInt(diasM[1]);
+
+  // Priority muscle — "priorizar X", "más volumen de X", "más X"
+  const prioM = t.match(/(?:prioriz[ao]r?|m[aá]s\s+(?:volumen\s+(?:de\s+)?|trabajo\s+(?:de\s+)?)?)(\w+)/);
+  if (prioM) {
+    const word = prioM[1];
+    const grp = PRIO_TO_GROUP[word];
+    if (grp) p.priority = grp;
+  }
+
+  // Injury from free text
+  const injuryParts = ['hombro','rodilla','lumbar','espalda baja','muñeca','codo','tobillo','cadera','cuello','gemelo'];
+  const foundInjuries = injuryParts.filter(part => t.includes(part));
+  if (foundInjuries.length) p.injuries = foundInjuries;
+
   return p;
 }
 
 // ── Detailed routine builder ──────────────────────────────────────────────────
-function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs) {
+function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps = {}, avoidKeywords = [], groupBoosts = {}) {
   const byGroup = {};
   allExs.forEach(ex => {
+    if (avoidKeywords.length) {
+      const nm = (ex.name || '').toLowerCase();
+      if (avoidKeywords.some(kw => kw && nm.includes(kw))) return;
+    }
     const g = acExGroup(ex);
     if (!byGroup[g]) byGroup[g] = [];
     byGroup[g].push(ex);
   });
 
   const scheme = {
-    hipertrofia: { sets: 3, setsComp: 4, reps: '8-12', rir: 2, rest: '90-120s' },
-    fuerza:      { sets: 4, setsComp: 5, reps: '3-6',  rir: 1, rest: '3-5 min' },
-    recomp:      { sets: 3, setsComp: 4, reps: '10-15', rir: 2, rest: '60-90s' },
-    rendimiento: { sets: 4, setsComp: 5, reps: '4-8',  rir: 1, rest: '2-3 min' },
+    hipertrofia:            { sets: 3, setsComp: 4, reps: '8-12',  rir: 2, rest: '90-120s' },
+    'pérdida de grasa':     { sets: 3, setsComp: 3, reps: '12-15', rir: 2, rest: '60s'     },
+    'recomposición corporal':{ sets: 3, setsComp: 4, reps: '10-14', rir: 2, rest: '75s'     },
+    fuerza:                 { sets: 4, setsComp: 5, reps: '3-6',   rir: 1, rest: '3-5 min' },
+    rendimiento:            { sets: 4, setsComp: 5, reps: '4-8',   rir: 1, rest: '2-3 min' },
+    'rendimiento deportivo':{ sets: 4, setsComp: 5, reps: '4-8',   rir: 1, rest: '2-3 min' },
   }[goal] || { sets: 3, setsComp: 4, reps: '8-12', rir: 2, rest: '90s' };
 
   function pick(group, n, isCompound) {
-    return (byGroup[group] || []).slice(0, n).map((ex, i) => {
+    const cap = groupCaps[group];
+    const boost = groupBoosts[group] || 0;
+    const requestedN = n + boost;
+    const effectiveN = cap !== undefined ? Math.min(requestedN, cap) : requestedN;
+    if (effectiveN === 0) return [];
+    return (byGroup[group] || []).slice(0, effectiveN).map((ex, i) => {
       const setsN = isCompound && i === 0 ? scheme.setsComp : scheme.sets;
       return {
         id: ex.id,
@@ -264,73 +634,156 @@ function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs) {
 
 // ── Response generators ───────────────────────────────────────────────────────
 function acResponseGreeting(ctx, profile, memory) {
+  const injuries = profile?.injuries || [];
+  const musclePriorities = profile?.musclePriorities || [];
+
   if (ctx.totalSessions === 0) {
-    return profile
-      ? { type:'text', text:`Hola. Perfil cargado — ${profile.objetivo}, nivel ${profile.nivel}, ${profile.dias} días/sem. No tienes sesiones registradas aún. ¿Empezamos con un plan de entrenamiento?` }
-      : { type:'text', text:`Hola. Soy Atlas Coach. Para darte recomendaciones personalizadas configura tu perfil (panel inferior izquierdo). ¿Cuál es tu objetivo principal?` };
+    if (!profile) {
+      return { type:'text', text:`Hola. Soy Atlas Coach. Completa tu Perfil Atlas para que pueda adaptar cada recomendación a tu objetivo, nivel y limitaciones. ¿Por dónde empezamos?` };
+    }
+    const parts = [`Hola. He cargado tu perfil — objetivo: ${profile.objetivo}, nivel ${profile.nivel}, ${profile.dias} días/sem.`];
+    if (injuries.length) parts.push(`Tengo en cuenta tus limitaciones en ${injuries.map(i => i.replace(/_/g,' ')).join(' y ')}.`);
+    if (musclePriorities.length) parts.push(`Grupos prioritarios: ${musclePriorities.map(m => AP_MUS_MAP[m] || m).join(', ')}.`);
+    parts.push(`Sin sesiones registradas aún. ¿Generamos tu primer plan?`);
+    return { type:'text', text: parts.join(' ') };
   }
+
   const parts = [];
   if (ctx.daysSinceLast === 0) parts.push('Entrenaste hoy.');
   else if (ctx.daysSinceLast === 1) parts.push('Entrenaste ayer.');
   else if (ctx.daysSinceLast < 99) parts.push(`Llevas ${ctx.daysSinceLast} días sin entrenar.`);
   if (ctx.streak >= 3) parts.push(`${ctx.streak} días de racha.`);
-  if (ctx.pushPullRatio > 1.5 && ctx.pushVol > 3) parts.push(`Esta semana tienes más empuje que tracción (${ctx.pushVol} vs ${ctx.pullVol} series).`);
-  else if (ctx.plateaus.length > 0) parts.push(`Hay un posible plateau en ${ctx.plateaus[0].name}.`);
-  else if (ctx.lowVolGroups.length > 0) parts.push(`${ctx.lowVolGroups[0]} con poco volumen esta semana.`);
+  if (ctx.injuryRisks?.length > 0) {
+    parts.push(`⚠ Atención: ${ctx.injuryRisks[0].warn}.`);
+  } else if (ctx.priorityGaps?.length > 0) {
+    parts.push(`${ctx.priorityGaps[0].label} — tu músculo prioritario — tiene poco volumen esta semana (${ctx.priorityGaps[0].vol} series).`);
+  } else if (ctx.pushPullRatio > 1.5 && ctx.pushVol > 3) {
+    parts.push(`Más empuje que tracción esta semana (${ctx.pushVol} vs ${ctx.pullVol} series).`);
+  } else if (ctx.plateaus.length > 0) {
+    parts.push(`Posible plateau en ${ctx.plateaus[0].name}.`);
+  } else if (ctx.lowVolGroups.length > 0) {
+    parts.push(`${ctx.lowVolGroups[0]} con poco volumen esta semana.`);
+  }
+  if (memory?.lesiones?.length > 0) parts.push(`Recuerdo que tienes molestias en ${memory.lesiones.slice(0,2).join(' y ')}.`);
   parts.push('¿En qué te ayudo?');
   return { type:'text', text: parts.join(' ') };
 }
 
 function acResponseRoutine(params, ctx, profile, memory, allExs) {
-  const goal  = params.goal  || profile?.objetivo || 'hipertrofia';
-  const tiempo = params.tiempo || profile?.tiempo || 60;
-  const level = profile?.nivel || 'intermedio';
+  const goal           = params.goal   || profile?.objetivo        || 'hipertrofia';
+  const tiempo         = params.tiempo || profile?.tiempo          || 60;
+  const level          = profile?.nivel                            || 'intermedio';
+  const injuries       = profile?.injuries                         || [];
+  const musclePriorities = profile?.musclePriorities              || [];
+  const avoidExercises = profile?.avoidExercises                  || null;
+  const days           = profile?.dias || ctx.targetDays          || 3;
 
+  // Smart split selection
   let splitKey = params.split || null;
   if (!splitKey) {
-    if (params.target === 'push') splitKey = 'push';
-    else if (params.target === 'pull') splitKey = 'pull';
-    else if (params.target === 'legs') splitKey = 'legs';
-    else if (params.target === 'arms') splitKey = 'arms';
+    if      (params.target === 'push')      splitKey = 'push';
+    else if (params.target === 'pull')      splitKey = 'pull';
+    else if (params.target === 'legs')      splitKey = 'legs';
+    else if (params.target === 'arms')      splitKey = 'arms';
     else if (params.target === 'shoulders') splitKey = 'shoulders';
-    else if (ctx.targetDays >= 4) splitKey = 'upper_lower';
-    else if (ctx.targetDays >= 3) splitKey = 'ppl';
-    else splitKey = 'fullbody';
+    else {
+      // Prefer split that benefits priority muscles
+      const prioSplits = musclePriorities.map(m =>
+        m === 'back' ? 'pull' : m === 'chest' ? 'push' : m === 'legs' || m === 'glutes' ? 'legs' : null
+      ).filter(Boolean);
+      splitKey = AP_DAYS_SPLIT[days] || (days >= 4 ? 'upper_lower' : days >= 3 ? 'ppl' : 'fullbody');
+      // If user asked for a specific priority and it maps to a single day, honour it
+      if (prioSplits.length === 1 && params.raw?.length < 15) splitKey = prioSplits[0];
+    }
   }
 
-  const sessions = acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs);
+  // Build injury-aware group caps and keyword filter
+  const groupCaps = {};
+  injuries.forEach(inj => {
+    const caps = AP_INJURY_GROUP_CAPS[inj] || {};
+    Object.entries(caps).forEach(([g, n]) => {
+      groupCaps[g] = Math.min(groupCaps[g] ?? 99, n);
+    });
+  });
+  const avoidKeywords = (avoidExercises || '').toLowerCase()
+    .split(/[,;]/).map(s => s.trim()).filter(Boolean);
+
+  // Build groupBoosts from explicit priority param or profile priorities
+  const groupBoosts = {};
+  if (params.priority) {
+    groupBoosts[params.priority] = 1;
+  } else if (musclePriorities.length > 0) {
+    musclePriorities.slice(0, 2).forEach(m => {
+      const grp = PRIO_TO_GROUP[m] || PRIO_TO_GROUP[m?.toLowerCase()];
+      if (grp) groupBoosts[grp] = (groupBoosts[grp] || 0) + 1;
+    });
+  }
+
+  const sessions = acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps, avoidKeywords, groupBoosts);
   if (!sessions.length || sessions.every(s => !s.exercises.length)) {
     return { type:'text', text:'No pude armar la rutina con los ejercicios disponibles. Prueba con otro tipo de split.' };
   }
 
-  // Context-aware intro
-  let intro = '';
-  const avoided = memory?.evitados || [];
-  if (ctx.daysSinceLast > 6) {
-    intro = `Llevas ${ctx.daysSinceLast} días sin entrenar. Aquí tienes la sesión — empieza en el 70–80% de tus cargas habituales:`;
-  } else if (ctx.pushPullRatio > 1.5 && !['pull','legs'].includes(splitKey)) {
-    intro = `Tu tracción está por debajo de tu empuje esta semana. Prioriza espalda pronto. Aquí tienes la sesión:`;
-  } else if (ctx.plateaus.length > 0 && splitKey === 'fullbody') {
-    intro = `Noto plateau en ${ctx.plateaus[0].name}. Hoy haz los mismos ejercicios pero intenta superar los ${ctx.plateaus[0].kg} kg aunque sea en una sola serie:`;
-  } else {
-    const intros = {
-      push:'Rutina de empuje — pecho, hombros y tríceps:',
-      pull:'Rutina de tracción — espalda y bíceps:',
-      legs:'Rutina de piernas y glúteos:',
-      fullbody:`Full Body para ${goal} — ${tiempo} min:`,
-      ppl:`Plan Push/Pull/Legs — ${sessions.length} sesiones:`,
-      upper_lower:'Plan Upper/Lower — 2 sesiones por semana:',
-      arms:'Sesión de brazos:',
-      shoulders:'Sesión de hombros:',
-    };
-    intro = intros[splitKey] || 'Aquí tienes la rutina:';
+  // ── Build explanatory intro ────────────────────────────────────────────────
+  const reasonParts = [];
+
+  // Goal
+  reasonParts.push(`objetivo: ${goal}`);
+
+  // Level
+  reasonParts.push(`nivel ${level}`);
+
+  // Muscle priorities
+  if (musclePriorities.length > 0) {
+    const labels = musclePriorities.slice(0,3).map(m => AP_MUS_MAP[m] || m).join(', ');
+    reasonParts.push(`priorizando ${labels}`);
   }
+
+  // Training days explanation
+  reasonParts.push(`${days} días/sem → split ${splitKey.toUpperCase().replace('_',' ')}`);
+
+  // Session duration
+  if (tiempo) reasonParts.push(`~${tiempo} min por sesión`);
+
+  let intro = `He generado este plan teniendo en cuenta tu ${reasonParts.join(', ')}.`;
+
+  // Context adjustments
+  const contextNotes = [];
+  if (ctx.daysSinceLast > 6) contextNotes.push(`Llevas ${ctx.daysSinceLast} días sin entrenar — empieza al 70–80% de tus cargas habituales.`);
+  if (ctx.pushPullRatio > 1.5 && !['pull','legs'].includes(splitKey)) contextNotes.push(`Tu tracción está por debajo de tu empuje esta semana; prioriza espalda en tu próxima sesión.`);
+  if (ctx.plateaus.length > 0) contextNotes.push(`Noto plateau en ${ctx.plateaus[0].name} (${ctx.plateaus[0].kg} kg). Intenta superar ese peso en al menos una serie.`);
+
+  // Injury explanations
+  const injuryNotes = injuries
+    .map(inj => AP_INJURY_WARNS[inj])
+    .filter(Boolean);
+  if (avoidExercises) injuryNotes.push(`He excluido ejercicios indicados por ti: ${avoidExercises}.`);
+
+  if (contextNotes.length) intro += '\n\n' + contextNotes.join(' ');
+  if (injuryNotes.length) intro += '\n\n⚠ Ajustes por tu perfil:\n' + injuryNotes.map(n => `• ${n}`).join('\n');
+
+  // Save full AtlasRoutine as shared persistent entity
+  const routineId = `routine-${Date.now()}`;
+  const atlasRoutine = {
+    id:         routineId,
+    name:       `${splitKey.toUpperCase().replace('_',' ')} · ${goal}`,
+    objective:  goal,
+    frequency:  days,
+    split:      splitKey,
+    sessions,
+    priorities: musclePriorities,
+    createdAt:  Date.now(),
+    source:     'coach',
+  };
+  arSave(atlasRoutine);
 
   return {
     type: 'routine',
     text: intro,
     sessions,
     builderPayload: sessions[0]?.exercises || [],
+    routineId,
+    routineName: atlasRoutine.name,
   };
 }
 
@@ -381,16 +834,80 @@ function acResponseAnalysis(ctx, profile) {
     issues.push({ sev:'warning', icon:'⚠', title:'Volumen semanal muy alto', detail:`${ctx.totalSetsWeek} series esta semana (media de ${ctx.avgSetsPerSess.toFixed(1)}/sesión). Pasadas las 20–22 series efectivas por sesión la calidad del estímulo cae.`, rec:'Considera un deload: reduce el volumen al 50–60% manteniendo la intensidad.' });
   }
 
+  // Scientific panel: MRV violations
+  if (ctx.sePanel?.mrvAlerts?.length > 0) {
+    const a = ctx.sePanel.mrvAlerts[0];
+    const overZone = a.zone === 'above_mrv';
+    issues.push({
+      sev: overZone ? 'warning' : 'info',
+      icon: overZone ? '⚠' : 'ℹ',
+      title: overZone
+        ? `${a.name}: por encima del MRV (${a.current}/${a.mrv} series/sem)`
+        : `${a.name}: cerca del MRV (${a.current}/${a.mrv} series/sem)`,
+      detail: `El MRV (Máximo Volumen Recuperable) para ${a.name} es ${a.mrv} series semanales según Israetel et al. Con ${a.current} series estás ${overZone ? 'por encima — el volumen extra genera fatiga sin estímulo adicional' : 'en la zona de alerta — al límite de lo recuperable'}.`,
+      rec: `Reduce ${Math.max(1, a.current - a.mav)} series de ${a.name} la próxima semana y mantén la intensidad.`,
+    });
+  }
+
+  // Scientific panel: fatigue score
+  if (ctx.sePanel?.fatigue?.score >= 70) {
+    const f = ctx.sePanel.fatigue;
+    issues.push({
+      sev: 'warning', icon: '⚠',
+      title: `Fatiga acumulada alta: ${f.score}/100`,
+      detail: `Score de fatiga calculado sobre volumen (${f.totalSets} series), frecuencia (${f.daysTraining} días) e intensidad estimada (~${f.avgIntPct}% 1RM). ${f.factors.slice(0,2).join('; ')}.`,
+      rec: 'Un deload de 5–7 días al 50% del volumen habitual resolvería el exceso de fatiga sin perder masa muscular.',
+    });
+  }
+
+  // ── Atlas Profile–specific checks ─────────────────────────────────────────
+  // Injury risk check
+  if (ctx.injuryRisks?.length > 0) {
+    ctx.injuryRisks.forEach(risk => {
+      issues.push({ sev:'warning', icon:'⚠', title:`Riesgo por limitación en ${risk.muscle}`, detail:`${risk.warn}. Este desequilibrio puede agravar la zona lesionada.`, rec:`Añade tracción antes de tu próxima sesión de empuje.` });
+    });
+  }
+
+  // Muscle priority volume gap
+  if (ctx.priorityGaps?.length > 0) {
+    ctx.priorityGaps.forEach(gap => {
+      issues.push({ sev:'warning', icon:'⊕', title:`${gap.label} — músculo prioritario con poco volumen`, detail:`Has marcado ${gap.label} como prioritario pero solo acumula ${gap.vol} series esta semana. Para hipertrofia necesitas 10–16 series semanales repartidas en 2 sesiones.`, rec:`Añade una sesión de ${gap.label} o incluye 2–3 series extra en tu próximo entrenamiento.` });
+    });
+  }
+
+  // Goal-specific check
+  const objetivo = profile?.objetivo || '';
+  if (objetivo.includes('grasa') && ctx.totalSetsWeek < 20 && ctx.weekSessions < 2) {
+    issues.push({ sev:'info', icon:'ℹ', title:'Frecuencia baja para pérdida de grasa', detail:'Para pérdida de grasa el volumen semanal y la consistencia son clave. Con menos de 2 sesiones por semana el déficit calórico generado por el entrenamiento es mínimo.', rec:'Intenta mantener al menos 3 sesiones semanales, aunque sean más cortas.' });
+  }
+
+  // APE alerts — add any not already covered
+  if (ctx.apePanel?.alerts?.length > 0) {
+    const apeAlerts = ctx.apePanel.alerts.filter(a => a.type === 'frequency_drop' || a.type === 'notable_improvement');
+    apeAlerts.forEach(a => {
+      const sev = a.severity === 'success' ? 'good' : a.severity;
+      issues.push({ sev, icon: a.severity === 'success' ? '✓' : '⚠', title: a.message, detail:'', rec:'' });
+    });
+  }
+
   const warns = issues.filter(i => i.sev === 'warning');
+  const profileNote = profile ? ` (objetivo: ${profile.objetivo}, nivel ${profile.nivel})` : '';
   const summary = warns.length > 0
-    ? `He revisado ${Math.min(ctx.totalSessions, 10)} sesiones. ${warns.length} punto${warns.length > 1 ? 's' : ''} que deberías corregir.`
-    : `He revisado ${Math.min(ctx.totalSessions, 10)} sesiones. Tu entrenamiento va bien, con algunos ajustes menores.`;
+    ? `He revisado ${Math.min(ctx.totalSessions, 10)} sesiones${profileNote}. ${warns.length} punto${warns.length > 1 ? 's' : ''} a corregir.`
+    : `He revisado ${Math.min(ctx.totalSessions, 10)} sesiones${profileNote}. Tu entrenamiento va bien.`;
 
   return {
     type: 'analysis',
     summary,
     issues,
-    stats: { sessions: ctx.totalSessions, week: ctx.weekSessions, push: ctx.pushVol, pull: ctx.pullVol, streak: ctx.streak, fatigue: ctx.fatigueLevel },
+    stats: {
+      sessions: ctx.totalSessions, week: ctx.weekSessions, push: ctx.pushVol,
+      pull: ctx.pullVol, streak: ctx.streak, fatigue: ctx.fatigueLevel,
+      fatigueScore: ctx.sePanel?.fatigue?.score ?? null,
+      mrvAlerts: ctx.sePanel?.mrvAlerts ?? [],
+      topMuscles: ctx.sePanel?.topMuscles ?? [],
+    },
+    relatedArticles: ['volumen-frecuencia', 'sobrecarga-progresiva', 'rpe-rir'],
   };
 }
 
@@ -407,7 +924,7 @@ function acResponseInjury(text, memory) {
 
   const part = found[0];
   if (!part) {
-    return { type:'text', text:'¿Dónde exactamente? Cuéntame si duele durante el movimiento, después, o en reposo — eso cambia completamente el enfoque.' };
+    return { type:'text', text:'¿Dónde exactamente? Cuéntame si duele durante el movimiento, después, o en reposo — eso cambia completamente el enfoque.', relatedArticles:['recuperacion-sueno','hrv-monitoreo'] };
   }
 
   const alts = {
@@ -424,38 +941,384 @@ function acResponseInjury(text, memory) {
 }
 
 function acResponsePlateau(ctx) {
+  const ps = ctx.progressSummary;
+  const engineStagnant = ps?.stagnant || [];
+
+  if (engineStagnant.length > 0) {
+    const lines = [`He analizado tu historial completo. Detecto ${engineStagnant.length} ejercicio${engineStagnant.length !== 1 ? 's' : ''} sin progreso:\n`];
+    engineStagnant.slice(0, 4).forEach(e => {
+      lines.push(`• ${e.name} — ${e.sessions} sesiones en ${e.kg} kg (${e.trend === 'declining' ? 'en descenso' : 'estancado'})`);
+    });
+    lines.push(`\nCausas más frecuentes: (1) fatiga acumulada que enmascara tu fuerza real, (2) volumen insuficiente como estímulo, (3) patrón de movimiento sobreautomatizado.\n\nAcción recomendada: microdeload 3–5 días al 60% del volumen, luego retoma con los mismos pesos. Normalmente se rompe el estancamiento la primera o segunda semana.`);
+    return { type:'text', text: lines.join('\n'), relatedArticles: ['deload', 'volumen-frecuencia', 'sobrecarga-progresiva'] };
+  }
+
   if (ctx.plateaus.length > 0) {
     const p = ctx.plateaus[0];
-    return { type:'text', text:`Detecto plateau en ${p.name} — llevas al menos ${p.sessions} sesiones en ${p.kg} kg.\n\nLas tres causas más comunes: (1) fatiga acumulada que oculta tu fuerza real, (2) el volumen actual ya no es estímulo suficiente, (3) el ejercicio se ha vuelto demasiado eficiente (necesitas variación).\n\nSolución más rápida: haz un microdeload de 3–5 días, vuelve con el 80% del peso y normalmente la barrera se rompe sola la primera o segunda semana.` };
+    return { type:'text', text:`Detecto plateau en ${p.name} — llevas ${p.sessions} sesiones en ${p.kg} kg.\n\nCausas más comunes: fatiga acumulada, volumen insuficiente como estímulo nuevo, o exceso de automatización en el patrón.\n\nSolución: microdeload de 3–5 días y retoma al 80% del peso habitual.`, relatedArticles: ['deload', 'sobrecarga-progresiva'] };
   }
-  return { type:'text', text:'No detecto plateaus claros en tu historial reciente. Si sientes que no avanzas, puede ser que las cargas no estén registradas o que sea un tema de percepción. ¿Qué ejercicio específico sientes que no avanza?' };
+
+  return { type:'text', text:'No detecto estancamientos en tu historial. Si lo percibes en un ejercicio concreto, dime cuál y lo analizo en detalle.' };
 }
 
-function acResponseProgramming(text) {
+function acResponseProgramming(text, ctx) {
   const t = text.toLowerCase();
   if (/series|volumen/.test(t)) {
-    return { type:'text', text:'Para hipertrofia: 10–20 series por músculo por semana repartidas en 2+ sesiones. El MEV (mínimo efectivo) está en 8–10 series. Superar 20 series sin recuperación suficiente puede ser contraproducente. Empieza bajo y sube 1–2 series por semana si toleras la carga.' };
+    const sePanel = ctx?.sePanel;
+    const tracked = sePanel ? Object.values(sePanel.volumeStatus).filter(v => v.current > 0).sort((a, b) => b.current - a.current) : [];
+    if (tracked.length > 0) {
+      const zoneLabel = z => z === 'mev_to_mav' ? '✓ óptimo' : z === 'mav_to_mrv' ? '⚠ cerca MRV' : z === 'above_mrv' ? '⛔ sobre MRV' : '↓ bajo MEV';
+      const lines = ['Tu volumen semanal actual por músculo:'];
+      tracked.slice(0, 7).forEach(vs => {
+        lines.push(`• ${vs.name}: ${vs.current} series — MEV ${vs.mev} · MAV ${vs.mav} · MRV ${vs.mrv}  ${zoneLabel(vs.zone)}`);
+      });
+      lines.push('\nMantén el volumen entre MEV y MAV para estímulo óptimo sin fatiga excesiva. Superar el MRV genera fatiga sin retorno adaptativo adicional (Israetel et al. 2019).');
+      return { type:'text', text: lines.join('\n'), relatedArticles: ['volumen-frecuencia', 'hipertrofia-mecanismos'] };
+    }
+    return { type:'text', text:'Para hipertrofia: 10–20 series por músculo por semana repartidas en 2+ sesiones. El MEV (mínimo efectivo) está en 8–10 series. Superar 20 series sin recuperación suficiente puede ser contraproducente. Empieza bajo y sube 1–2 series por semana si toleras la carga.', relatedArticles: ['volumen-frecuencia', 'hipertrofia-mecanismos'] };
   }
   if (/frecuencia/.test(t)) {
-    return { type:'text', text:'Frecuencia 2× por músculo/semana supera a 1× con el mismo volumen total en términos de hipertrofia. Para fuerza, 2–3× da mejores resultados. La frecuencia 1× solo tiene sentido para avanzados en fases de intensificación.' };
+    return { type:'text', text:'Frecuencia 2× por músculo/semana supera a 1× con el mismo volumen total en términos de hipertrofia. Para fuerza, 2–3× da mejores resultados. La frecuencia 1× solo tiene sentido para avanzados en fases de intensificación.', relatedArticles: ['volumen-frecuencia'] };
   }
   if (/fallo|al fallo/.test(t)) {
-    return { type:'text', text:'El fallo muscular no es necesario para el crecimiento. Lo que importa es llegar a RIR 1–3 en las últimas series del ejercicio. Entrenar siempre al fallo acumula más fatiga de la que genera estímulo, especialmente en ejercicios compuestos. Úsalo puntualmente en ejercicios de aislamiento al final de la sesión.' };
+    return { type:'text', text:'El fallo muscular no es necesario para el crecimiento. Lo que importa es llegar a RIR 1–3 en las últimas series del ejercicio. Entrenar siempre al fallo acumula más fatiga de la que genera estímulo, especialmente en ejercicios compuestos. Úsalo puntualmente en ejercicios de aislamiento al final de la sesión.', relatedArticles: ['rpe-rir', 'hipertrofia-mecanismos'] };
   }
   if (/deload/.test(t)) {
-    return { type:'text', text:'Señales de que necesitas deload: RPE subiendo para las mismas cargas, sueño peor de lo habitual, pérdida de motivación para entrenar, DOMS persistente entre sesiones. El deload clásico: 1 semana al 50–60% del volumen habitual manteniendo la intensidad (mismo peso, menos series). No hace falta bajar el peso.' };
+    return { type:'text', text:'Señales de que necesitas deload: RPE subiendo para las mismas cargas, sueño peor de lo habitual, pérdida de motivación para entrenar, DOMS persistente entre sesiones. El deload clásico: 1 semana al 50–60% del volumen habitual manteniendo la intensidad (mismo peso, menos series). No hace falta bajar el peso.', relatedArticles: ['deload', 'hrv-monitoreo'] };
   }
   return { type:'text', text:'¿Qué aspecto de la programación quieres profundizar? Puedo explicar volumen óptimo, frecuencia, periodización, RIR/RPE, deload o cualquier concepto específico.' };
 }
 
 function acResponseRecovery(ctx) {
+  const deload   = ctx.progressSummary?.deload;
+  const sePanel  = ctx.sePanel;
+  const fatigue  = sePanel?.fatigue;
+  const recovery = sePanel?.recovery;
+
+  if (deload?.needed) {
+    const bullets      = deload.reasons.map(r => `• ${r}`).join('\n');
+    const fatigueNote  = fatigue ? `\n\nFatiga acumulada calculada: ${fatigue.score}/100 (${fatigue.level}).` : '';
+    return { type:'text', text:`Basándome en tu historial real, los datos apuntan a que necesitas una semana de descarga:\n\n${bullets}${fatigueNote}\n\nProtocolo de deload: reduce el volumen al 50–60% (menos series, mismos pesos) durante 5–7 días. No bajes la intensidad — solo el volumen. Después de la descarga el rendimiento normalmente supera el nivel previo.`, relatedArticles: ['deload', 'hrv-monitoreo', 'recuperacion-sueno'] };
+  }
+
+  if (fatigue && fatigue.score >= 70) {
+    const factors = fatigue.factors.length ? `\n\nFactores detectados:\n${fatigue.factors.map(f => `• ${f}`).join('\n')}` : '';
+    return { type:'text', text:`Tu score de fatiga es ${fatigue.score}/100 (${fatigue.level}).${factors}\n\nOpciones: (1) deload esta semana — 50% del volumen manteniendo los mismos pesos, (2) eliminar 1 sesión y compensar la siguiente semana. Recuerda que el músculo no crece durante el entrenamiento, sino en la recuperación.`, relatedArticles: ['deload', 'hrv-monitoreo', 'recuperacion-sueno'] };
+  }
+
   if (ctx.fatigueLevel === 'high') {
-    return { type:'text', text:`Tu volumen esta semana es alto (${ctx.totalSetsWeek} series, media de ${ctx.avgSetsPerSess.toFixed(0)}/sesión). Si el rendimiento está bajando o el sueño está peor, es una señal clara de fatiga acumulada.\n\nOpciones: (1) deload esta semana — 50% del volumen habitual manteniendo los pesos, (2) eliminar 1 sesión y compensar la semana siguiente, (3) continuar y monitorizar HRV si tienes herramienta.` };
+    const scoreNote = fatigue ? ` (score: ${fatigue.score}/100)` : '';
+    return { type:'text', text:`Tu volumen esta semana es alto (${ctx.totalSetsWeek} series, media de ${ctx.avgSetsPerSess.toFixed(0)}/sesión)${scoreNote}. Si el rendimiento está bajando o el sueño está peor, es señal de fatiga acumulada.\n\nOpciones: (1) deload esta semana — 50% del volumen manteniendo pesos, (2) eliminar 1 sesión y compensar la siguiente semana.` };
   }
+
   if (ctx.daysSinceLast > 2) {
-    return { type:'text', text:`Llevas ${ctx.daysSinceLast} días descansando. El músculo se mantiene bien hasta 2–3 semanas de parón. Cuando retomes, empieza en el 80% de tus cargas habituales — probablemente lo superarás sin problema.` };
+    const readyNote = recovery ? ` Readiness estimado: ${recovery.readiness}/100 (${recovery.label}).` : '';
+    return { type:'text', text:`Llevas ${ctx.daysSinceLast} días sin entrenar.${readyNote} El músculo se mantiene hasta 2–3 semanas de parón. Cuando retomes, empieza en el 80% de tus cargas habituales.` };
   }
-  return { type:'text', text:'Tu fatiga parece moderada o baja esta semana. Los indicadores clave de recuperación insuficiente son: RPE más alto de lo habitual para las mismas cargas, DOMS que no se resuelve entre sesiones, y peor calidad del sueño. Si no aparecen esas señales, puedes continuar con el plan normal.' };
+
+  const scoreNote = fatigue ? `\n\nFatiga actual: ${fatigue.score}/100 (${fatigue.level}). Readiness: ${recovery?.readiness ?? '—'}/100.` : '';
+  return { type:'text', text:`Tu fatiga parece moderada o baja esta semana.${scoreNote}\n\nIndicadores de recuperación insuficiente: RPE más alto para las mismas cargas, DOMS persistente entre sesiones, peor calidad del sueño. Si no aparecen esas señales, continúa con el plan normal.`, relatedArticles: ['hrv-monitoreo', 'recuperacion-sueno'] };
+}
+
+function acResponseProgress(ctx) {
+  const ps  = ctx.progressSummary;
+  const ape = ctx.apePanel;
+
+  if ((!ps && !ape) || ctx.log.length < 2) {
+    return { type:'text', text:'Aún no hay suficiente historial para analizar tu progresión. Completa 2–3 sesiones registrando pesos y repeticiones en el Workout Player y podré darte un análisis real de tu evolución.', relatedArticles:['sobrecarga-progresiva'] };
+  }
+
+  const parts = [];
+
+  // Atlas Progress Score
+  if (ape?.score?.total > 0) {
+    parts.push(`Atlas Progress Score: ${ape.score.total}/100 — ${ape.score.label}\nAdherencia ${ape.adherence?.pct ?? '–'}% · Consistencia ${ape.consistency?.activeWeeks ?? '–'}/8 semanas activas · Racha actual: ${ape.consistency?.streak ?? 0} días.`);
+  }
+
+  // Strength progression
+  const topProg = ape?.strength?.topProgressing || ps?.topProgress || [];
+  if (topProg.length > 0) {
+    const list = topProg.slice(0, 3).map(e => `• ${e.exerciseName || e.name} — +${e.pct}% en ${e.sessions} registros`).join('\n');
+    parts.push(`Ejercicios progresando:\n${list}`);
+  }
+
+  // Stagnant
+  const stagnant = ape?.strength?.stagnant || ps?.stagnant || [];
+  if (stagnant.length > 0) {
+    const list = stagnant.slice(0, 2).map(e => `• ${e.exerciseName || e.name}`).join('\n');
+    parts.push(`Sin progreso detectado en:\n${list}\nConsulta técnica o cambia el estímulo.`);
+  }
+
+  // Alerts from APE
+  const alerts = (ape?.alerts || []).filter(a => a.severity === 'warning');
+  if (alerts.length > 0) parts.push(`⚠ ${alerts[0].message}`);
+
+  // Volume this week
+  if (ps?.thisWeekVolume > 0) {
+    parts.push(`Volumen esta semana: ${ps.thisWeekSets} series · ${ps.thisWeekVolume.toLocaleString('es-ES')} kg levantados.`);
+  }
+
+  if (parts.length === 0) {
+    return { type:'text', text:'No hay datos de carga suficientes. Registra kg y repeticiones en cada ejercicio para que pueda analizar tu evolución.' };
+  }
+
+  parts.push('Revisa todos tus datos en /progreso o escríbeme sobre cualquier ejercicio concreto.');
+  return { type:'text', text: parts.join('\n\n'), relatedArticles:['sobrecarga-progresiva'] };
+}
+
+function acResponseBuilderReview(ctx, profile) {
+  const plan    = ctx.builderPlan;
+  const routine = ctx.activeRoutine;
+  const source  = plan || routine;
+
+  if (!source) {
+    return { type:'text', text:'No encuentro ninguna rutina guardada. Genera una desde aquí con "Crea mi rutina" y ábrela en Builder para que pueda analizarla.' };
+  }
+
+  const exercises        = plan?.exercises || routine?.sessions?.[0]?.exercises || [];
+  const musclePriorities = profile?.musclePriorities || [];
+  const injuries         = profile?.injuries          || [];
+
+  const parts = [];
+
+  const planName = plan?.name || routine?.name || 'tu rutina';
+  parts.push(`He revisado ${planName} (${exercises.length} ejercicios).`);
+
+  // Count sets per muscle keyword
+  const setsByKw = {};
+  exercises.forEach(ex => {
+    const sets = ex.setsCount ?? (Array.isArray(ex.sets) ? ex.sets.length : 3);
+    (ex.muscles?.primary || []).forEach(m => {
+      const k = m.toLowerCase();
+      setsByKw[k] = (setsByKw[k] || 0) + sets;
+    });
+  });
+
+  const volFor = (kw) => Object.entries(setsByKw)
+    .filter(([k]) => k.includes(kw))
+    .reduce((t, [,v]) => t + v, 0);
+
+  // Priority muscle check
+  const MUS_KW = { chest:'pectoral', back:'dorsal', shoulders:'deltoid', arms:'bíceps', legs:'cuádricep', glutes:'glúteo' };
+  musclePriorities.forEach(prio => {
+    const kw   = MUS_KW[prio] || prio;
+    const vol  = volFor(kw);
+    const label = AP_MUS_MAP[prio] || prio;
+    if (vol === 0) {
+      parts.push(`${label} — marcado como prioritario — no aparece en la rutina. Añade al menos 2 ejercicios específicos.`);
+    } else if (vol < 8) {
+      parts.push(`${label} — solo ${vol} series en esta sesión. Para tu objetivo necesitas 10–16 series semanales; con esta frecuencia, añade ${10 - vol} series más.`);
+    } else {
+      parts.push(`${label} — ${vol} series. Dentro del rango óptimo.`);
+    }
+  });
+
+  // Injury conflict check
+  const INJURY_PATTERNS = {
+    shoulder: ['deltoid','tríceps','pectoral'],
+    knee:     ['cuádricep','isquio'],
+    lower_back: ['dorsal','glúteo'],
+  };
+  injuries.forEach(inj => {
+    const muscleKws = INJURY_PATTERNS[inj] || [];
+    const vol = muscleKws.reduce((t, kw) => t + volFor(kw), 0);
+    if (vol > 12) {
+      const warn = AP_INJURY_WARNS[inj] || `Tienes limitación en ${inj.replace(/_/g,' ')}`;
+      parts.push(`⚠ ${warn} y la rutina tiene ${vol} series en esa zona. Considera reducirlo o añadir más trabajo antagónico.`);
+    }
+  });
+
+  // Frequency note if multi-session routine
+  if (routine?.sessions?.length > 1) {
+    parts.push(`Tu plan ${routine.split?.toUpperCase() || ''} tiene ${routine.sessions.length} sesiones. Estás analizando la sesión que tienes en Builder — para ver el plan completo vuelve al Coach.`);
+  }
+
+  if (parts.length === 1) parts.push('No detecté puntos críticos. Continúa con el plan.');
+
+  return { type:'text', text: parts.join('\n\n'), relatedArticles: ['sobrecarga-progresiva', 'volumen-frecuencia', 'rpe-rir'] };
+}
+
+// ── Volume science response (MEV/MAV/MRV breakdown) ──────────────────────────
+function acResponseVolumeScience(ctx, profile) {
+  const panel = ctx.sePanel;
+  if (!panel || !ctx.log?.length) {
+    return { type:'text', text:'Sin sesiones registradas con datos de músculo. Registra tus entrenamientos en el Builder con pesos y el motor científico analizará tu volumen por músculo en tiempo real.', relatedArticles:['volumen-frecuencia'] };
+  }
+
+  const tracked = Object.values(panel.volumeStatus)
+    .filter(v => v.current > 0)
+    .sort((a, b) => b.current - a.current);
+
+  if (!tracked.length) {
+    return { type:'text', text:'No detecto volumen por músculo esta semana. Asegúrate de registrar sesiones con ejercicios en el Builder.', relatedArticles:['volumen-frecuencia'] };
+  }
+
+  const zoneLabel = z => z === 'mev_to_mav' ? '✓ MAV' : z === 'mav_to_mrv' ? '⚠ MRV' : z === 'above_mrv' ? '⛔ MRV+' : '↓ MEV';
+  const frequency = panel.frequency;
+
+  const lines = [`Análisis de volumen semanal (basado en ${ctx.totalSessions} sesiones):\n`];
+  tracked.forEach(vs => {
+    const freq  = frequency[vs.key] ? `${frequency[vs.key]}×/sem` : '';
+    const zone  = zoneLabel(vs.zone);
+    lines.push(`• ${vs.name}: ${vs.current} series ${freq ? `(${freq})` : ''} — ${zone} [MEV ${vs.mev} · MAV ${vs.mav} · MRV ${vs.mrv}]`);
+  });
+
+  if (panel.mrvAlerts.length) {
+    lines.push(`\n⚠ Alertas MRV:`);
+    panel.mrvAlerts.forEach(a => {
+      const excess = a.current - a.mav;
+      lines.push(`• ${a.name}: ${a.current} series — reduce ${excess} series para volver a rango MAV.`);
+    });
+  }
+
+  if (panel.belowMEV.length) {
+    lines.push(`\n↓ Por debajo de MEV (estímulo insuficiente):`);
+    panel.belowMEV.slice(0, 4).forEach(v => {
+      lines.push(`• ${v.name}: ${v.current}/${v.mev} series — añade ${v.gap} series más.`);
+    });
+  }
+
+  lines.push(`\nFatiga estimada: ${panel.fatigue.score}/100 (${panel.fatigue.level}).`);
+
+  return {
+    type: 'text',
+    text: lines.join('\n'),
+    relatedArticles: ['volumen-frecuencia', 'hipertrofia-mecanismos', 'deload'],
+  };
+}
+
+// ── Routine modification from free text ──────────────────────────────────────
+function acResponseRoutineModify(userText, ctx, profile, memory, allExs) {
+  const params = acExtractParams(userText);
+  const t = userText.toLowerCase();
+
+  // Load existing routine to merge on top of
+  const existing = arLoad();
+
+  // Build merged profile — user's current profile + detected changes
+  const base = profile || {};
+
+  // Equipment override
+  let equipment = params.equipment || base.equipment || 'full_gym';
+
+  // Days override
+  let days = params.dias || base.dias || ctx.targetDays || 3;
+
+  // Goal — keep existing unless explicitly changed
+  let goal = params.goal || base.objetivo || 'hipertrofia';
+
+  // Time
+  let tiempo = params.tiempo || base.tiempo || 60;
+
+  // Injuries — merge detected + profile injuries
+  const profileInjuries = base.injuries || [];
+  const detectedInjuries = params.injuries || [];
+  const allInjuries = [...new Set([...profileInjuries, ...detectedInjuries])];
+
+  // Persist detected injuries to Coach memory
+  if (detectedInjuries.length > 0) {
+    const mem = acLoadMemory();
+    detectedInjuries.forEach(inj => { if (!mem.lesiones.includes(inj)) mem.lesiones.push(inj); });
+    acSaveMemory(mem);
+  }
+
+  // Level
+  const level = base.nivel || 'intermedio';
+
+  // Priorities from profile + any parsed boost
+  const musclePriorities = base.musclePriorities || [];
+
+  // Build groupBoosts — explicit mention wins, else profile priorities
+  const groupBoosts = {};
+  if (params.priority) {
+    groupBoosts[params.priority] = 1;
+  } else if (musclePriorities.length > 0) {
+    musclePriorities.slice(0, 2).forEach(m => {
+      const grp = PRIO_TO_GROUP[m] || PRIO_TO_GROUP[m?.toLowerCase()];
+      if (grp) groupBoosts[grp] = (groupBoosts[grp] || 0) + 1;
+    });
+  }
+
+  // Split — explicit param wins, else honour existing routine if no split change, else derive from days
+  let splitKey = params.split || null;
+  if (!splitKey) {
+    if      (params.target === 'push')      splitKey = 'push';
+    else if (params.target === 'pull')      splitKey = 'pull';
+    else if (params.target === 'legs')      splitKey = 'legs';
+    else if (params.target === 'arms')      splitKey = 'arms';
+    else if (params.target === 'shoulders') splitKey = 'shoulders';
+    else {
+      // Keep existing split when only adjusting equipment/injuries/priorities
+      splitKey = existing?.split || AP_DAYS_SPLIT[days] || (days >= 4 ? 'upper_lower' : days >= 3 ? 'ppl' : 'fullbody');
+      if ((base.experience === 'beginner' || base.nivel === 'principiante') && days <= 3) splitKey = 'fullbody';
+    }
+  }
+
+  // Injury caps + keyword filter
+  const groupCaps = {};
+  allInjuries.forEach(inj => {
+    const caps = AP_INJURY_GROUP_CAPS[inj] || {};
+    Object.entries(caps).forEach(([g, n]) => {
+      groupCaps[g] = Math.min(groupCaps[g] ?? 99, n);
+    });
+  });
+  const avoidExercises = base.avoidExercises || '';
+  const avoidKeywords = avoidExercises.toLowerCase().split(/[,;]/).map(s => s.trim()).filter(Boolean);
+
+  // Home equipment → cap heavy compound exercises
+  if (equipment === 'casa' || equipment === 'home') {
+    // Limit to bodyweight-friendly exercises by keeping groupCaps loose but filtering by name
+    avoidKeywords.push('barra', 'máquina', 'polea', 'jaula', 'smith');
+  }
+
+  const sessions = acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps, avoidKeywords, groupBoosts);
+  if (!sessions.length || sessions.every(s => !s.exercises.length)) {
+    return { type:'text', text:'No pude regenerar la rutina con esos parámetros. Prueba indicando el split o los días directamente.' };
+  }
+
+  // Build change summary
+  const changes = [];
+  if (params.split)     changes.push(`split: ${splitKey.toUpperCase().replace('_',' ')}`);
+  if (params.dias)      changes.push(`${days} días/sem`);
+  if (params.equipment) changes.push(`equipamiento: ${equipment}`);
+  if (params.priority)  changes.push(`+volumen de ${params.priority}`);
+  if (detectedInjuries.length) changes.push(`evitando carga en ${detectedInjuries.join(' y ')}`);
+  if (params.tiempo)    changes.push(`~${tiempo} min`);
+
+  const changeText = changes.length
+    ? `He actualizado tu plan: ${changes.join(', ')}.`
+    : `He regenerado tu plan con tu perfil actual.`;
+
+  const routineId = `routine-${Date.now()}`;
+  const atlasRoutine = {
+    id:         routineId,
+    name:       `${splitKey.toUpperCase().replace('_',' ')} · ${goal}`,
+    objective:  goal,
+    frequency:  days,
+    split:      splitKey,
+    sessions,
+    priorities: musclePriorities,
+    createdAt:  Date.now(),
+    source:     'coach-modify',
+  };
+  arSave(atlasRoutine);
+
+  const injuryNotes = allInjuries
+    .map(inj => AP_INJURY_WARNS[inj])
+    .filter(Boolean);
+
+  let introText = changeText;
+  if (injuryNotes.length) introText += '\n\n⚠ Ajustes por limitaciones:\n' + injuryNotes.map(n => `• ${n}`).join('\n');
+  introText += '\n\nEl Builder ya refleja esta rutina actualizada.';
+
+  return {
+    type: 'routine',
+    text: introText,
+    sessions,
+    builderPayload: sessions[0]?.exercises || [],
+    routineId,
+    routineName: atlasRoutine.name,
+  };
 }
 
 // ── Master response generator ─────────────────────────────────────────────────
@@ -465,13 +1328,17 @@ function acGenerateSmartResponse(userText, state, profile, memory, allExs) {
   const ctx     = acBuildRichContext(state, profile);
 
   switch (intent) {
-    case 'greeting':    return acResponseGreeting(ctx, profile, memory);
-    case 'routine':     return acResponseRoutine(params, ctx, profile, memory, allExs);
-    case 'analysis':    return acResponseAnalysis(ctx, profile);
-    case 'injury':      return acResponseInjury(userText, memory);
-    case 'plateau':     return acResponsePlateau(ctx);
-    case 'programming': return acResponseProgramming(userText);
-    case 'recovery':    return acResponseRecovery(ctx);
+    case 'greeting':       return acResponseGreeting(ctx, profile, memory);
+    case 'routine':        return acResponseRoutine(params, ctx, profile, memory, allExs);
+    case 'routine-modify': return acResponseRoutineModify(userText, ctx, profile, memory, allExs);
+    case 'analysis':       return acResponseAnalysis(ctx, profile);
+    case 'injury':         return acResponseInjury(userText, memory);
+    case 'plateau':        return acResponsePlateau(ctx);
+    case 'programming':    return acResponseProgramming(userText, ctx);
+    case 'recovery':       return acResponseRecovery(ctx);
+    case 'volume-science':  return acResponseVolumeScience(ctx, profile);
+    case 'builder-review':  return acResponseBuilderReview(ctx, profile);
+    case 'progress-check':  return acResponseProgress(ctx);
     case 'profile':
       return { type:'text', text:'Puedes actualizar tu perfil en el panel inferior del sidebar (objetivo, nivel, días/semana, tiempo y equipamiento). Cuando lo guardes, usaré esos datos para todas mis recomendaciones.' };
     default:
@@ -482,39 +1349,334 @@ function acGenerateSmartResponse(userText, state, profile, memory, allExs) {
 // ── Dynamic context chips ─────────────────────────────────────────────────────
 function acGetDynamicChips(ctx, profile) {
   const chips = [];
+  const musclePriorities = profile?.musclePriorities || [];
+  const injuries = profile?.injuries || [];
+
   if (ctx.daysSinceLast > 4 && ctx.daysSinceLast < 99) chips.push(`¿Retomamos hoy?`);
   if (ctx.plateaus.length > 0) chips.push(`Estancado en ${ctx.plateaus[0].name.split(' ')[0]}`);
-  if (ctx.pushPullRatio > 1.5) chips.push('Necesito más tracción');
-  if (ctx.fatigueLevel === 'high') chips.push('¿Debo hacer deload?');
-  if (ctx.totalSessions === 0) chips.push('Hazme un plan para empezar');
-  chips.push(`Analiza mi historial`);
-  chips.push(`Rutina ${profile?.objetivo || 'para hoy'}`);
-  if (!chips.includes('¿Debo hacer deload?')) chips.push('¿Debo hacer deload?');
+  if (ctx.sePanel?.mrvAlerts?.length > 0) chips.push(`${ctx.sePanel.mrvAlerts[0].name} cerca del MRV`);
+  if (ctx.injuryRisks?.length > 0) chips.push('Ajustar rutina por lesión');
+  else if (ctx.priorityGaps?.length > 0) chips.push(`Más volumen de ${ctx.priorityGaps[0].label}`);
+  else if (ctx.pushPullRatio > 1.5) chips.push('Necesito más tracción');
+  if (ctx.fatigueLevel === 'high' || ctx.sePanel?.fatigue?.score >= 65) chips.push('¿Debo hacer deload?');
+  if (ctx.totalSessions === 0) chips.push('Crear mi plan de entrenamiento');
+  if (musclePriorities.length > 0) {
+    const prio = musclePriorities[0];
+    chips.push(`Rutina para ${AP_MUS_MAP[prio] || prio}`);
+  }
+  chips.push(`Analizar mi historial`);
+  chips.push(`Rutina de ${profile?.objetivo || 'hoy'}`);
   return [...new Set(chips)].slice(0, 4);
 }
 
 // ── Welcome message ───────────────────────────────────────────────────────────
 function acWelcomeMessage(state, profile, memory) {
   const ctx = acBuildRichContext(state, profile);
+  const injuries = profile?.injuries || [];
+  const musclePriorities = profile?.musclePriorities || [];
+
   if (ctx.totalSessions === 0) {
-    if (!profile) return 'Hola. Configura tu perfil en el panel inferior del sidebar para que pueda darte recomendaciones personalizadas. ¿Con qué empezamos?';
-    return `Hola. Perfil cargado — ${profile.objetivo}, nivel ${profile.nivel}. Sin sesiones registradas aún. ¿Quieres que genere tu primer plan de entrenamiento?`;
+    if (!profile) return 'Hola. Completa tu Perfil Atlas para recibir recomendaciones personalizadas. ¿Por dónde empezamos?';
+    const lines = [`Hola. He cargado tu perfil: ${profile.objetivo}, nivel ${profile.nivel}, ${profile.dias} días/sem.`];
+    if (injuries.length) lines.push(`Tengo en cuenta tus limitaciones: ${injuries.map(i => i.replace(/_/g,' ')).join(', ')}.`);
+    if (musclePriorities.length) lines.push(`Grupos prioritarios: ${musclePriorities.map(m => AP_MUS_MAP[m] || m).join(', ')}.`);
+    lines.push('¿Genero tu primer plan?');
+    return lines.join(' ');
   }
+
   const parts = [];
   if (ctx.daysSinceLast === 0) parts.push('Entrenaste hoy.');
   else if (ctx.daysSinceLast === 1) parts.push('Entrenaste ayer.');
   else if (ctx.daysSinceLast < 99) parts.push(`Llevas ${ctx.daysSinceLast} días sin entrenar.`);
   if (ctx.streak >= 3) parts.push(`${ctx.streak} días de racha.`);
-  if (ctx.pushPullRatio > 1.5 && ctx.pushVol > 3) parts.push(`Esta semana más empuje que tracción (${ctx.pushVol}:${ctx.pullVol}).`);
+  if (ctx.injuryRisks?.length > 0) parts.push(`⚠ ${ctx.injuryRisks[0].warn}.`);
+  else if (ctx.priorityGaps?.length > 0) parts.push(`${ctx.priorityGaps[0].label} — prioritario — lleva poco volumen esta semana.`);
+  else if (ctx.pushPullRatio > 1.5 && ctx.pushVol > 3) parts.push(`Más empuje que tracción esta semana (${ctx.pushVol}:${ctx.pullVol}).`);
   else if (ctx.plateaus.length > 0) parts.push(`Posible plateau en ${ctx.plateaus[0].name}.`);
   else if (ctx.lowVolGroups.length > 0) parts.push(`${ctx.lowVolGroups[0]} con poco volumen esta semana.`);
   else if (ctx.fatigueLevel === 'high') parts.push('Volumen semanal alto — considera un deload.');
+  if (memory?.lesiones?.length > 0) parts.push(`Recuerdo molestias en ${memory.lesiones.slice(0,2).join(' y ')}.`);
   parts.push('¿En qué te ayudo?');
-  if (memory?.lesiones?.length > 0) parts.splice(-1, 0, `Recuerdo que tienes molestias en ${memory.lesiones.slice(0,2).join(' y ')}.`);
   return parts.join(' ');
 }
 
 // ── UI Components ─────────────────────────────────────────────────────────────
+
+// Invitation card shown on first visit — non-blocking, dismissable
+function AtlasProfileCard({ onStart, onDismiss }) {
+  return (
+    <div style={{
+      borderRadius: 16,
+      border: '1px solid rgba(59,130,246,0.28)',
+      background: 'linear-gradient(135deg, rgba(10,20,50,0.98) 0%, rgba(6,13,24,0.98) 100%)',
+      padding: '22px 24px',
+      marginBottom: 28,
+      animation: 'fadeIn .35s ease',
+      position: 'relative',
+    }}>
+      {/* Dismiss */}
+      <button onClick={onDismiss} style={{
+        position:'absolute', top:12, right:14,
+        background:'none', border:'none', cursor:'pointer',
+        fontFamily:'Inter,system-ui', fontSize:15, color:'rgba(232,237,248,0.28)',
+        lineHeight:1, padding:4,
+      }}>✕</button>
+
+      {/* Badge */}
+      <div style={{ display:'inline-flex', alignItems:'center', gap:6, marginBottom:14,
+        padding:'3px 10px', borderRadius:999,
+        background:'rgba(59,130,246,0.10)', border:'1px solid rgba(59,130,246,0.22)' }}>
+        <span style={{ width:5, height:5, borderRadius:'50%', background:'#3B82F6', display:'block' }} />
+        <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700,
+          color:'#93C5FD', letterSpacing:1.2 }}>PERFIL ATLAS</span>
+      </div>
+
+      <div style={{ fontFamily:'Inter,system-ui', fontSize:16, fontWeight:700,
+        color:'#E8EDF8', marginBottom:10, letterSpacing:-0.3 }}>
+        Personaliza tu experiencia Atlas
+      </div>
+      <p style={{ fontFamily:'Inter,system-ui', fontSize:13, color:'rgba(232,237,248,0.55)',
+        lineHeight:1.65, margin:'0 0 20px', maxWidth:480 }}>
+        Atlas Coach puede ofrecer recomendaciones más precisas si conoce tus objetivos, experiencia y disponibilidad de entrenamiento. Completar tu Perfil Atlas solo te llevará unos minutos y permitirá adaptar futuras recomendaciones a tus necesidades.
+      </p>
+
+      <div style={{ display:'flex', gap:10 }}>
+        <button onClick={onStart} style={{
+          padding:'10px 20px', borderRadius:10, border:'none', cursor:'pointer',
+          background:'#3B82F6', color:'#fff',
+          fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, letterSpacing:-0.2,
+          boxShadow:'0 4px 18px -4px rgba(59,130,246,0.45)',
+        }}>Crear Perfil Atlas</button>
+        <button onClick={onDismiss} style={{
+          padding:'10px 18px', borderRadius:10, cursor:'pointer',
+          background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.10)',
+          color:'rgba(232,237,248,0.45)',
+          fontFamily:'Inter,system-ui', fontSize:13, fontWeight:600,
+        }}>Ahora no</button>
+      </div>
+    </div>
+  );
+}
+
+const OBJ_SHORT = { muscle:'Hipertrofia', fat_loss:'Perder grasa', recomp:'Recomposición', performance:'Rendimiento', health:'Salud' };
+const EXP_SHORT = { beginner:'Principiante', intermediate:'Intermedio', advanced:'Avanzado' };
+
+function AtlasProfileStatus({ profile, onEdit }) {
+  const chips = [
+    OBJ_SHORT[profile.objective] || profile.objective,
+    EXP_SHORT[profile.experience] || profile.experience,
+    profile.trainingDays ? `${profile.trainingDays} días/sem` : null,
+  ].filter(Boolean);
+
+  return (
+    <div style={{
+      borderRadius: 14,
+      border: '1px solid rgba(34,197,94,0.22)',
+      background: 'rgba(22,163,74,0.06)',
+      padding: '14px 18px',
+      marginBottom: 28,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 14,
+      flexWrap: 'wrap',
+      animation: 'fadeIn .3s ease',
+    }}>
+      <div style={{ display:'flex', alignItems:'center', gap:7, flexShrink:0 }}>
+        <span style={{ width:7, height:7, borderRadius:'50%', background:'#4ADE80', display:'block' }} />
+        <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700, color:'#4ADE80', letterSpacing:1.2 }}>PERFIL ATLAS ACTIVO</span>
+      </div>
+      <div style={{ display:'flex', gap:6, flex:1, flexWrap:'wrap' }}>
+        {chips.map(c => (
+          <span key={c} style={{ padding:'3px 10px', borderRadius:6, background:'rgba(74,222,128,0.10)', border:'1px solid rgba(74,222,128,0.20)', fontFamily:'Inter,system-ui', fontSize:11, fontWeight:600, color:'rgba(232,237,248,0.70)' }}>{c}</span>
+        ))}
+      </div>
+      <button onClick={onEdit} style={{
+        padding:'6px 14px', borderRadius:8, cursor:'pointer',
+        background:'transparent', border:'1px solid rgba(255,255,255,0.14)',
+        color:'rgba(232,237,248,0.50)', fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700,
+        flexShrink:0,
+      }}>Editar perfil</button>
+    </div>
+  );
+}
+
+// Renders one onboarding step inside the chat bubble
+function AcOnboardingStep({
+  step, answered, pendingMulti, pendingInput, pendingInputs, pendingNote,
+  onAnswer, onMultiToggle, onMultiConfirm, onInputChange, onInputConfirm,
+  onBodyMetricsChange, onBodyMetricsConfirm, onNoteChange, onSkip,
+}) {
+  const isDone      = answered !== null && answered !== undefined;
+  const { options = [], multi, maxSelect = 3, inputType, skippable, hasNoteField, noneOption } = step;
+
+  const chipStyle = (sel, dim) => ({
+    padding:'5px 12px', borderRadius:8,
+    fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600,
+    background: sel ? 'rgba(59,130,246,0.18)' : 'transparent',
+    border: `1px solid ${sel ? 'rgba(59,130,246,0.40)' : 'rgba(255,255,255,0.07)'}`,
+    color: sel ? '#93C5FD' : dim ? 'rgba(232,237,248,0.20)' : 'rgba(232,237,248,0.25)',
+  });
+
+  const btnSty = { padding:'8px 16px', borderRadius:9, border:'none', cursor:'pointer', fontFamily:'Inter,system-ui', fontSize:12, fontWeight:700 };
+  const skipBtn = skippable && !isDone ? (
+    <button onClick={onSkip} style={{ ...btnSty, background:'transparent', border:'1px solid rgba(255,255,255,0.10)', color:'rgba(232,237,248,0.35)', marginLeft:8 }}>Saltar</button>
+  ) : null;
+
+  // ── Answered state (read-only chips) ────────────────────────────────────────
+  if (isDone) {
+    if (inputType === 'number') {
+      return <div style={{ marginTop:8, fontFamily:'ui-monospace,Menlo,monospace', fontSize:13, color:'#93C5FD' }}>{answered} {step.unit}</div>;
+    }
+    if (inputType === 'body-metrics') {
+      const h = answered?.height, w = answered?.weight;
+      return <div style={{ marginTop:8, fontFamily:'ui-monospace,Menlo,monospace', fontSize:13, color:'#93C5FD' }}>{[h && `${h} cm`, w && `${w} kg`].filter(Boolean).join(' · ') || 'Omitido'}</div>;
+    }
+    if (inputType === 'text') {
+      return <div style={{ marginTop:8, fontFamily:'Inter,system-ui', fontSize:12, color:'#93C5FD', fontStyle: answered ? 'normal' : 'italic', opacity: answered ? 1 : 0.4 }}>{answered || 'Omitido'}</div>;
+    }
+    if (answered === null) {
+      return <div style={{ marginTop:8, fontFamily:'Inter,system-ui', fontSize:12, color:'rgba(232,237,248,0.30)', fontStyle:'italic' }}>Omitido</div>;
+    }
+    return (
+      <div style={{ marginTop:10, display:'flex', flexWrap:'wrap', gap:6 }}>
+        {options.map(opt => {
+          const sel = multi ? (Array.isArray(answered) && answered.includes(opt.v)) : answered === opt.v;
+          return <span key={opt.v} style={chipStyle(sel, !sel)}>{opt.l}</span>;
+        })}
+      </div>
+    );
+  }
+
+  // ── Number input ─────────────────────────────────────────────────────────────
+  if (inputType === 'number') {
+    return (
+      <div style={{ marginTop:10, display:'flex', alignItems:'center', flexWrap:'wrap', gap:8 }}>
+        <input type="number" min={step.min} max={step.max} value={pendingInput || ''}
+          onChange={e => onInputChange(e.target.value)} placeholder={step.placeholder}
+          style={{ width:90, padding:'8px 12px', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)',
+            background:'rgba(255,255,255,0.05)', color:'#E8EDF8',
+            fontFamily:'ui-monospace,Menlo,monospace', fontSize:14, textAlign:'center' }} />
+        {step.unit && <span style={{ fontFamily:'Inter,system-ui', fontSize:12, color:'rgba(232,237,248,0.45)' }}>{step.unit}</span>}
+        <button onClick={onInputConfirm} disabled={!pendingInput}
+          style={{ ...btnSty, background: pendingInput ? '#3B82F6' : 'rgba(59,130,246,0.18)', color: pendingInput ? '#fff' : 'rgba(255,255,255,0.30)' }}>
+          Confirmar
+        </button>
+        {skipBtn}
+      </div>
+    );
+  }
+
+  // ── Body metrics (altura + peso) ─────────────────────────────────────────────
+  if (inputType === 'body-metrics') {
+    const hasAny = pendingInputs?.height || pendingInputs?.weight;
+    return (
+      <div style={{ marginTop:10 }}>
+        <div style={{ display:'flex', gap:8, marginBottom:10, flexWrap:'wrap' }}>
+          {[['height','Altura','cm'], ['weight','Peso','kg']].map(([field, label, unit]) => (
+            <div key={field} style={{ display:'flex', alignItems:'center', gap:5 }}>
+              <input type="number" min={field==='height'?100:30} max={field==='height'?250:300}
+                value={pendingInputs?.[field] || ''}
+                onChange={e => onBodyMetricsChange(field, e.target.value)}
+                placeholder={label}
+                style={{ width:80, padding:'8px 10px', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)',
+                  background:'rgba(255,255,255,0.05)', color:'#E8EDF8',
+                  fontFamily:'ui-monospace,Menlo,monospace', fontSize:13, textAlign:'center' }} />
+              <span style={{ fontFamily:'Inter,system-ui', fontSize:11, color:'rgba(232,237,248,0.40)' }}>{unit}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ display:'flex', gap:8 }}>
+          <button onClick={onBodyMetricsConfirm} disabled={!hasAny}
+            style={{ ...btnSty, background: hasAny ? '#3B82F6' : 'rgba(59,130,246,0.18)', color: hasAny ? '#fff' : 'rgba(255,255,255,0.30)' }}>
+            Confirmar
+          </button>
+          {skipBtn}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Free text input ──────────────────────────────────────────────────────────
+  if (inputType === 'text') {
+    return (
+      <div style={{ marginTop:10 }}>
+        <textarea value={pendingInput || ''} onChange={e => onInputChange(e.target.value)}
+          placeholder={step.placeholder || ''}
+          rows={2}
+          style={{ width:'100%', boxSizing:'border-box', padding:'9px 12px', borderRadius:9, marginBottom:8, resize:'none',
+            border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)',
+            color:'rgba(232,237,248,0.80)', fontFamily:'Inter,system-ui', fontSize:12, lineHeight:1.55 }} />
+        <div style={{ display:'flex', gap:8 }}>
+          <button onClick={onInputConfirm} disabled={!pendingInput?.trim()}
+            style={{ ...btnSty, background: pendingInput?.trim() ? '#3B82F6' : 'rgba(59,130,246,0.18)', color: pendingInput?.trim() ? '#fff' : 'rgba(255,255,255,0.30)' }}>
+            Confirmar
+          </button>
+          {skipBtn}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Multi-select ──────────────────────────────────────────────────────────────
+  if (multi) {
+    const count = pendingMulti.length;
+    return (
+      <div style={{ marginTop:10 }}>
+        <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:10 }}>
+          {options.map(opt => {
+            const sel     = pendingMulti.includes(opt.v);
+            const isNone  = opt.v === noneOption;
+            const noneOn  = noneOption && pendingMulti.includes(noneOption);
+            const atMax   = !isNone && !noneOn && count >= maxSelect && !sel;
+            return (
+              <button key={opt.v} onClick={() => !atMax && onMultiToggle(opt.v)}
+                style={{
+                  padding:'6px 13px', borderRadius:8, cursor: atMax ? 'default' : 'pointer',
+                  fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600, transition:'all .12s',
+                  background: sel ? (isNone ? 'rgba(34,197,94,0.18)' : '#3B82F6') : atMax ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.07)',
+                  color: sel ? (isNone ? '#4ADE80' : '#fff') : atMax ? 'rgba(232,237,248,0.22)' : 'rgba(232,237,248,0.70)',
+                  border: `1px solid ${sel ? (isNone ? 'rgba(34,197,94,0.35)' : 'transparent') : 'rgba(255,255,255,0.10)'}`,
+                }}>
+                {sel ? '✓ ' : ''}{opt.l}
+              </button>
+            );
+          })}
+        </div>
+        {hasNoteField && (
+          <textarea value={pendingNote || ''} onChange={e => onNoteChange(e.target.value)}
+            placeholder="Describe cualquier limitación relevante (opcional)"
+            rows={2}
+            style={{ width:'100%', boxSizing:'border-box', padding:'9px 12px', borderRadius:9, marginBottom:10, resize:'none',
+              border:'1px solid rgba(255,255,255,0.10)', background:'rgba(255,255,255,0.04)',
+              color:'rgba(232,237,248,0.70)', fontFamily:'Inter,system-ui', fontSize:12, lineHeight:1.5 }} />
+        )}
+        <button onClick={onMultiConfirm} disabled={count === 0}
+          style={{ ...btnSty, background: count > 0 ? '#3B82F6' : 'rgba(59,130,246,0.18)', color: count > 0 ? '#fff' : 'rgba(255,255,255,0.30)' }}>
+          Confirmar{maxSelect < 8 ? ` (${count}/${maxSelect})` : ''}
+        </button>
+      </div>
+    );
+  }
+
+  // ── Single-select option buttons ──────────────────────────────────────────────
+  return (
+    <div style={{ marginTop:10, display:'flex', flexWrap:'wrap', gap:6 }}>
+      {options.map(opt => (
+        <button key={opt.v} onClick={() => onAnswer(opt.v)}
+          style={{
+            padding:'6px 13px', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)',
+            cursor:'pointer', background:'rgba(255,255,255,0.06)',
+            fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600,
+            color:'rgba(232,237,248,0.75)', transition:'all .12s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background='rgba(59,130,246,0.18)'; e.currentTarget.style.borderColor='rgba(59,130,246,0.40)'; e.currentTarget.style.color='#93C5FD'; }}
+          onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.12)'; e.currentTarget.style.color='rgba(232,237,248,0.75)'; }}>
+          {opt.l}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function AcTypingIndicator() {
   return (
@@ -527,14 +1689,18 @@ function AcTypingIndicator() {
   );
 }
 
-function AcRoutineCard({ session, onSendToBuilder }) {
+function AcRoutineCard({ session, sessionIndex, totalSessions, routineId, routineName, onSendToBuilder, onSendToPlayer }) {
   const [open, setOpen] = React.useState(true);
+  const label = totalSessions > 1 ? `Día ${sessionIndex + 1} de ${totalSessions}` : null;
   return (
     <div style={{ marginTop:10, borderRadius:14, overflow:'hidden', border:`1px solid ${AC.border}`, background:AC.card2, animation:'fadeIn .25s ease' }}>
       {/* Header */}
       <div onClick={() => setOpen(o=>!o)} style={{ padding:'14px 18px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:`1px solid ${AC.border}`, cursor:'pointer' }}>
         <div>
-          <div style={{ fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, color:AC.text, letterSpacing:-0.2 }}>{session.name}</div>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <div style={{ fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, color:AC.text, letterSpacing:-0.2 }}>{session.name}</div>
+            {label && <span style={{ padding:'1px 7px', borderRadius:999, background:'rgba(59,130,246,0.12)', border:'1px solid rgba(59,130,246,0.20)', fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, fontWeight:700, color:'#93C5FD', letterSpacing:0.5 }}>{label}</span>}
+          </div>
           <div style={{ display:'flex', gap:16, marginTop:5 }}>
             {[
               `${session.exercises.length} ejerc`,
@@ -567,9 +1733,18 @@ function AcRoutineCard({ session, onSendToBuilder }) {
               <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, color:AC.muted, textAlign:'center' }}>{ex.rest||'90s'}</div>
             </div>
           ))}
-          <div style={{ padding:'12px 18px', borderTop:`1px solid rgba(255,255,255,0.05)` }}>
-            <button onClick={() => onSendToBuilder(session.exercises)} style={{ width:'100%', padding:'11px 16px', borderRadius:10, border:'none', cursor:'pointer', background:AC.blue, color:'#fff', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, letterSpacing:-0.2, boxShadow:'0 4px 18px -4px rgba(59,130,246,0.45)' }}>
-              Abrir en Builder →
+          <div style={{ padding:'12px 18px', borderTop:'1px solid rgba(255,255,255,0.05)', display:'flex', gap:8 }}>
+            <button
+              onClick={() => onSendToBuilder(session.exercises, { routineId, routineName, sessionIndex, totalSessions, sessionName: session.name })}
+              style={{ flex:1, padding:'10px 12px', borderRadius:10, border:'1px solid rgba(59,130,246,0.30)', cursor:'pointer', background:'transparent', color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:12, fontWeight:700, letterSpacing:-0.2 }}
+            >
+              Ver rutina
+            </button>
+            <button
+              onClick={() => onSendToPlayer(session.exercises, { routineId, routineName, sessionIndex, totalSessions, sessionName: session.name })}
+              style={{ flex:2, padding:'10px 16px', borderRadius:10, border:'none', cursor:'pointer', background:'#22C55E', color:'#fff', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, letterSpacing:-0.2, boxShadow:'0 4px 18px -4px rgba(34,197,94,0.45)' }}
+            >
+              ▶ Entrenar ahora
             </button>
           </div>
         </>
@@ -639,22 +1814,92 @@ function AcAnalysisCard({ content }) {
   );
 }
 
-function AcCoachMessage({ content, onSendToBuilder }) {
+function AcAulaChips({ articleIds, onOpenAula }) {
+  if (!articleIds?.length || !onOpenAula) return null;
+  return (
+    <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:8, paddingLeft:2 }}>
+      <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, fontWeight:700, color:'rgba(232,237,248,0.30)', letterSpacing:1, alignSelf:'center', flexShrink:0 }}>LEER EN AULA</span>
+      {articleIds.map(id => (
+        <button
+          key={id}
+          onClick={() => onOpenAula(id)}
+          style={{
+            padding:'4px 11px', borderRadius:999,
+            border:'1px solid rgba(59,130,246,0.22)',
+            background:'rgba(59,130,246,0.07)',
+            color:'#93C5FD', fontFamily:'"Inter",system-ui', fontSize:11, fontWeight:600,
+            cursor:'pointer', transition:'background .12s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.15)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.07)'; }}
+        >
+          {AC_ARTICLE_TITLES[id] || id} →
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function AcCoachMessage({ content, onSendToBuilder, onSendToPlayer, onboardingProps, onOpenAula }) {
   const bubble = { padding:'13px 18px', borderRadius:'4px 18px 18px 18px', background:AC.card, border:`1px solid ${AC.border}`, fontFamily:'Inter,system-ui', fontSize:14, lineHeight:1.65, color:AC.text, whiteSpace:'pre-line' };
-  if (content.type === 'text') return <div style={bubble}>{content.text}</div>;
+  if (content.type === 'text') return (
+    <div>
+      <div style={bubble}>{content.text}</div>
+      <AcAulaChips articleIds={content.relatedArticles} onOpenAula={onOpenAula} />
+    </div>
+  );
   if (content.type === 'routine') return (
     <div>
       <div style={bubble}>{content.text}</div>
       {(content.sessions || []).map((session, si) => (
-        <AcRoutineCard key={si} session={session} onSendToBuilder={onSendToBuilder} />
+        <AcRoutineCard
+          key={si}
+          session={session}
+          sessionIndex={si}
+          totalSessions={content.sessions.length}
+          routineId={content.routineId}
+          routineName={content.routineName}
+          onSendToBuilder={onSendToBuilder}
+          onSendToPlayer={onSendToPlayer}
+        />
       ))}
     </div>
   );
-  if (content.type === 'analysis') return <AcAnalysisCard content={content} />;
+  if (content.type === 'analysis') return (
+    <div>
+      <AcAnalysisCard content={content} />
+      <AcAulaChips articleIds={content.relatedArticles} onOpenAula={onOpenAula} />
+    </div>
+  );
+  if (content.type === 'onboarding-step') {
+    const ob = onboardingProps || {};
+    return (
+      <div style={bubble}>
+        <div style={{ marginBottom:2 }}>{content.question}</div>
+        <AcOnboardingStep
+          step={content}
+          answered={ob.answers?.[content.id]}
+          pendingMulti={ob.pendingMulti || []}
+          pendingInput={ob.pendingInput || ''}
+          pendingInputs={ob.pendingInputs || {}}
+          pendingNote={ob.pendingNote || ''}
+          onAnswer={v => ob.onAnswer?.(content.id, v)}
+          onMultiToggle={ob.onMultiToggle}
+          onMultiConfirm={ob.onMultiConfirm}
+          onInputChange={ob.onInputChange}
+          onInputConfirm={ob.onInputConfirm}
+          onBodyMetricsChange={ob.onBodyMetricsChange}
+          onBodyMetricsConfirm={ob.onBodyMetricsConfirm}
+          onNoteChange={ob.onNoteChange}
+          onSkip={ob.onSkip}
+        />
+      </div>
+    );
+  }
   return <div style={bubble}>{String(content)}</div>;
 }
 
-function AcMessageBubble({ msg, onSendToBuilder }) {
+function AcMessageBubble({ msg, onSendToBuilder, onSendToPlayer, onboardingProps, onOpenAula }) {
   const isUser = msg.role === 'user';
   return (
     <div style={{ display:'flex', justifyContent:isUser?'flex-end':'flex-start', alignItems:'flex-end', gap:8, marginBottom:20, animation:'fadeIn .22s ease' }}>
@@ -664,7 +1909,7 @@ function AcMessageBubble({ msg, onSendToBuilder }) {
       <div style={{ maxWidth:'76%', minWidth:0 }}>
         {isUser
           ? <div style={{ padding:'11px 16px', borderRadius:'18px 18px 4px 18px', background:'#2563EB', color:'#fff', fontFamily:'Inter,system-ui', fontSize:14, lineHeight:1.55, wordBreak:'break-word' }}>{msg.content}</div>
-          : <AcCoachMessage content={msg.content} onSendToBuilder={onSendToBuilder} />
+          : <AcCoachMessage content={msg.content} onSendToBuilder={onSendToBuilder} onSendToPlayer={onSendToPlayer} onboardingProps={onboardingProps} onOpenAula={onOpenAula} />
         }
         <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:'rgba(232,237,248,0.22)', marginTop:5, textAlign:isUser?'right':'left' }}>
           {new Date(msg.ts).toLocaleTimeString('es', { hour:'2-digit', minute:'2-digit' })}
@@ -758,7 +2003,7 @@ function AcSidebar({ chats, activeChatId, onSelect, onNew, profile, onSaveProfil
 
 // ── Main component ────────────────────────────────────────────────────────────
 function AtlasCoachSection() {
-  const { state, actions } = useStore();
+  const { state } = useStore();
   const { navigate } = useRoute();
 
   const [profile, setProfile] = React.useState(() => acLoadProfile());
@@ -772,12 +2017,57 @@ function AtlasCoachSection() {
   const messagesEndRef = React.useRef(null);
   const inputRef       = React.useRef(null);
 
+  // ── Atlas Profile onboarding ──────────────────────────────────────────────
+  const [atlasProfile,   setAtlasProfile]   = React.useState(() => apLoadProfile());
+  const [showCard,       setShowCard]       = React.useState(() => !apIsDismissed() && !apLoadProfile());
+  const [onboarding,     setOnboarding]     = React.useState({ active: false, level: 1, step: 0, answers: {}, pendingMulti: [], pendingInput: '', pendingInputs: {}, pendingNote: '' });
+
+  // ── Builder plan injection — reads plan saved by CoachRecommendationPanel ────
+  const [pendingBuilderPlan] = React.useState(() => {
+    try {
+      if (!window.AtlasEngine) return null;
+      const bp = AtlasEngine.loadBuilderPlan();
+      if (!bp || !bp.volumePlan?.length) return null;
+      if (Date.now() - (bp.generatedAt || 0) > 600000) return null; // expire 10 min
+      AtlasEngine.clearBuilderPlan();
+      return bp;
+    } catch { return null; }
+  });
+
+  // Inject builder plan into active chat once activeChatId is resolved
+  React.useEffect(() => {
+    if (!pendingBuilderPlan || !activeChatId) return;
+    const bp = pendingBuilderPlan;
+    const priority = bp.volumePlan.filter(m => m.state === 'priority').map(m => m.name);
+    const maintain = bp.volumePlan.filter(m => m.state === 'maintain').map(m => m.name);
+    const lines = [
+      'Plan del Builder recibido.',
+      priority.length ? `${priority.length} grupo${priority.length > 1 ? 's' : ''} en prioridad: ${priority.slice(0, 4).join(', ')}${priority.length > 4 ? ' y más' : ''}.` : '',
+      maintain.length ? `${maintain.length} en mantenimiento: ${maintain.slice(0, 3).join(', ')}${maintain.length > 3 ? ' y más' : ''}.` : '',
+      `Split recomendado: ${bp.split?.name || 'Upper/Lower'} · ${bp.days?.length || 4} sesiones semanales.`,
+      `Volumen objetivo: ${bp.totalSets} series/semana.`,
+      '¿Genero la rutina completa con ejercicios específicos basada en este plan?',
+    ].filter(Boolean);
+    setChats(prev => prev.map(c => c.id !== activeChatId ? c : {
+      ...c,
+      messages: [...c.messages, {
+        id: `bp-${Date.now()}`,
+        role: 'coach',
+        content: { type:'text', text: lines.join(' ') },
+        ts: Date.now(),
+      }],
+    }));
+  }, [activeChatId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const allExs = React.useMemo(() => {
     try { return ExerciseService.getAll(); } catch { return []; }
   }, []);
 
-  const ctx = React.useMemo(() => acBuildRichContext(state, profile), [state, profile]);
-  const chips = React.useMemo(() => acGetDynamicChips(ctx, profile), [ctx, profile]);
+  // Merge atlas.profile.v1 (onboarding) with legacy coach profile — atlas.profile.v1 takes priority
+  const mergedProfile = React.useMemo(() => acMergeAtlasProfile(atlasProfile, profile), [atlasProfile, profile]);
+
+  const ctx   = React.useMemo(() => acBuildRichContext(state, mergedProfile), [state, mergedProfile]);
+  const chips = React.useMemo(() => acGetDynamicChips(ctx, mergedProfile), [ctx, mergedProfile]);
 
   const activeChat = chats.find(c => c.id === activeChatId) || null;
   const messages   = activeChat?.messages || [];
@@ -806,7 +2096,7 @@ function AtlasCoachSection() {
   function startNewChat() {
     const id  = `chat-${Date.now()}`;
     const mem = acLoadMemory();
-    const welcome = acWelcomeMessage(state, profile, mem);
+    const welcome = acWelcomeMessage(state, mergedProfile, mem);
     const chat = {
       id, title:'Nueva conversación',
       messages: [{ id:`${id}-init`, role:'coach', content:{ type:'text', text:welcome }, ts:Date.now() }],
@@ -818,6 +2108,279 @@ function AtlasCoachSection() {
 
   function handleSaveProfile(p) {
     setProfile(p);
+  }
+
+  // ── Atlas Profile onboarding handlers ─────────────────────────────────────
+  function _addCoachMsg(content) {
+    const id = `ob-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
+    setChats(prev => prev.map(c => c.id !== activeChatId ? c : {
+      ...c,
+      messages: [...c.messages, { id, role:'coach', content, ts:Date.now() }],
+    }));
+  }
+  function _addUserMsg(text) {
+    const id = `obu-${Date.now()}`;
+    setChats(prev => prev.map(c => c.id !== activeChatId ? c : {
+      ...c,
+      messages: [...c.messages, { id, role:'user', content:text, ts:Date.now() }],
+    }));
+  }
+  function _markStepAnswered(stepId, value) {
+    setChats(prev => prev.map(c => c.id !== activeChatId ? c : {
+      ...c,
+      messages: c.messages.map(m =>
+        m.content?.type === 'onboarding-step' && m.content?.id === stepId
+          ? { ...m, content: { ...m.content, answered: value } }
+          : m
+      ),
+    }));
+  }
+
+  function dismissCard() {
+    apSetDismissed();
+    setShowCard(false);
+  }
+
+  const _OB_RESET = { active: false, level: 1, step: 0, answers: {}, pendingMulti: [], pendingInput: '', pendingInputs: {}, pendingNote: '' };
+
+  function startOnboarding() {
+    setShowCard(false);
+    setOnboarding({ ..._OB_RESET, active: true });
+    _addCoachMsg({ type:'text', text:'Perfecto. Empecemos con tu Perfil Atlas. 6 preguntas rápidas.' });
+    setTimeout(() => _addCoachMsg({ type:'onboarding-step', ...AP_STEPS[0] }), 400);
+  }
+
+  function editProfile() {
+    setOnboarding({ ..._OB_RESET, active: true });
+    _addCoachMsg({ type:'text', text:'Vamos a actualizar tu Perfil Atlas. Puedes modificar cualquier dato.' });
+    setTimeout(() => _addCoachMsg({ type:'onboarding-step', ...AP_STEPS[0] }), 400);
+  }
+
+  function handleOnboardingAnswer(stepId, value) {
+    // L2 offer
+    if (stepId === 'l2-offer') {
+      const label = AP_L2_OFFER.options.find(o => o.v === value)?.l || value;
+      _markStepAnswered(stepId, value);
+      _addUserMsg(label);
+      if (value === 'yes') {
+        setOnboarding(prev => ({ ...prev, level: 2, step: 0, pendingMulti: [], pendingInput: '', pendingInputs: {}, pendingNote: '' }));
+        setTimeout(() => _addCoachMsg({ type:'onboarding-step', ...AP_STEPS_L2[0] }), 350);
+      } else {
+        _finishOnboarding(onboarding.answers);
+      }
+      return;
+    }
+
+    const steps   = onboarding.level === 1 ? AP_STEPS : AP_STEPS_L2;
+    const stepIdx = onboarding.step;
+    const step    = steps[stepIdx];
+    if (!step || step.id !== stepId) return;
+
+    const label = step.options?.find(o => o.v === value)?.l || String(value);
+    _markStepAnswered(stepId, value);
+    _addUserMsg(label);
+    const newAnswers = { ...onboarding.answers, [stepId]: value };
+    _advanceOnboarding(stepIdx, newAnswers, onboarding.level);
+  }
+
+  function handleMultiToggle(v) {
+    setOnboarding(prev => {
+      const steps   = prev.level === 1 ? AP_STEPS : AP_STEPS_L2;
+      const step    = steps[prev.step];
+      const maxSel  = step?.maxSelect || 3;
+      const none    = step?.noneOption;
+      let cur       = prev.pendingMulti;
+      if (none && v === none) {
+        cur = cur.includes(none) ? [] : [none];
+      } else if (none && cur.includes(none)) {
+        cur = [v];
+      } else {
+        cur = cur.includes(v) ? cur.filter(x => x !== v) : cur.length < maxSel ? [...cur, v] : cur;
+      }
+      return { ...prev, pendingMulti: cur };
+    });
+  }
+
+  function handleMultiConfirm() {
+    const steps   = onboarding.level === 1 ? AP_STEPS : AP_STEPS_L2;
+    const stepIdx = onboarding.step;
+    const step    = steps[stepIdx];
+    if (!step || !step.multi) return;
+    const values  = onboarding.pendingMulti;
+    if (!values.length) return;
+    const note    = onboarding.pendingNote?.trim() || null;
+    const labels  = values.map(v => step.options.find(o => o.v === v)?.l || v).join(', ');
+    _markStepAnswered(step.id, values);
+    _addUserMsg(labels + (note ? ` — ${note}` : ''));
+    const newAnswers = { ...onboarding.answers, [step.id]: values };
+    if (step.hasNoteField && note) newAnswers.injuryNotes = note;
+    _advanceOnboarding(stepIdx, newAnswers, onboarding.level);
+  }
+
+  function handleInputChange(value) {
+    setOnboarding(prev => ({ ...prev, pendingInput: value }));
+  }
+
+  function handleInputConfirm() {
+    const steps   = onboarding.level === 1 ? AP_STEPS : AP_STEPS_L2;
+    const step    = steps[onboarding.step];
+    if (!step || (step.inputType !== 'number' && step.inputType !== 'text')) return;
+    const val = onboarding.pendingInput;
+    if (!val || (typeof val === 'string' && !val.trim())) return;
+    const stored  = step.inputType === 'text' ? val.trim() : Number(val);
+    _markStepAnswered(step.id, val);
+    _addUserMsg(step.inputType === 'text' ? val.trim() : val + (step.unit ? ' ' + step.unit : ''));
+    const newAnswers = { ...onboarding.answers, [step.id]: stored };
+    _advanceOnboarding(onboarding.step, newAnswers, onboarding.level);
+  }
+
+  function handleBodyMetricsChange(field, value) {
+    setOnboarding(prev => ({ ...prev, pendingInputs: { ...prev.pendingInputs, [field]: value } }));
+  }
+
+  function handleBodyMetricsConfirm() {
+    const steps = onboarding.level === 1 ? AP_STEPS : AP_STEPS_L2;
+    const step  = steps[onboarding.step];
+    if (!step || step.inputType !== 'body-metrics') return;
+    const val   = onboarding.pendingInputs;
+    const parts = [val.height && `${val.height} cm`, val.weight && `${val.weight} kg`].filter(Boolean);
+    _markStepAnswered(step.id, val);
+    _addUserMsg(parts.join(' · ') || 'Sin datos');
+    const newAnswers = { ...onboarding.answers, [step.id]: val };
+    _advanceOnboarding(onboarding.step, newAnswers, onboarding.level);
+  }
+
+  function handleNoteChange(value) {
+    setOnboarding(prev => ({ ...prev, pendingNote: value }));
+  }
+
+  function handleSkip() {
+    const steps = onboarding.level === 1 ? AP_STEPS : AP_STEPS_L2;
+    const step  = steps[onboarding.step];
+    if (!step) return;
+    _markStepAnswered(step.id, null);
+    _addUserMsg('Saltar');
+    _advanceOnboarding(onboarding.step, { ...onboarding.answers }, onboarding.level);
+  }
+
+  function _advanceOnboarding(stepIdx, newAnswers, level) {
+    const steps   = level === 1 ? AP_STEPS : AP_STEPS_L2;
+    const nextIdx = stepIdx + 1;
+    const reset   = { pendingMulti: [], pendingInput: '', pendingInputs: {}, pendingNote: '' };
+
+    if (nextIdx < steps.length) {
+      setOnboarding(prev => ({ ...prev, step: nextIdx, answers: newAnswers, ...reset }));
+      setTimeout(() => _addCoachMsg({ type:'onboarding-step', ...steps[nextIdx] }), 350);
+    } else if (level === 1) {
+      // L1 complete — offer L2
+      setOnboarding(prev => ({ ...prev, step: -1, answers: newAnswers, ...reset }));
+      setTimeout(() => {
+        _addCoachMsg({ type:'text', text:'Nivel 1 completado. Tus datos básicos están guardados.' });
+        setTimeout(() => _addCoachMsg({ type:'onboarding-step', ...AP_L2_OFFER }), 380);
+      }, 350);
+    } else {
+      _finishOnboarding(newAnswers);
+    }
+  }
+
+  function _finishOnboarding(answers) {
+    const bm = answers.bodyMetrics || {};
+    const saved = {
+      objective:        answers.objective        || null,
+      experience:       answers.experience       || null,
+      trainingDays:     answers.trainingDays     || null,
+      sessionDuration:  answers.sessionDuration  || null,
+      equipment:        answers.equipment        || null,
+      musclePriorities: answers.musclePriorities || [],
+      sex:              answers.sex              || null,
+      age:              answers.age              ? Number(answers.age) : null,
+      height:           bm.height               ? Number(bm.height)   : null,
+      weight:           bm.weight               ? Number(bm.weight)   : null,
+      injuries:          answers.injuries          || [],
+      injuryNotes:       answers.injuryNotes       || null,
+      previousInjuries:  answers.previousInjuries  || [],
+      avoidExercises:    answers.avoidExercises     || null,
+      activityLevel:     answers.activityLevel      || null,
+      mainObstacle:      answers.mainObstacle       || null,
+    };
+    apSaveProfile(saved);
+    setAtlasProfile(saved);
+    setOnboarding(_OB_RESET);
+
+    // Step 1: Show "generating" message
+    setTimeout(() => {
+      _addCoachMsg({ type:'text', text:'✓ Perfil guardado.\n\nAtlas está creando tu planificación personalizada...' });
+    }, 350);
+
+    // Step 2: Generate routine and open Builder
+    setTimeout(() => {
+      const goal   = AP_OBJ_MAP[saved.objective]  || 'hipertrofia';
+      const level  = AP_EXP_MAP[saved.experience] || 'intermedio';
+      const days   = saved.trainingDays            || 3;
+      const tiempo = saved.sessionDuration         || 60;
+
+      // Split selection — same logic as acResponseRoutine
+      const musclePriorities = saved.musclePriorities || [];
+      let splitKey = AP_DAYS_SPLIT[days] || (days >= 4 ? 'upper_lower' : days >= 3 ? 'ppl' : 'fullbody');
+      // Principiante con ≤3 días → Full Body
+      if ((saved.experience === 'beginner') && days <= 3) splitKey = 'fullbody';
+
+      // Injury caps
+      const injuries = (saved.injuries || []).filter(i => i !== 'none');
+      const groupCaps = {};
+      injuries.forEach(inj => {
+        const caps = AP_INJURY_GROUP_CAPS[inj] || {};
+        Object.entries(caps).forEach(([g, n]) => {
+          groupCaps[g] = Math.min(groupCaps[g] ?? 99, n);
+        });
+      });
+
+      // Avoid keywords
+      const avoidKeywords = (saved.avoidExercises || '').toLowerCase()
+        .split(/[,;]/).map(s => s.trim()).filter(Boolean);
+
+      // Group boosts from profile priorities
+      const obGroupBoosts = {};
+      musclePriorities.slice(0, 2).forEach(m => {
+        const grp = PRIO_TO_GROUP[m] || PRIO_TO_GROUP[m?.toLowerCase()];
+        if (grp) obGroupBoosts[grp] = (obGroupBoosts[grp] || 0) + 1;
+      });
+
+      let sessions = [];
+      try {
+        sessions = acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps, avoidKeywords, obGroupBoosts);
+      } catch (e) {}
+
+      if (!sessions.length || sessions.every(s => !s.exercises.length)) {
+        _addCoachMsg({ type:'text', text:'No pude generar la rutina automáticamente. Escríbeme "crea mi rutina" para generarla.' });
+        return;
+      }
+
+      // Save as AtlasRoutine
+      const routineId = `routine-ob-${Date.now()}`;
+      const splitLabel = { fullbody:'Full Body', ppl:'Push Pull Legs', upper_lower:'Upper Lower', push:'Push', pull:'Pull', legs:'Legs' }[splitKey] || splitKey.toUpperCase();
+      const routineName = `${splitLabel} · ${goal}`;
+      const atlasRoutine = {
+        id: routineId, name: routineName, objective: goal, frequency: days,
+        split: splitKey, sessions, priorities: musclePriorities,
+        createdAt: Date.now(), source: 'onboarding',
+      };
+      arSave(atlasRoutine);
+
+      // Store Day 1 as pending workout for Builder
+      const firstSession = sessions[0];
+      if (firstSession?.exercises?.length) {
+        localStorage.setItem('atlas.pendingWorkout', JSON.stringify(firstSession.exercises));
+        localStorage.setItem(AR_META_KEY, JSON.stringify({
+          routineId, routineName,
+          sessionIndex: 0,
+          totalSessions: sessions.length,
+          sessionName: firstSession.name,
+        }));
+      }
+
+      navigate('/builder');
+    }, 1800);
   }
 
   function sendMessage() {
@@ -838,7 +2401,7 @@ function AtlasCoachSection() {
     setTimeout(() => {
       let response;
       try {
-        response = acGenerateSmartResponse(userText, state, profile, currentMemory, allExs);
+        response = acGenerateSmartResponse(userText, state, mergedProfile, currentMemory, allExs);
       } catch (err) {
         response = { type:'text', text:'Hubo un error al procesar tu mensaje. Por favor intenta de nuevo.' };
       }
@@ -849,9 +2412,20 @@ function AtlasCoachSection() {
     }, 500 + Math.random() * 400);
   }
 
-  function sendToBuilder(exercises) {
-    actions.setCurrentWorkout(exercises);
+  function sendToBuilder(exercises, meta) {
+    localStorage.setItem('atlas.pendingWorkout', JSON.stringify(exercises));
+    if (meta) {
+      try { localStorage.setItem(AR_META_KEY, JSON.stringify(meta)); } catch {}
+    }
     navigate('/builder');
+  }
+
+  function sendToPlayer(exercises, meta) {
+    localStorage.setItem('atlas.pendingWorkout', JSON.stringify(exercises));
+    if (meta) {
+      try { localStorage.setItem(AR_META_KEY, JSON.stringify({ ...meta, mode: 'player' })); } catch {}
+    }
+    navigate('/player');
   }
 
   function handleKeyDown(e) {
@@ -861,7 +2435,7 @@ function AtlasCoachSection() {
   const isMobile = window.innerWidth < 680;
 
   return (
-    <section style={{ height:'100vh', paddingTop:64, boxSizing:'border-box', display:'flex', flexDirection:'column', background:AC.page, overflow:'hidden' }}>
+    <section style={{ height:'calc(100vh - 57px)', display:'flex', flexDirection:'column', background:AC.page, overflow:'hidden' }}>
       <div style={{ flex:1, display:'flex', overflow:'hidden', minHeight:0 }}>
 
         {!isMobile && (
@@ -887,8 +2461,34 @@ function AtlasCoachSection() {
           {/* Messages */}
           <div style={{ flex:1, overflowY:'auto', padding: isMobile ? '20px 16px' : '28px 32px', minHeight:0 }}>
             <div style={{ maxWidth:700, margin:'0 auto' }}>
+              {atlasProfile
+                ? <AtlasProfileStatus profile={atlasProfile} onEdit={editProfile} />
+                : showCard && <AtlasProfileCard onStart={startOnboarding} onDismiss={dismissCard} />
+              }
               {messages.map(msg => (
-                <AcMessageBubble key={msg.id} msg={msg} onSendToBuilder={sendToBuilder} />
+                <AcMessageBubble
+                  key={msg.id}
+                  msg={msg}
+                  onSendToBuilder={sendToBuilder}
+                  onSendToPlayer={sendToPlayer}
+                  onOpenAula={(id) => { localStorage.setItem('atlas.aula.pending.v1', id); navigate('/aula'); }}
+                  onboardingProps={onboarding.active ? {
+                    answers:              onboarding.answers,
+                    pendingMulti:         onboarding.pendingMulti,
+                    pendingInput:         onboarding.pendingInput,
+                    pendingInputs:        onboarding.pendingInputs,
+                    pendingNote:          onboarding.pendingNote,
+                    onAnswer:             handleOnboardingAnswer,
+                    onMultiToggle:        handleMultiToggle,
+                    onMultiConfirm:       handleMultiConfirm,
+                    onInputChange:        handleInputChange,
+                    onInputConfirm:       handleInputConfirm,
+                    onBodyMetricsChange:  handleBodyMetricsChange,
+                    onBodyMetricsConfirm: handleBodyMetricsConfirm,
+                    onNoteChange:         handleNoteChange,
+                    onSkip:               handleSkip,
+                  } : null}
+                />
               ))}
               {loading && <AcTypingIndicator />}
               <div ref={messagesEndRef} />
@@ -928,4 +2528,6 @@ function AtlasCoachSection() {
   );
 }
 
-Object.assign(window, { AtlasCoachSection });
+// Expose AtlasProfile for other sections to read
+const AtlasProfile = { get: apLoadProfile, save: apSaveProfile };
+Object.assign(window, { AtlasCoachSection, AtlasProfile });

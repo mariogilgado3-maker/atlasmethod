@@ -52,6 +52,8 @@
 <script type="text/babel" src="web/sections/lab.jsx"></script>
 <script type="text/babel" src="web/services/exercises.jsx"></script>
 <script type="text/babel" src="web/services/exercise-media.jsx"></script>
+<script src="web/services/workoutSession.js"></script>
+<script src="web/services/atlasProgressionEngine.js"></script>
 <script type="text/babel" src="web/sections/builder.jsx"></script>
 <script type="text/babel" src="web/sections/dashboard.jsx"></script>
 <script type="text/babel" src="web/sections/coach.jsx"></script>
@@ -65,6 +67,8 @@
 <script type="text/babel" src="web/sections/gems-store.jsx"></script>
 <script type="text/babel" src="web/sections/auth.jsx"></script>
 <script type="text/babel" src="web/sections/onboarding.jsx"></script>
+<script type="text/babel" src="web/sections/workout-player.jsx"></script>
+<script type="text/babel" src="web/sections/progreso.jsx"></script>
 
 <script type="text/babel">
 const { useState, useEffect, useRef, useMemo, useCallback } = React;
@@ -86,6 +90,8 @@ function LaboratorioPage() { return <AtlasCoachSection />; }
 function BuilderPage()     { return <BuilderSection />; }
 function PerfilPage()      { return <><DashboardSection /><GemsStoreSection /></>; }
 function AdminPage()       { return <AulaAdminSection />; }
+function PlayerPage()      { return <WorkoutPlayerSection />; }
+function ProgresoPage()    { return <ProgresoSection />; }
 
 function Routes() {
   const { route } = useRoute();
@@ -97,6 +103,8 @@ function Routes() {
     '/builder': BuilderPage,
     '/perfil': PerfilPage,
     '/admin': AdminPage,
+    '/player': PlayerPage,
+    '/progreso': ProgresoPage,
   }[route] || HomePage;
 
   return (
