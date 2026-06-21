@@ -9,6 +9,7 @@ function AppNav() {
     { path: '/aula', label: 'Aula' },
     { path: '/builder', label: 'Builder' },
     { path: '/coach', label: 'Atlas Coach' },
+    { path: '/progreso', label: 'Progreso' },
     { path: '/perfil', label: 'Perfil' },
   ];
 

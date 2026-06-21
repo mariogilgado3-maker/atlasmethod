@@ -464,6 +464,7 @@ function acBuildRichContext(state, profile) {
     builderPlan, activeRoutine,
     progressSummary: typeof peGetProgressSummary !== 'undefined' ? peGetProgressSummary(log) : null,
     sePanel: typeof AtlasScientificEngine !== 'undefined' ? AtlasScientificEngine.seGetScientificPanel(log, profile) : null,
+    apePanel: typeof AtlasProgressionEngine !== 'undefined' ? AtlasProgressionEngine.getFullPanel(log, profile) : null,
   };
 }
 
@@ -480,6 +481,7 @@ function acDetectIntent(text) {
   if (/recupera|descans|hrv|fatiga|sobreentren|puedo.*entrenar|debo descansar|deload/.test(t)) return 'recovery';
   if (/revisa.*rutina|cómo.*está.*mi.*plan|analiza.*mi.*rutina|mi.*rutina.*actual|qué.*tiene.*mi.*plan|mi.*plan.*actual/.test(t)) return 'builder-review';
   if (/estoy progresando|cu[aá]nto.*mejor|mi evoluci[oó]n|he mejorado|cu[aá]nto he.*subid|qu[eé].*progres|mis resultados|mi historial de carga/.test(t)) return 'progress-check';
+  if (/adherencia|cu[aá]nto.*entreno|cumpl|consistencia|racha|sesiones.*mes|mi.*progreso.*global|atlas.*score/.test(t)) return 'progress-check';
   if (/perfil|mi.*objetivo|mi.*nivel|cambiar.*objetivo|actualiz.*perfil/.test(t)) return 'profile';
   if (/^(hola|hey|buenas|buenos|qu[eé] hay|ola)/.test(t)) return 'greeting';
   return 'general';
@@ -821,6 +823,15 @@ function acResponseAnalysis(ctx, profile) {
     issues.push({ sev:'info', icon:'ℹ', title:'Frecuencia baja para pérdida de grasa', detail:'Para pérdida de grasa el volumen semanal y la consistencia son clave. Con menos de 2 sesiones por semana el déficit calórico generado por el entrenamiento es mínimo.', rec:'Intenta mantener al menos 3 sesiones semanales, aunque sean más cortas.' });
   }
 
+  // APE alerts — add any not already covered
+  if (ctx.apePanel?.alerts?.length > 0) {
+    const apeAlerts = ctx.apePanel.alerts.filter(a => a.type === 'frequency_drop' || a.type === 'notable_improvement');
+    apeAlerts.forEach(a => {
+      const sev = a.severity === 'success' ? 'good' : a.severity;
+      issues.push({ sev, icon: a.severity === 'success' ? '✓' : '⚠', title: a.message, detail:'', rec:'' });
+    });
+  }
+
   const warns = issues.filter(i => i.sev === 'warning');
   const profileNote = profile ? ` (objetivo: ${profile.objetivo}, nivel ${profile.nivel})` : '';
   const summary = warns.length > 0
@@ -952,39 +963,49 @@ function acResponseRecovery(ctx) {
 }
 
 function acResponseProgress(ctx) {
-  const ps = ctx.progressSummary;
+  const ps  = ctx.progressSummary;
+  const ape = ctx.apePanel;
 
-  if (!ps || ctx.log.length < 2) {
-    return { type:'text', text:'Aún no hay suficiente historial para analizar tu progresión. Completa 2–3 sesiones registrando pesos y repeticiones en el Builder y podré darte un análisis real de tu evolución.' };
+  if ((!ps && !ape) || ctx.log.length < 2) {
+    return { type:'text', text:'Aún no hay suficiente historial para analizar tu progresión. Completa 2–3 sesiones registrando pesos y repeticiones en el Workout Player y podré darte un análisis real de tu evolución.', relatedArticles:['sobrecarga-progresiva'] };
   }
 
   const parts = [];
 
-  if (ps.topProgress.length > 0) {
-    const list = ps.topProgress.map(e => `• ${e.name} — +${e.delta} kg (+${e.pct}%) en ${e.sessions} registros`).join('\n');
-    parts.push(`Ejercicios que más han mejorado:\n${list}`);
+  // Atlas Progress Score
+  if (ape?.score?.total > 0) {
+    parts.push(`Atlas Progress Score: ${ape.score.total}/100 — ${ape.score.label}\nAdherencia ${ape.adherence?.pct ?? '–'}% · Consistencia ${ape.consistency?.activeWeeks ?? '–'}/8 semanas activas · Racha actual: ${ape.consistency?.streak ?? 0} días.`);
   }
 
-  if (ps.stagnant.length > 0) {
-    const list = ps.stagnant.slice(0, 3).map(e => `• ${e.name} — ${e.sessions} registros en ${e.kg} kg`).join('\n');
-    parts.push(`Sin progreso detectado:\n${list}`);
+  // Strength progression
+  const topProg = ape?.strength?.topProgressing || ps?.topProgress || [];
+  if (topProg.length > 0) {
+    const list = topProg.slice(0, 3).map(e => `• ${e.exerciseName || e.name} — +${e.pct}% en ${e.sessions} registros`).join('\n');
+    parts.push(`Ejercicios progresando:\n${list}`);
   }
 
-  if (ps.thisWeekVolume > 0) {
-    parts.push(`Volumen esta semana: ${ps.thisWeekSets} series · ${ps.thisWeekVolume.toLocaleString('es-ES')} kg totales levantados.`);
+  // Stagnant
+  const stagnant = ape?.strength?.stagnant || ps?.stagnant || [];
+  if (stagnant.length > 0) {
+    const list = stagnant.slice(0, 2).map(e => `• ${e.exerciseName || e.name}`).join('\n');
+    parts.push(`Sin progreso detectado en:\n${list}\nConsulta técnica o cambia el estímulo.`);
   }
 
-  if (ps.deload?.needed) {
-    parts.push('⚠ Señales de fatiga detectadas. Escribe "necesito un deload" para el protocolo completo.');
-  } else if (ps.topProgress.length > 0) {
-    parts.push('Progresión sólida. Mantén la carga progresiva y registra pesos en cada sesión para que el análisis sea preciso.');
+  // Alerts from APE
+  const alerts = (ape?.alerts || []).filter(a => a.severity === 'warning');
+  if (alerts.length > 0) parts.push(`⚠ ${alerts[0].message}`);
+
+  // Volume this week
+  if (ps?.thisWeekVolume > 0) {
+    parts.push(`Volumen esta semana: ${ps.thisWeekSets} series · ${ps.thisWeekVolume.toLocaleString('es-ES')} kg levantados.`);
   }
 
   if (parts.length === 0) {
-    return { type:'text', text:'No hay datos de carga suficientes. Registra kg y repeticiones en cada ejercicio del Builder y podré analizar tu evolución semana a semana.' };
+    return { type:'text', text:'No hay datos de carga suficientes. Registra kg y repeticiones en cada ejercicio para que pueda analizar tu evolución.' };
   }
 
-  return { type:'text', text: parts.join('\n\n') };
+  parts.push('Revisa todos tus datos en /progreso o escríbeme sobre cualquier ejercicio concreto.');
+  return { type:'text', text: parts.join('\n\n'), relatedArticles:['sobrecarga-progresiva'] };
 }
 
 function acResponseBuilderReview(ctx, profile) {
