@@ -2072,6 +2072,16 @@ function BuilderSection() {
     setTimeout(() => { setSaved(false); setWorkout([]); setMuscle(null); setQuery(''); setMode('empty'); }, 3000);
   }
 
+  function loadRoutineDay(dayIndex) {
+    const routine = arLoad();
+    if (!routine?.sessions?.[dayIndex]) return;
+    const session = routine.sessions[dayIndex];
+    const exs = session.exercises || [];
+    if (!exs.length) return;
+    setWorkout(exs);
+    setCoachBanner(prev => prev ? { ...prev, sessionIndex: dayIndex, sessionName: session.name } : null);
+  }
+
   function startExecution() {
     if (!workout.length) return;
     setExecSession({ exercises: workout, meta: coachBanner, startTime: Date.now() });
@@ -2124,25 +2134,46 @@ function BuilderSection() {
 
         {coachBanner && (
           <div style={{
-            display:'flex', alignItems:'center', gap:14,
-            padding:'11px 18px', borderRadius:12,
+            padding:'12px 18px', borderRadius:12,
             background:'rgba(37,99,235,0.07)', border:'1px solid rgba(37,99,235,0.16)',
-            marginBottom:20, animation:'fadeIn .25s ease', flexWrap:'wrap',
+            marginBottom:20, animation:'fadeIn .25s ease',
           }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8, flex:1, minWidth:0 }}>
-              <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700, color:'#93C5FD', letterSpacing:1.1 }}>ATLAS COACH</span>
-              <span style={{ fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600, color:'rgba(147,197,253,0.80)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+            {/* Row 1: label, name, actions */}
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700, color:'#93C5FD', letterSpacing:1.1, flexShrink:0 }}>ATLAS COACH</span>
+              <span style={{ fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600, color:'rgba(147,197,253,0.80)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                 {coachBanner.routineName || 'Plan generado'}
-                {coachBanner.totalSessions > 1 ? ` · Día ${(coachBanner.sessionIndex || 0) + 1}/${coachBanner.totalSessions}` : ''}
-                {' · '}{coachBanner.sessionName || ''}
+                {!coachBanner.totalSessions || coachBanner.totalSessions <= 1
+                  ? (coachBanner.sessionName ? ` · ${coachBanner.sessionName}` : '')
+                  : ` · ${coachBanner.sessionName || `Día ${(coachBanner.sessionIndex || 0) + 1}`}`}
               </span>
+              {workout.length > 0 && (
+                <button onClick={startExecution} style={{ background:'#22C55E', border:'none', borderRadius:8, color:'#fff', padding:'6px 13px', cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'Inter,system-ui', flexShrink:0, boxShadow:'0 3px 12px rgba(34,197,94,0.30)' }}>
+                  ▶ Iniciar
+                </button>
+              )}
+              <button onClick={() => setCoachBanner(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(147,197,253,0.35)', fontSize:14, padding:'2px 6px', flexShrink:0 }}>✕</button>
             </div>
-            {workout.length > 0 && (
-              <button onClick={startExecution} style={{ background:'#22C55E', border:'none', borderRadius:8, color:'#fff', padding:'7px 14px', cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'Inter,system-ui', flexShrink:0, boxShadow:'0 3px 12px rgba(34,197,94,0.30)' }}>
-                ▶ Iniciar
-              </button>
+            {/* Row 2: day tabs for multi-session plans */}
+            {coachBanner.totalSessions > 1 && (
+              <div style={{ display:'flex', gap:6, marginTop:10, flexWrap:'wrap' }}>
+                {Array.from({ length: coachBanner.totalSessions }, (_, i) => {
+                  const isActive = i === (coachBanner.sessionIndex || 0);
+                  return (
+                    <button key={i} onClick={() => loadRoutineDay(i)} style={{
+                      padding:'4px 12px', borderRadius:7,
+                      border:`1px solid ${isActive ? 'rgba(59,130,246,0.45)' : 'rgba(59,130,246,0.15)'}`,
+                      background: isActive ? 'rgba(59,130,246,0.14)' : 'transparent',
+                      color: isActive ? '#93C5FD' : 'rgba(147,197,253,0.40)',
+                      fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700,
+                      cursor: isActive ? 'default' : 'pointer', transition:'all .15s',
+                    }}>
+                      Día {i + 1}
+                    </button>
+                  );
+                })}
+              </div>
             )}
-            <button onClick={() => setCoachBanner(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(147,197,253,0.35)', fontSize:14, padding:'2px 6px', flexShrink:0 }}>✕</button>
           </div>
         )}
 

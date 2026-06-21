@@ -2113,10 +2113,74 @@ function AtlasCoachSection() {
     apSaveProfile(saved);
     setAtlasProfile(saved);
     setOnboarding(_OB_RESET);
-    setTimeout(() => _addCoachMsg({
-      type:'text',
-      text:'✓ Perfil Atlas guardado correctamente.\n\nAtlas Coach utilizará esta información para personalizar futuras recomendaciones de rutinas, distribución de volumen y selección de ejercicios.\n\nPuedes editar tu perfil en cualquier momento desde la barra superior del chat.',
-    }), 350);
+
+    // Step 1: Show "generating" message
+    setTimeout(() => {
+      _addCoachMsg({ type:'text', text:'✓ Perfil guardado.\n\nAtlas está creando tu planificación personalizada...' });
+    }, 350);
+
+    // Step 2: Generate routine and open Builder
+    setTimeout(() => {
+      const goal   = AP_OBJ_MAP[saved.objective]  || 'hipertrofia';
+      const level  = AP_EXP_MAP[saved.experience] || 'intermedio';
+      const days   = saved.trainingDays            || 3;
+      const tiempo = saved.sessionDuration         || 60;
+
+      // Split selection — same logic as acResponseRoutine
+      const musclePriorities = saved.musclePriorities || [];
+      let splitKey = AP_DAYS_SPLIT[days] || (days >= 4 ? 'upper_lower' : days >= 3 ? 'ppl' : 'fullbody');
+      // Principiante con ≤3 días → Full Body
+      if ((saved.experience === 'beginner') && days <= 3) splitKey = 'fullbody';
+
+      // Injury caps
+      const injuries = (saved.injuries || []).filter(i => i !== 'none');
+      const groupCaps = {};
+      injuries.forEach(inj => {
+        const caps = AP_INJURY_GROUP_CAPS[inj] || {};
+        Object.entries(caps).forEach(([g, n]) => {
+          groupCaps[g] = Math.min(groupCaps[g] ?? 99, n);
+        });
+      });
+
+      // Avoid keywords
+      const avoidKeywords = (saved.avoidExercises || '').toLowerCase()
+        .split(/[,;]/).map(s => s.trim()).filter(Boolean);
+
+      let sessions = [];
+      try {
+        sessions = acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps, avoidKeywords);
+      } catch (e) {}
+
+      if (!sessions.length || sessions.every(s => !s.exercises.length)) {
+        _addCoachMsg({ type:'text', text:'No pude generar la rutina automáticamente. Escríbeme "crea mi rutina" para generarla.' });
+        return;
+      }
+
+      // Save as AtlasRoutine
+      const routineId = `routine-ob-${Date.now()}`;
+      const splitLabel = { fullbody:'Full Body', ppl:'Push Pull Legs', upper_lower:'Upper Lower', push:'Push', pull:'Pull', legs:'Legs' }[splitKey] || splitKey.toUpperCase();
+      const routineName = `${splitLabel} · ${goal}`;
+      const atlasRoutine = {
+        id: routineId, name: routineName, objective: goal, frequency: days,
+        split: splitKey, sessions, priorities: musclePriorities,
+        createdAt: Date.now(), source: 'onboarding',
+      };
+      arSave(atlasRoutine);
+
+      // Store Day 1 as pending workout for Builder
+      const firstSession = sessions[0];
+      if (firstSession?.exercises?.length) {
+        localStorage.setItem('atlas.pendingWorkout', JSON.stringify(firstSession.exercises));
+        localStorage.setItem(AR_META_KEY, JSON.stringify({
+          routineId, routineName,
+          sessionIndex: 0,
+          totalSessions: sessions.length,
+          sessionName: firstSession.name,
+        }));
+      }
+
+      navigate('/builder');
+    }, 1800);
   }
 
   function sendMessage() {
