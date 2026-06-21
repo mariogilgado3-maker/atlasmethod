@@ -1475,7 +1475,7 @@ function AcTypingIndicator() {
   );
 }
 
-function AcRoutineCard({ session, sessionIndex, totalSessions, routineId, routineName, onSendToBuilder }) {
+function AcRoutineCard({ session, sessionIndex, totalSessions, routineId, routineName, onSendToBuilder, onSendToPlayer }) {
   const [open, setOpen] = React.useState(true);
   const label = totalSessions > 1 ? `Día ${sessionIndex + 1} de ${totalSessions}` : null;
   return (
@@ -1519,17 +1519,18 @@ function AcRoutineCard({ session, sessionIndex, totalSessions, routineId, routin
               <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, color:AC.muted, textAlign:'center' }}>{ex.rest||'90s'}</div>
             </div>
           ))}
-          <div style={{ padding:'12px 18px', borderTop:`1px solid rgba(255,255,255,0.05)` }}>
+          <div style={{ padding:'12px 18px', borderTop:'1px solid rgba(255,255,255,0.05)', display:'flex', gap:8 }}>
             <button
-              onClick={() => onSendToBuilder(session.exercises, {
-                routineId, routineName,
-                sessionIndex, totalSessions,
-                sessionName: session.name,
-                mode: 'execute',
-              })}
-              style={{ width:'100%', padding:'11px 16px', borderRadius:10, border:'none', cursor:'pointer', background:'#22C55E', color:'#fff', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, letterSpacing:-0.2, boxShadow:'0 4px 18px -4px rgba(34,197,94,0.45)' }}
+              onClick={() => onSendToBuilder(session.exercises, { routineId, routineName, sessionIndex, totalSessions, sessionName: session.name })}
+              style={{ flex:1, padding:'10px 12px', borderRadius:10, border:'1px solid rgba(59,130,246,0.30)', cursor:'pointer', background:'transparent', color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:12, fontWeight:700, letterSpacing:-0.2 }}
             >
-              ▶ Iniciar entrenamiento
+              Ver rutina
+            </button>
+            <button
+              onClick={() => onSendToPlayer(session.exercises, { routineId, routineName, sessionIndex, totalSessions, sessionName: session.name })}
+              style={{ flex:2, padding:'10px 16px', borderRadius:10, border:'none', cursor:'pointer', background:'#22C55E', color:'#fff', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, letterSpacing:-0.2, boxShadow:'0 4px 18px -4px rgba(34,197,94,0.45)' }}
+            >
+              ▶ Entrenar ahora
             </button>
           </div>
         </>
@@ -1625,7 +1626,7 @@ function AcAulaChips({ articleIds, onOpenAula }) {
   );
 }
 
-function AcCoachMessage({ content, onSendToBuilder, onboardingProps, onOpenAula }) {
+function AcCoachMessage({ content, onSendToBuilder, onSendToPlayer, onboardingProps, onOpenAula }) {
   const bubble = { padding:'13px 18px', borderRadius:'4px 18px 18px 18px', background:AC.card, border:`1px solid ${AC.border}`, fontFamily:'Inter,system-ui', fontSize:14, lineHeight:1.65, color:AC.text, whiteSpace:'pre-line' };
   if (content.type === 'text') return (
     <div>
@@ -1645,6 +1646,7 @@ function AcCoachMessage({ content, onSendToBuilder, onboardingProps, onOpenAula 
           routineId={content.routineId}
           routineName={content.routineName}
           onSendToBuilder={onSendToBuilder}
+          onSendToPlayer={onSendToPlayer}
         />
       ))}
     </div>
@@ -1683,7 +1685,7 @@ function AcCoachMessage({ content, onSendToBuilder, onboardingProps, onOpenAula 
   return <div style={bubble}>{String(content)}</div>;
 }
 
-function AcMessageBubble({ msg, onSendToBuilder, onboardingProps, onOpenAula }) {
+function AcMessageBubble({ msg, onSendToBuilder, onSendToPlayer, onboardingProps, onOpenAula }) {
   const isUser = msg.role === 'user';
   return (
     <div style={{ display:'flex', justifyContent:isUser?'flex-end':'flex-start', alignItems:'flex-end', gap:8, marginBottom:20, animation:'fadeIn .22s ease' }}>
@@ -1693,7 +1695,7 @@ function AcMessageBubble({ msg, onSendToBuilder, onboardingProps, onOpenAula }) 
       <div style={{ maxWidth:'76%', minWidth:0 }}>
         {isUser
           ? <div style={{ padding:'11px 16px', borderRadius:'18px 18px 4px 18px', background:'#2563EB', color:'#fff', fontFamily:'Inter,system-ui', fontSize:14, lineHeight:1.55, wordBreak:'break-word' }}>{msg.content}</div>
-          : <AcCoachMessage content={msg.content} onSendToBuilder={onSendToBuilder} onboardingProps={onboardingProps} onOpenAula={onOpenAula} />
+          : <AcCoachMessage content={msg.content} onSendToBuilder={onSendToBuilder} onSendToPlayer={onSendToPlayer} onboardingProps={onboardingProps} onOpenAula={onOpenAula} />
         }
         <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:'rgba(232,237,248,0.22)', marginTop:5, textAlign:isUser?'right':'left' }}>
           {new Date(msg.ts).toLocaleTimeString('es', { hour:'2-digit', minute:'2-digit' })}
@@ -2133,6 +2135,14 @@ function AtlasCoachSection() {
     navigate('/builder');
   }
 
+  function sendToPlayer(exercises, meta) {
+    localStorage.setItem('atlas.pendingWorkout', JSON.stringify(exercises));
+    if (meta) {
+      try { localStorage.setItem(AR_META_KEY, JSON.stringify({ ...meta, mode: 'player' })); } catch {}
+    }
+    navigate('/player');
+  }
+
   function handleKeyDown(e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   }
@@ -2175,6 +2185,7 @@ function AtlasCoachSection() {
                   key={msg.id}
                   msg={msg}
                   onSendToBuilder={sendToBuilder}
+                  onSendToPlayer={sendToPlayer}
                   onOpenAula={(id) => { localStorage.setItem('atlas.aula.pending.v1', id); navigate('/aula'); }}
                   onboardingProps={onboarding.active ? {
                     answers:              onboarding.answers,

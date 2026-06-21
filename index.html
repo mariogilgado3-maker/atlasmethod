@@ -44,12 +44,14 @@
 <script type="text/babel" src="web/services/exercises.jsx"></script>
 <script type="text/babel" src="web/services/exercise-media.jsx"></script>
 <script src="web/services/scientificEngine.js"></script>
+<script src="web/services/workoutSession.js"></script>
 <script type="text/babel" src="web/sections/builder.jsx"></script>
 <script type="text/babel" src="web/sections/dashboard.jsx"></script>
 <script type="text/babel" src="web/sections/coach.jsx"></script>
 <script src="web/services/progressionEngine.js"></script>
 <script src="web/services/aulaEngine.js"></script>
 <script type="text/babel" src="web/sections/atlas-coach.jsx"></script>
+<script type="text/babel" src="web/sections/workout-player.jsx"></script>
 <script type="text/babel" src="web/sections/mobile.jsx"></script>
 <script type="text/babel" src="web/sections/closing.jsx"></script>
 <script type="text/babel" src="web/services/articles.jsx"></script>
@@ -68,6 +70,7 @@ function LaboratorioPage() { return <AtlasCoachSection />; }
 function BuilderPage()     { return <BuilderSection />; }
 function PerfilPage()      { return <><DashboardSection /><GemsStoreSection /></>; }
 function AdminPage()       { return <AulaAdminSection />; }
+function PlayerPage()      { return <WorkoutPlayerSection />; }
 
 function Routes() {
   const { route } = useRoute();
@@ -79,6 +82,7 @@ function Routes() {
     '/builder': BuilderPage,
     '/perfil': PerfilPage,
     '/admin': AdminPage,
+    '/player': PlayerPage,
   }[route] || HomePage;
 
   return (
@@ -88,7 +92,7 @@ function Routes() {
   );
 }
 
-const APP_ROUTES = new Set(['/coach', '/builder', '/laboratorio']);
+const APP_ROUTES = new Set(['/coach', '/builder', '/laboratorio', '/player']);
 
 function ConditionalFooter() {
   const { route } = useRoute();
