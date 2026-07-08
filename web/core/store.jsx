@@ -125,7 +125,8 @@ function StoreProvider({ children }) {
     }),
 
     // NEW: Log a full workout session with exercises
-    logSession: (exercises) => setState(s => {
+    // meta: { duration (secs), routineName, sessionName } — sent by Builder y Workout Mode
+    logSession: (exercises, meta = {}) => setState(s => {
       const today = new Date().toDateString();
       const wasYesterday = s.sessions.lastDate === new Date(Date.now() - 86400000).toDateString();
       const alreadyToday = s.sessions.lastDate === today;
@@ -141,6 +142,9 @@ function StoreProvider({ children }) {
         dateTs: Date.now(),
         exercises,
         gems: 30,
+        duration:    meta.duration    || null,
+        routineName: meta.routineName || null,
+        sessionName: meta.sessionName || null,
       };
 
       const newLog = [entry, ...s.log].slice(0, 100);

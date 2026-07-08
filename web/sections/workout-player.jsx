@@ -39,16 +39,34 @@ function wpFmt(secs) {
   return m > 0 ? `${m}:${String(s).padStart(2,'0')}` : `${s}s`;
 }
 
+// Media group for ExerciseMedia.Thumbnail from primary muscle name
+function wpMediaGroup(ex) {
+  const m = ((Array.isArray(ex.muscles) ? ex.muscles[0] : ex.muscles?.primary?.[0]) || '').toLowerCase();
+  if (/pectoral|pecho/.test(m)) return 'pecho';
+  if (/dorsal|romboid|trapecio|espalda|lumbar/.test(m)) return 'espalda';
+  if (/cu[áa]driceps|isquio|gl[úu]teo|gemelo|s[óo]leo|aductor|pierna/.test(m)) return 'pierna';
+  if (/deltoid|hombro/.test(m)) return 'hombro';
+  if (/b[íi]ceps|braquial/.test(m)) return 'biceps';
+  if (/tr[íi]ceps/.test(m)) return 'triceps';
+  return 'core';
+}
+
 function wpNormalize(rawExs) {
   return rawExs.map((ex, i) => {
     const setsCount = ex.setsCount || (Array.isArray(ex.sets) ? ex.sets.length : 3);
+    // Enriquecer desde la base de ejercicios compartida (técnica, equipamiento)
+    const db = (typeof ExerciseService !== 'undefined' && ex.id)
+      ? ExerciseService.getById(ex.id) : null;
     return {
       id:       ex.id    || `ex-${i}`,
       name:     ex.name  || 'Ejercicio',
       muscles:  Array.isArray(ex.muscles)
                   ? { primary: ex.muscles, secondary: [] }
-                  : (ex.muscles || { primary: [], secondary: [] }),
-      pattern:  ex.pattern  || '',
+                  : (ex.muscles || db?.muscles || { primary: [], secondary: [] }),
+      pattern:  ex.pattern  || db?.pattern || '',
+      cues:      ex.cues      || db?.cues      || [],
+      equipment: ex.equipment || db?.equipment || '',
+      level:     ex.level     || db?.level     || '',
       repsRange: ex.repsRange || '8-12',
       rir:      ex.rir ?? 2,
       restSecs: wpParseRest(ex.rest),
@@ -315,6 +333,75 @@ function WpSetRow({ idx, set, isNext, onUpdate, onComplete }) {
   );
 }
 
+// ── Exercise Info Panel (técnica + ilustración) ───────────────────────────────
+function WpExerciseInfo({ exercise }) {
+  const [open, setOpen] = React.useState(false);
+  const cues  = exercise.cues || [];
+  const group = wpMediaGroup(exercise);
+  const hasMedia = typeof ExerciseMedia !== 'undefined' && ExerciseMedia.Thumbnail;
+
+  return (
+    <div style={{ marginBottom: 20, borderRadius: 12, overflow: 'hidden',
+      border: `1px solid ${WP.border}`, background: WP.card2 }}>
+      <button onClick={() => setOpen(o => !o)}
+        style={{ width: '100%', padding: '11px 14px', border: 'none', cursor: 'pointer',
+          background: 'transparent', display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between' }}>
+        <span style={{ fontFamily: 'Inter,system-ui', fontSize: 12, fontWeight: 700,
+          color: WP.sub }}>ℹ Técnica y ejecución</span>
+        <span style={{ color: WP.muted, fontSize: 11,
+          transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>▾</span>
+      </button>
+
+      {open && (
+        <div style={{ padding: '0 14px 14px', animation: 'fadeIn .2s ease' }}>
+          {/* Ilustración / animación del ejercicio */}
+          {hasMedia && (
+            <div style={{ borderRadius: 10, overflow: 'hidden', marginBottom: 12 }}>
+              <ExerciseMedia.Thumbnail exercise={exercise} group={group} height={110} />
+            </div>
+          )}
+
+          {/* Equipamiento y patrón */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: cues.length ? 12 : 0 }}>
+            {exercise.equipment && (
+              <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: 10,
+                background: 'rgba(255,255,255,0.05)', border: `1px solid ${WP.border}`,
+                color: WP.sub, fontFamily: 'ui-monospace,Menlo,monospace' }}>
+                {exercise.equipment}
+              </span>
+            )}
+            {exercise.pattern && (
+              <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: 10,
+                background: 'rgba(255,255,255,0.05)', border: `1px solid ${WP.border}`,
+                color: WP.sub, fontFamily: 'ui-monospace,Menlo,monospace' }}>
+                {exercise.pattern.replace(/-/g, ' ')}
+              </span>
+            )}
+          </div>
+
+          {/* Claves técnicas */}
+          {cues.length > 0 ? (
+            <ul style={{ margin: 0, padding: '0 0 0 4px', listStyle: 'none' }}>
+              {cues.map((c, i) => (
+                <li key={i} style={{ display: 'flex', gap: 8, marginBottom: 7,
+                  fontFamily: 'Inter,system-ui', fontSize: 12.5, lineHeight: 1.5,
+                  color: WP.sub }}>
+                  <span style={{ color: WP.blue, flexShrink: 0 }}>›</span>{c}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div style={{ fontFamily: 'Inter,system-ui', fontSize: 12, color: WP.muted }}>
+              Sin notas técnicas para este ejercicio.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Exercise View ─────────────────────────────────────────────────────────────
 function WpExerciseView({ exercise, exIdx, totalExs, onSetUpdate, onSetComplete }) {
   const primary   = exercise.muscles?.primary   || [];
@@ -358,6 +445,9 @@ function WpExerciseView({ exercise, exIdx, totalExs, onSetUpdate, onSetComplete 
           ))}
         </div>
       </div>
+
+      {/* Técnica del ejercicio */}
+      <WpExerciseInfo exercise={exercise} />
 
       {/* Targets */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 20 }}>

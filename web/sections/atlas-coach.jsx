@@ -468,6 +468,72 @@ function acBuildRichContext(state, profile) {
   };
 }
 
+// ── History insights — el Coach lee el historial y lo verbaliza ───────────────
+// Devuelve frases tipo: "Llevas 2 semanas entrenando Upper Lower.",
+// "La semana pasada aumentaste el volumen de pecho un 18%.",
+// "Has progresado en press banca.", "Te recomiendo una semana de descarga."
+function acHistoryInsights(ctx) {
+  const insights = [];
+  const log = ctx.log || [];
+  const now = Date.now();
+  const MS_WEEK = 7 * 86400000;
+
+  // 1. Semanas entrenando la rutina activa (usa routineName guardado en cada sesión)
+  const routineName = ctx.activeRoutine?.name;
+  if (routineName) {
+    const routineSessions = log.filter(s => s.routineName === routineName);
+    if (routineSessions.length >= 2) {
+      const oldest = Math.min(...routineSessions.map(s => s.dateTs || now));
+      const weeks = Math.max(1, Math.round((now - oldest) / MS_WEEK));
+      insights.push(weeks >= 2
+        ? `Veo que llevas ${weeks} semanas entrenando ${routineName}.`
+        : `Llevas ${routineSessions.length} sesiones con ${routineName}.`);
+    }
+  }
+
+  // 2. Cambio de volumen semana vs semana anterior por músculo
+  const volByWeek = (from, to) => {
+    const acc = {};
+    log.filter(s => (s.dateTs || 0) >= from && (s.dateTs || 0) < to).forEach(s => {
+      (s.exercises || []).forEach(ex => {
+        const m = (Array.isArray(ex.muscles) ? ex.muscles[0] : ex.muscles?.primary?.[0]) || '';
+        const k = m.toLowerCase();
+        if (k) acc[k] = (acc[k] || 0) + (ex.sets?.length || 0);
+      });
+    });
+    return acc;
+  };
+  const thisWeek = volByWeek(now - MS_WEEK, now + 1);
+  const prevWeek = volByWeek(now - 2 * MS_WEEK, now - MS_WEEK);
+  let bestChange = null;
+  Object.keys(thisWeek).forEach(m => {
+    const prev = prevWeek[m] || 0;
+    if (prev >= 3 && thisWeek[m] >= 3) {
+      const pct = Math.round(((thisWeek[m] - prev) / prev) * 100);
+      if (Math.abs(pct) >= 15 && (!bestChange || Math.abs(pct) > Math.abs(bestChange.pct))) {
+        bestChange = { muscle: m, pct };
+      }
+    }
+  });
+  if (bestChange) {
+    const dir = bestChange.pct > 0 ? 'aumentaste' : 'redujiste';
+    insights.push(`Esta semana ${dir} el volumen de ${bestChange.muscle} un ${Math.abs(bestChange.pct)}% respecto a la anterior.`);
+  }
+
+  // 3. Ejercicios en progresión (Atlas Progression Engine)
+  const progressing = ctx.apePanel?.strength?.topProgressing || [];
+  if (progressing.length > 0) {
+    insights.push(`Has progresado en ${progressing.slice(0, 2).map(r => r.exerciseName).join(' y ')}.`);
+  }
+
+  // 4. Recomendación de descarga por fatiga acumulada
+  if (ctx.fatigueLevel === 'high' || (ctx.sePanel?.fatigue?.score ?? 0) >= 65) {
+    insights.push('Con el volumen acumulado, te recomiendo una semana de descarga.');
+  }
+
+  return insights;
+}
+
 // ── Intent + param extraction ─────────────────────────────────────────────────
 function acDetectIntent(text) {
   const t = text.toLowerCase();
@@ -664,6 +730,7 @@ function acResponseGreeting(ctx, profile, memory) {
   } else if (ctx.lowVolGroups.length > 0) {
     parts.push(`${ctx.lowVolGroups[0]} con poco volumen esta semana.`);
   }
+  acHistoryInsights(ctx).slice(0, 2).forEach(l => parts.push(l));
   if (memory?.lesiones?.length > 0) parts.push(`Recuerdo que tienes molestias en ${memory.lesiones.slice(0,2).join(' y ')}.`);
   parts.push('¿En qué te ayudo?');
   return { type:'text', text: parts.join(' ') };
@@ -1058,6 +1125,10 @@ function acResponseProgress(ctx) {
     parts.push(`Volumen esta semana: ${ps.thisWeekSets} series · ${ps.thisWeekVolume.toLocaleString('es-ES')} kg levantados.`);
   }
 
+  // History insights (rutina activa, cambio semanal, descarga)
+  const hist = acHistoryInsights(ctx);
+  if (hist.length > 0) parts.push(hist.join(' '));
+
   if (parts.length === 0) {
     return { type:'text', text:'No hay datos de carga suficientes. Registra kg y repeticiones en cada ejercicio para que pueda analizar tu evolución.' };
   }
@@ -1395,6 +1466,7 @@ function acWelcomeMessage(state, profile, memory) {
   else if (ctx.plateaus.length > 0) parts.push(`Posible plateau en ${ctx.plateaus[0].name}.`);
   else if (ctx.lowVolGroups.length > 0) parts.push(`${ctx.lowVolGroups[0]} con poco volumen esta semana.`);
   else if (ctx.fatigueLevel === 'high') parts.push('Volumen semanal alto — considera un deload.');
+  acHistoryInsights(ctx).slice(0, 2).forEach(l => parts.push(l));
   if (memory?.lesiones?.length > 0) parts.push(`Recuerdo molestias en ${memory.lesiones.slice(0,2).join(' y ')}.`);
   parts.push('¿En qué te ayudo?');
   return parts.join(' ');

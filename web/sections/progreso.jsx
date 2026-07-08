@@ -160,7 +160,10 @@ function SessionRow({ entry }) {
             {entry.sessionName || `Sesión — ${fmtDate(entry)}`}
           </div>
           <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:10,
-            color:PG.muted }}>{fmtDate(entry)}</div>
+            color:PG.muted }}>
+            {fmtDate(entry)}{entry.duration ? ` · ${fmtDuration(entry.duration)}` : ''}
+            {entry.routineName ? ` · ${entry.routineName}` : ''}
+          </div>
         </div>
         <div style={{ textAlign:'right' }}>
           <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:11,

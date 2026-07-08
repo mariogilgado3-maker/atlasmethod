@@ -1722,7 +1722,7 @@ function EmptyPanel({ onPick, priorities }) {
 }
 
 // ── Barra de sesión sticky ────────────────────────────────────────────────────
-function WorkoutBar({ workout, saved, duration, onSave, mobile }) {
+function WorkoutBar({ workout, saved, duration, onSave, onStart, mobile }) {
   return (
     <div style={{ position:'fixed', bottom:0, left:0, right:0, zIndex:200,
       background:'rgba(6,13,24,0.97)', backdropFilter:'blur(24px)',
@@ -1755,6 +1755,15 @@ function WorkoutBar({ workout, saved, duration, onSave, mobile }) {
         <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:11, color:BD.muted, flexShrink:0 }}>
           ~{duration} min
         </span>
+      )}
+      {onStart && (
+        <button onClick={onStart}
+          style={{ flexShrink:0, padding:'11px 20px', borderRadius:12, border:'none', cursor:'pointer',
+            background:'#22C55E', color:'#fff',
+            fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, whiteSpace:'nowrap',
+            boxShadow:'0 4px 18px rgba(34,197,94,0.30)' }}>
+          ▶ {mobile ? 'Entrenar' : 'Comenzar entrenamiento'}
+        </button>
       )}
       <button onClick={onSave}
         style={{ flexShrink:0, padding:'11px 20px', borderRadius:12, border:'none', cursor:'pointer',
@@ -2099,8 +2108,17 @@ function BuilderSection() {
 
   function startExecution() {
     if (!workout.length) return;
-    setExecSession({ exercises: workout, meta: coachBanner, startTime: Date.now() });
-    setCoachBanner(null);
+    // Handoff al Workout Mode compartido (/player) — misma fuente de datos que el Coach
+    try {
+      localStorage.setItem('atlas.pendingWorkout', JSON.stringify(workout));
+      localStorage.setItem('atlas.pendingWorkoutMeta', JSON.stringify({
+        ...(coachBanner || {}),
+        sessionName: coachBanner?.sessionName || coachBanner?.routineName || 'Entrenamiento',
+        mode: 'player',
+        source: 'builder',
+      }));
+    } catch {}
+    navigate('/player');
   }
 
   function finishExecution(completedExs) {
@@ -2343,7 +2361,7 @@ function BuilderSection() {
       {workout.length > 0 && (
         <WorkoutBar
           workout={workout} saved={saved} duration={duration}
-          onSave={save} mobile={mobile}
+          onSave={save} onStart={startExecution} mobile={mobile}
         />
       )}
 
