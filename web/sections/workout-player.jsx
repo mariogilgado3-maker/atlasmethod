@@ -67,6 +67,10 @@ function wpNormalize(rawExs) {
       cues:      ex.cues      || db?.cues      || [],
       equipment: ex.equipment || db?.equipment || '',
       level:     ex.level     || db?.level     || '',
+      tempo:     ex.tempo     || null,
+      purpose:   ex.purpose   || '',
+      alternatives: ex.alternatives
+        || (db?.variants || []).map(vid => (typeof ExerciseService !== 'undefined' && ExerciseService.getById(vid))?.name).filter(Boolean).slice(0, 2),
       repsRange: ex.repsRange || '8-12',
       rir:      ex.rir ?? 2,
       restSecs: wpParseRest(ex.rest),
@@ -403,13 +407,14 @@ function WpExerciseInfo({ exercise }) {
 }
 
 // ── Exercise View ─────────────────────────────────────────────────────────────
-function WpExerciseView({ exercise, exIdx, totalExs, onSetUpdate, onSetComplete }) {
+function WpExerciseView({ exercise, exIdx, totalExs, lastKg, onSetUpdate, onSetComplete }) {
   const primary   = exercise.muscles?.primary   || [];
   const secondary = exercise.muscles?.secondary || [];
   const doneSets  = exercise.sets.filter(s => s.done).length;
   const totalSets = exercise.sets.length;
   const nextUndone = exercise.sets.findIndex(s => !s.done);
   const allDone   = doneSets === totalSets;
+  const hasMedia  = typeof ExerciseMedia !== 'undefined' && ExerciseMedia.Thumbnail;
 
   return (
     <div style={{ maxWidth: 580, margin: '0 auto', padding: '20px 16px 120px' }}>
@@ -425,6 +430,14 @@ function WpExerciseView({ exercise, exIdx, totalExs, onSetUpdate, onSetComplete 
           fontWeight: 800, color: WP.text, lineHeight: 1.2, marginBottom: 12 }}>
           {exercise.name}
         </div>
+
+        {/* Ilustración del ejercicio */}
+        {hasMedia && (
+          <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 12,
+            border: `1px solid ${WP.border}` }}>
+            <ExerciseMedia.Thumbnail exercise={exercise} group={wpMediaGroup(exercise)} height={116} />
+          </div>
+        )}
 
         {/* Muscle badges */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -450,13 +463,15 @@ function WpExerciseView({ exercise, exIdx, totalExs, onSetUpdate, onSetComplete 
       <WpExerciseInfo exercise={exercise} />
 
       {/* Targets */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(72px, 1fr))', gap: 8, marginBottom: 20 }}>
         {[
           { label: 'SERIES', value: totalSets },
           { label: 'REPS',   value: exercise.repsRange || '8-12' },
           { label: 'RIR',    value: exercise.rir ?? 2 },
           { label: 'DESCANSO', value: wpFmt(exercise.restSecs) },
-        ].map(t => (
+          exercise.tempo ? { label: 'TEMPO', value: exercise.tempo } : null,
+          lastKg > 0 ? { label: 'PESO REF.', value: `${lastKg} kg` } : null,
+        ].filter(Boolean).map(t => (
           <div key={t.label} style={{
             background: WP.card2, borderRadius: 10,
             border: `1px solid ${WP.border}`,
@@ -508,7 +523,7 @@ function WpExerciseView({ exercise, exIdx, totalExs, onSetUpdate, onSetComplete 
 }
 
 // ── Session Header ────────────────────────────────────────────────────────────
-function WpSessionHeader({ meta, exIdx, totalExs, elapsed, doneSets, totalSets }) {
+function WpSessionHeader({ meta, exIdx, totalExs, elapsed, doneSets, totalSets, doneExs, volume }) {
   const pct = totalSets > 0 ? Math.round((doneSets / totalSets) * 100) : 0;
 
   return (
@@ -533,19 +548,21 @@ function WpSessionHeader({ meta, exIdx, totalExs, elapsed, doneSets, totalSets }
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 20, flexShrink: 0 }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 13,
-                fontWeight: 700, color: WP.text }}>{wpFmt(elapsed)}</div>
-              <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 8,
-                color: WP.muted, letterSpacing: 1 }}>TIEMPO</div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 13,
-                fontWeight: 700, color: pct === 100 ? WP.green : WP.blue }}>{pct}%</div>
-              <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 8,
-                color: WP.muted, letterSpacing: 1 }}>SERIES</div>
-            </div>
+          <div style={{ display: 'flex', gap: 14, flexShrink: 0 }}>
+            {[
+              { v: wpFmt(elapsed), l: 'TIEMPO', c: WP.text },
+              { v: volume >= 1000 ? `${(volume/1000).toFixed(1)}t` : `${Math.round(volume)}kg`, l: 'VOLUMEN', c: WP.text },
+              { v: `${doneExs}/${totalExs}`, l: 'EJERC', c: WP.text },
+              { v: `${doneSets}/${totalSets}`, l: 'SERIES', c: WP.text },
+              { v: `${pct}%`, l: 'TOTAL', c: pct === 100 ? WP.green : WP.blue },
+            ].map(s => (
+              <div key={s.l} style={{ textAlign: 'center' }}>
+                <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 13,
+                  fontWeight: 700, color: s.c }}>{s.v}</div>
+                <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 8,
+                  color: WP.muted, letterSpacing: 1 }}>{s.l}</div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -624,9 +641,10 @@ function WpNavBar({ exIdx, totalExs, allDone, curExDone, onPrev, onNext, onFinis
 }
 
 // ── Finish Screen ─────────────────────────────────────────────────────────────
-function WpFinishScreen({ meta, exercises, duration, navigate }) {
+function WpFinishScreen({ meta, exercises, duration, navigate, saved, onSave, historyMaxKg }) {
   const completedSets  = exercises.reduce((t, ex) => t + ex.sets.filter(s => s.done).length, 0);
   const totalSets      = exercises.reduce((t, ex) => t + ex.sets.length, 0);
+  const doneExs        = exercises.filter(ex => ex.sets.some(s => s.done)).length;
   const totalVolume    = exercises.reduce((t, ex) =>
     t + ex.sets.filter(s => s.done).reduce((v, s) =>
       v + (parseFloat(s.kg) || 0) * (parseInt(s.reps) || 0), 0), 0);
@@ -635,12 +653,23 @@ function WpFinishScreen({ meta, exercises, duration, navigate }) {
   const avgRpe         = rpeValues.length > 0
     ? (rpeValues.reduce((a, b) => a + b, 0) / rpeValues.length).toFixed(1)
     : null;
+  const compliance     = totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
+
+  // Récords personales: máximo de hoy vs máximo histórico
+  const prs = exercises.map(ex => {
+    const todayMax = Math.max(0, ...ex.sets.filter(s => s.done).map(s => parseFloat(s.kg) || 0));
+    const prevMax  = (historyMaxKg || {})[ex.name] || 0;
+    return prevMax > 0 && todayMax > prevMax
+      ? { name: ex.name, kg: todayMax, prev: prevMax } : null;
+  }).filter(Boolean);
 
   const stats = [
-    { label: 'DURACIÓN',  value: wpFmt(duration) },
-    { label: 'SERIES',    value: `${completedSets}/${totalSets}` },
-    { label: 'VOLUMEN',   value: totalVolume > 0 ? `${Math.round(totalVolume)} kg` : '—' },
-    { label: 'RPE MEDIO', value: avgRpe ?? '—' },
+    { label: 'DURACIÓN',     value: wpFmt(duration) },
+    { label: 'VOLUMEN',      value: totalVolume > 0 ? `${Math.round(totalVolume)} kg` : '—' },
+    { label: 'EJERCICIOS',   value: `${doneExs}/${exercises.length}` },
+    { label: 'SERIES',       value: `${completedSets}/${totalSets}` },
+    { label: 'CUMPLIMIENTO', value: `${compliance}%` },
+    { label: 'RPE MEDIO',    value: avgRpe ?? '—' },
   ];
 
   return (
@@ -649,11 +678,11 @@ function WpFinishScreen({ meta, exercises, duration, navigate }) {
       justifyContent: 'center', padding: '32px 16px' }}>
       <div style={{ maxWidth: 480, width: '100%', textAlign: 'center' }}>
 
-        <div style={{ fontSize: 64, marginBottom: 16 }}>🏆</div>
+        <div style={{ fontSize: 64, marginBottom: 16 }}>{saved ? '🏆' : '💪'}</div>
 
         <div style={{ fontFamily: '"Space Grotesk",system-ui', fontSize: 30,
           fontWeight: 800, color: WP.text, marginBottom: 6 }}>
-          ¡Sesión completada!
+          {saved ? '¡Sesión guardada!' : 'Resumen de la sesión'}
         </div>
 
         {(meta?.sessionName || meta?.routineName) && (
@@ -664,24 +693,47 @@ function WpFinishScreen({ meta, exercises, duration, navigate }) {
         )}
 
         {/* Stats grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
           {stats.map(s => (
             <div key={s.label} style={{ background: WP.card, borderRadius: 14,
-              border: `1px solid ${WP.border}`, padding: '18px 14px' }}>
-              <div style={{ fontFamily: '"Space Grotesk",system-ui', fontSize: 24,
-                fontWeight: 800, color: WP.text, marginBottom: 4 }}>{s.value}</div>
-              <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 9,
-                color: WP.muted, letterSpacing: 1.2 }}>{s.label}</div>
+              border: `1px solid ${WP.border}`, padding: '16px 10px' }}>
+              <div style={{ fontFamily: '"Space Grotesk",system-ui', fontSize: 20,
+                fontWeight: 800, color: s.label === 'CUMPLIMIENTO'
+                  ? (compliance >= 85 ? WP.green : compliance >= 60 ? WP.amber : WP.red)
+                  : WP.text, marginBottom: 4 }}>{s.value}</div>
+              <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 8,
+                color: WP.muted, letterSpacing: 1 }}>{s.label}</div>
             </div>
           ))}
         </div>
 
-        {/* Gems */}
-        <div style={{ padding: '12px 18px', borderRadius: 12, marginBottom: 20,
-          background: 'rgba(59,130,246,0.10)', border: '1px solid rgba(59,130,246,0.20)' }}>
-          <span style={{ fontFamily: 'Inter,system-ui', fontSize: 15, fontWeight: 700,
-            color: '#93C5FD' }}>+ 30 💎 Gemas ganadas</span>
-        </div>
+        {/* Récords personales */}
+        {prs.length > 0 && (
+          <div style={{ padding: '14px 18px', borderRadius: 12, marginBottom: 20,
+            background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)',
+            textAlign: 'left' }}>
+            <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 9,
+              color: WP.amber, letterSpacing: 1.5, marginBottom: 8 }}>🏅 RÉCORDS PERSONALES</div>
+            {prs.map((p, i) => (
+              <div key={i} style={{ fontFamily: 'Inter,system-ui', fontSize: 13,
+                color: WP.text, marginBottom: 4 }}>
+                <span style={{ fontWeight: 700 }}>{p.name}</span>
+                <span style={{ color: WP.sub }}> — {p.kg} kg </span>
+                <span style={{ color: WP.green, fontWeight: 700 }}>+{Math.round((p.kg - p.prev) * 10) / 10} kg</span>
+                <span style={{ color: WP.muted, fontSize: 11 }}> (antes {p.prev} kg)</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Gems — solo tras guardar */}
+        {saved && (
+          <div style={{ padding: '12px 18px', borderRadius: 12, marginBottom: 20,
+            background: 'rgba(59,130,246,0.10)', border: '1px solid rgba(59,130,246,0.20)' }}>
+            <span style={{ fontFamily: 'Inter,system-ui', fontSize: 15, fontWeight: 700,
+              color: '#93C5FD' }}>+ 30 💎 Gemas ganadas</span>
+          </div>
+        )}
 
         {/* Muscles */}
         {muscles.length > 0 && (
@@ -698,29 +750,41 @@ function WpFinishScreen({ meta, exercises, duration, navigate }) {
           </div>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button onClick={() => navigate('/coach')}
-            style={{ padding: '14px', borderRadius: 12, border: 'none',
-              cursor: 'pointer', background: WP.blue, color: '#fff',
-              fontFamily: 'Inter,system-ui', fontSize: 15, fontWeight: 700,
-              boxShadow: '0 4px 20px rgba(59,130,246,0.35)' }}>
-            Ver recomendaciones de Coach
-          </button>
-          <button onClick={() => navigate('/progreso')}
-            style={{ padding: '14px', borderRadius: 12,
-              border: `1px solid ${WP.border}`, cursor: 'pointer',
-              background: 'rgba(255,255,255,0.04)', color: WP.sub,
-              fontFamily: 'Inter,system-ui', fontSize: 15, fontWeight: 600 }}>
-            Ver mi progreso
-          </button>
-          <button onClick={() => navigate('/')}
-            style={{ padding: '14px', borderRadius: 12,
-              border: 'none', cursor: 'pointer',
-              background: 'transparent', color: WP.muted,
-              fontFamily: 'Inter,system-ui', fontSize: 14 }}>
-            Volver al inicio
-          </button>
-        </div>
+        {!saved ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <button onClick={onSave}
+              style={{ padding: '15px', borderRadius: 12, border: 'none',
+                cursor: 'pointer', background: 'linear-gradient(135deg, #22C55E, #16A34A)',
+                color: '#fff', fontFamily: 'Inter,system-ui', fontSize: 16, fontWeight: 800,
+                boxShadow: '0 4px 20px rgba(34,197,94,0.35)' }}>
+              💾 Guardar sesión
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <button onClick={() => navigate('/coach')}
+              style={{ padding: '14px', borderRadius: 12, border: 'none',
+                cursor: 'pointer', background: WP.blue, color: '#fff',
+                fontFamily: 'Inter,system-ui', fontSize: 15, fontWeight: 700,
+                boxShadow: '0 4px 20px rgba(59,130,246,0.35)' }}>
+              Ver análisis de Atlas Coach
+            </button>
+            <button onClick={() => navigate('/progreso')}
+              style={{ padding: '14px', borderRadius: 12,
+                border: `1px solid ${WP.border}`, cursor: 'pointer',
+                background: 'rgba(255,255,255,0.04)', color: WP.sub,
+                fontFamily: 'Inter,system-ui', fontSize: 15, fontWeight: 600 }}>
+              Ver mi progreso
+            </button>
+            <button onClick={() => navigate('/')}
+              style={{ padding: '14px', borderRadius: 12,
+                border: 'none', cursor: 'pointer',
+                background: 'transparent', color: WP.muted,
+                fontFamily: 'Inter,system-ui', fontSize: 14 }}>
+              Volver al inicio
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -736,7 +800,8 @@ function WorkoutPlayerSection() {
   const [meta,       setMeta]       = useState({});
   const [exIdx,      setExIdx]      = useState(0);
   const [restState,  setRestState]  = useState(null);   // { total, remaining, paused }
-  const [finished,   setFinished]   = useState(false);
+  const [restDone,   setRestDone]   = useState(false);  // aviso "siguiente serie"
+  const [finished,   setFinished]   = useState(false);  // false | 'summary' | 'saved'
   const [elapsed,    setElapsed]    = useState(0);
 
   const startRef  = useRef(Date.now());
@@ -752,6 +817,14 @@ function WorkoutPlayerSection() {
       setMeta(saved.meta || {});
       setExIdx(saved.exIdx || 0);
       if (saved.startTime) startRef.current = saved.startTime;
+      // Restaurar el temporizador de descanso, descontando el tiempo cerrado
+      if (saved.restState && !saved.restState.paused) {
+        const away = Math.floor((Date.now() - (saved.savedAt || Date.now())) / 1000);
+        const remaining = saved.restState.remaining - away;
+        if (remaining > 0) setRestState({ ...saved.restState, remaining });
+      } else if (saved.restState?.paused) {
+        setRestState(saved.restState);
+      }
       return;
     }
 
@@ -815,6 +888,8 @@ function WorkoutPlayerSection() {
         if (prev.remaining <= 1) {
           clearInterval(restRef.current);
           try { navigator.vibrate?.(200); } catch {}
+          setRestDone(true);
+          setTimeout(() => setRestDone(false), 4000);
           return null;
         }
         return { ...prev, remaining: prev.remaining - 1 };
@@ -823,11 +898,11 @@ function WorkoutPlayerSection() {
     return () => clearInterval(restRef.current);
   }, [restState?.paused, restState?.remaining !== undefined ? 'on' : 'off']);
 
-  // ── Auto-save ───────────────────────────────────────────────────────────────
+  // ── Auto-save (incluye temporizador para reanudar exactamente donde estaba) ──
   useEffect(() => {
-    if (!exercises) return;
-    wpSave({ exercises, meta, exIdx, startTime: startRef.current, status: 'active' });
-  }, [exercises, exIdx]);
+    if (!exercises || finished) return;
+    wpSave({ exercises, meta, exIdx, restState, startTime: startRef.current, status: 'active' });
+  }, [exercises, exIdx, restState, finished]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
   const handleSetUpdate = useCallback((eIdx, sIdx, patch) => {
@@ -857,11 +932,30 @@ function WorkoutPlayerSection() {
     });
   }, []);
 
+  // Máximo kg histórico por ejercicio (para peso de referencia y detección de PRs)
+  const historyMaxKg = useMemo(() => {
+    const acc = {};
+    (state.log || []).forEach(s => {
+      (s.exercises || []).forEach(ex => {
+        const maxKg = Math.max(0, ...(ex.sets || []).map(st => parseFloat(st.kg) || 0));
+        if (maxKg > (acc[ex.name] || 0)) acc[ex.name] = maxKg;
+      });
+    });
+    return acc;
+  }, [state.log]);
+
+  // Finalizar: parar relojes y mostrar resumen — el guardado es explícito
   const handleFinish = useCallback(() => {
     clearInterval(tickRef.current);
     clearInterval(restRef.current);
+    setRestState(null);
+    setElapsed(Math.floor((Date.now() - startRef.current) / 1000));
+    setFinished('summary');
+  }, []);
+
+  // Guardar sesión: historial (única fuente) + reporte post-entrenamiento para el Coach
+  const handleSave = useCallback(() => {
     const finalDuration = Math.floor((Date.now() - startRef.current) / 1000);
-    setElapsed(finalDuration);
 
     const completedExs = (exercises || []).map(ex => ({
       id:      ex.id,
@@ -878,15 +972,43 @@ function WorkoutPlayerSection() {
       })),
     })).filter(ex => ex.sets.length > 0);
 
+    // PRs contra el historial ANTES de registrar la sesión
+    const prs = completedExs.map(ex => {
+      const todayMax = Math.max(0, ...ex.sets.map(s => s.kg));
+      const prevMax  = historyMaxKg[ex.name] || 0;
+      return prevMax > 0 && todayMax > prevMax
+        ? { name: ex.name, kg: todayMax, prev: prevMax } : null;
+    }).filter(Boolean);
+
+    const totalVolume = completedExs.reduce((t, ex) =>
+      t + ex.sets.reduce((v, s) => v + s.kg * s.reps, 0), 0);
+    const completedSets = completedExs.reduce((t, ex) => t + ex.sets.length, 0);
+    const plannedSets   = (exercises || []).reduce((t, ex) => t + ex.sets.length, 0);
+
     actions.logSession(completedExs, {
       duration:    finalDuration,
       routineName: meta?.routineName,
       sessionName: meta?.sessionName,
     });
 
+    // El Coach lee este reporte al abrirse y genera su análisis con datos reales
+    try {
+      localStorage.setItem('atlas.postworkout.report.v1', JSON.stringify({
+        ts: Date.now(),
+        routineName: meta?.routineName || null,
+        sessionName: meta?.sessionName || null,
+        duration: finalDuration,
+        volume: Math.round(totalVolume),
+        completedSets, plannedSets,
+        muscles: [...new Set(completedExs.flatMap(ex => ex.muscles))].slice(0, 5),
+        prs,
+      }));
+    } catch {}
+
     wpClear();
-    setFinished(true);
-  }, [exercises, meta, actions]);
+    setFinished('saved');
+    return prs;
+  }, [exercises, meta, actions, historyMaxKg]);
 
   // ── Render gates ─────────────────────────────────────────────────────────────
   if (exercises === null) {
@@ -938,6 +1060,9 @@ function WorkoutPlayerSection() {
         exercises={exercises}
         duration={elapsed}
         navigate={navigate}
+        saved={finished === 'saved'}
+        onSave={handleSave}
+        historyMaxKg={historyMaxKg}
       />
     );
   }
@@ -946,6 +1071,9 @@ function WorkoutPlayerSection() {
   const curEx      = exercises[exIdx];
   const doneSets   = exercises.reduce((t, ex) => t + ex.sets.filter(s => s.done).length, 0);
   const totalSets  = exercises.reduce((t, ex) => t + ex.sets.length, 0);
+  const doneExs    = exercises.filter(ex => ex.sets.every(s => s.done)).length;
+  const volume     = exercises.reduce((t, ex) => t + ex.sets.filter(s => s.done)
+    .reduce((v, s) => v + (parseFloat(s.kg) || 0) * (parseInt(s.reps) || 0), 0), 0);
   const curExDone  = curEx?.sets.every(s => s.done) ?? false;
   const allDone    = doneSets === totalSets;
   const nextExName = exercises[exIdx + 1]?.name || null;
@@ -960,13 +1088,26 @@ function WorkoutPlayerSection() {
         elapsed={elapsed}
         doneSets={doneSets}
         totalSets={totalSets}
+        doneExs={doneExs}
+        volume={volume}
       />
+
+      {restDone && (
+        <div style={{ position: 'fixed', top: 74, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 150, padding: '11px 22px', borderRadius: 999,
+          background: WP.green, color: '#fff', whiteSpace: 'nowrap',
+          fontFamily: 'Inter,system-ui', fontSize: 13, fontWeight: 700,
+          boxShadow: '0 8px 28px rgba(34,197,94,0.45)', animation: 'fadeIn .3s ease' }}>
+          Es momento de comenzar la siguiente serie.
+        </div>
+      )}
 
       <WpExerciseView
         key={exIdx}
         exercise={curEx}
         exIdx={exIdx}
         totalExs={exercises.length}
+        lastKg={historyMaxKg[curEx?.name] || 0}
         onSetUpdate={handleSetUpdate}
         onSetComplete={handleSetComplete}
       />
@@ -998,4 +1139,63 @@ function WorkoutPlayerSection() {
   );
 }
 
-Object.assign(window, { WorkoutPlayerSection });
+// ── Active Routine Strip (pantalla de Inicio) ─────────────────────────────────
+// Muestra la rutina activa y abre la MISMA sesión que Coach y Builder (/player).
+function ActiveRoutineStrip() {
+  const { navigate } = useRoute();
+  const { state }    = useStore();
+
+  const routine = React.useMemo(() => {
+    try { return typeof arLoad === 'function' ? arLoad() : null; } catch { return null; }
+  }, []);
+  if (!routine?.sessions?.length) return null;
+
+  // Siguiente sesión: rota según cuántas sesiones de esta rutina hay en el historial
+  const doneCount  = (state.log || []).filter(s => s.routineName === routine.name).length;
+  const nextIdx    = doneCount % routine.sessions.length;
+  const next       = routine.sessions[nextIdx];
+  const hasActive  = !!wpLoad()?.exercises?.length;
+
+  function start() {
+    try {
+      localStorage.setItem('atlas.pendingWorkout', JSON.stringify(next.exercises));
+      localStorage.setItem('atlas.pendingWorkoutMeta', JSON.stringify({
+        routineId: routine.id, routineName: routine.name,
+        sessionIndex: nextIdx, totalSessions: routine.sessions.length,
+        sessionName: next.name, objective: routine.objective,
+        mode: 'player', source: 'home',
+      }));
+    } catch {}
+    navigate('/player');
+  }
+
+  return (
+    <section style={{ background: '#0F1A2E', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '18px 32px',
+        display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 9,
+            fontWeight: 700, color: 'rgba(147,197,253,0.75)', letterSpacing: 1.6, marginBottom: 4 }}>
+            {hasActive ? 'ENTRENAMIENTO EN CURSO' : 'RUTINA ACTIVA'}
+          </div>
+          <div style={{ fontFamily: 'Inter,system-ui', fontSize: 15, fontWeight: 700,
+            color: '#E8EDF8' }}>
+            {routine.name}
+            <span style={{ fontWeight: 500, color: 'rgba(232,237,248,0.55)' }}>
+              {' '}· {hasActive ? 'reanuda donde lo dejaste' : `siguiente: ${next.name}`}
+            </span>
+          </div>
+        </div>
+        <button onClick={start}
+          style={{ padding: '11px 22px', borderRadius: 12, border: 'none', cursor: 'pointer',
+            background: '#22C55E', color: '#fff', whiteSpace: 'nowrap',
+            fontFamily: 'Inter,system-ui', fontSize: 14, fontWeight: 800,
+            boxShadow: '0 4px 18px rgba(34,197,94,0.35)' }}>
+          ▶ {hasActive ? 'Continuar entrenamiento' : 'Empezar entrenamiento'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+Object.assign(window, { WorkoutPlayerSection, ActiveRoutineStrip });

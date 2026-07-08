@@ -534,6 +534,60 @@ function acHistoryInsights(ctx) {
   return insights;
 }
 
+// ── Análisis post-entrenamiento — datos reales de la sesión recién guardada ──
+// report: escrito por el Workout Mode al pulsar "Guardar sesión".
+function acPostWorkoutAnalysis(report, ctx) {
+  const parts = [];
+  const sessLabel = report.sessionName || report.routineName || 'entrenamiento';
+
+  const mins = report.duration ? Math.round(report.duration / 60) : null;
+  parts.push(`Has completado tu sesión ${sessLabel}${report.routineName && report.sessionName ? ` (${report.routineName})` : ''}: ` +
+    `${report.completedSets} series` +
+    (report.volume > 0 ? ` · ${report.volume.toLocaleString('es-ES')} kg de volumen` : '') +
+    (mins ? ` · ${mins} min` : '') + '.');
+
+  // Récords personales reales
+  (report.prs || []).slice(0, 2).forEach(p => {
+    const delta = Math.round((p.kg - p.prev) * 10) / 10;
+    parts.push(`El ${p.name.toLowerCase()} mejoró +${delta} kg respecto a tu máximo anterior (${p.prev} → ${p.kg} kg). 🏅`);
+  });
+
+  // Cumplimiento
+  if (report.plannedSets > 0 && report.completedSets < report.plannedSets) {
+    const pct = Math.round((report.completedSets / report.plannedSets) * 100);
+    parts.push(`Completaste ${report.completedSets} de ${report.plannedSets} series planificadas (${pct}%).`);
+  }
+
+  // Comparación de volumen con la sesión anterior del mismo tipo (el log ya incluye la de hoy)
+  const vol = s => (s.exercises || []).reduce((t, ex) =>
+    t + (ex.sets || []).reduce((v, st) => v + (parseFloat(st.kg) || 0) * (parseInt(st.reps) || 0), 0), 0);
+  const prev = (ctx.log || []).find((s, i) => i > 0 && s.sessionName && s.sessionName === report.sessionName);
+  if (prev) {
+    const prevVol = vol(prev);
+    if (prevVol > 0 && report.volume > 0) {
+      const pct = Math.round(((report.volume - prevVol) / prevVol) * 100);
+      if (Math.abs(pct) >= 5) {
+        parts.push(pct > 0
+          ? `Tu volumen subió un ${pct}% respecto a la última ${report.sessionName}.`
+          : `Tu volumen bajó un ${Math.abs(pct)}% respecto a la última ${report.sessionName} — si fue por fatiga, vigila el descanso.`);
+      }
+    }
+  }
+
+  // Recomendación concreta para la próxima semana
+  if (ctx.fatigueLevel === 'high' || (ctx.sePanel?.fatigue?.score ?? 0) >= 65) {
+    parts.push('Llevas mucho volumen acumulado: la próxima semana haremos una descarga ligera.');
+  } else if (ctx.priorityGaps?.length > 0) {
+    parts.push(`La próxima semana aumentaremos ligeramente el volumen de ${ctx.priorityGaps[0].label}.`);
+  } else if (ctx.pushPullRatio > 1.4 && ctx.pushVol > 3) {
+    parts.push(`Tu empuje domina sobre la tracción (${ctx.pushVol}:${ctx.pullVol}) — la próxima semana añadiremos volumen de espalda.`);
+  } else {
+    parts.push('Vas en línea: la próxima sesión mantén las cargas y busca una repetición más por serie.');
+  }
+
+  return parts.join('\n\n');
+}
+
 // ── Intent + param extraction ─────────────────────────────────────────────────
 function acDetectIntent(text) {
   const t = text.toLowerCase();
@@ -2009,7 +2063,7 @@ function AcRoutineCard({ session, sessionIndex, totalSessions, routineId, routin
               onClick={() => onSendToPlayer(session.exercises, { routineId, routineName, sessionIndex, totalSessions, sessionName: session.name })}
               style={{ flex:2, padding:'10px 16px', borderRadius:10, border:'none', cursor:'pointer', background:'#22C55E', color:'#fff', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, letterSpacing:-0.2, boxShadow:'0 4px 18px -4px rgba(34,197,94,0.45)' }}
             >
-              ▶ Entrenar ahora
+              ▶ Empezar entrenamiento
             </button>
           </div>
         </>
@@ -2307,6 +2361,35 @@ function AtlasCoachSection() {
       return bp;
     } catch { return null; }
   });
+
+  // ── Post-workout report — escrito por el Workout Mode al guardar sesión ─────
+  const [pendingWorkoutReport] = React.useState(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('atlas.postworkout.report.v1') || 'null');
+      if (!raw) return null;
+      localStorage.removeItem('atlas.postworkout.report.v1');
+      if (Date.now() - (raw.ts || 0) > 6 * 3600000) return null; // expira a las 6 h
+      return raw;
+    } catch { return null; }
+  });
+
+  // Inyecta el análisis post-sesión con datos reales al abrir el chat
+  React.useEffect(() => {
+    if (!pendingWorkoutReport || !activeChatId) return;
+    let text;
+    try {
+      text = acPostWorkoutAnalysis(pendingWorkoutReport, acBuildRichContext(state, mergedProfile));
+    } catch { return; }
+    setChats(prev => prev.map(c => c.id !== activeChatId ? c : {
+      ...c,
+      messages: [...c.messages, {
+        id: `pw-${Date.now()}`,
+        role: 'coach',
+        content: { type: 'text', text },
+        ts: Date.now(),
+      }],
+    }));
+  }, [activeChatId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Inject builder plan into active chat once activeChatId is resolved
   React.useEffect(() => {
