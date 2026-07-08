@@ -2185,6 +2185,11 @@ function BuilderSection() {
                   ▶ Iniciar
                 </button>
               )}
+              <button onClick={() => window.AtlasExporter?.export(arLoad(), 'pdf')}
+                title="Descargar rutina en PDF"
+                style={{ background:'transparent', border:'1px solid rgba(59,130,246,0.25)', borderRadius:8, color:'#93C5FD', padding:'6px 11px', cursor:'pointer', fontSize:11, fontWeight:700, fontFamily:'Inter,system-ui', flexShrink:0 }}>
+                ⬇ PDF
+              </button>
               <button onClick={() => setCoachBanner(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(147,197,253,0.35)', fontSize:14, padding:'2px 6px', flexShrink:0 }}>✕</button>
             </div>
             {/* Row 2: day tabs for multi-session plans */}

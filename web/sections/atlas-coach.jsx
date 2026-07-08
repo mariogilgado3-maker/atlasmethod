@@ -624,6 +624,8 @@ function acExtractParams(text) {
 
 // ── Detailed routine builder ──────────────────────────────────────────────────
 function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps = {}, avoidKeywords = [], groupBoosts = {}) {
+  const byId = {};
+  allExs.forEach(ex => { byId[ex.id] = ex; });
   const byGroup = {};
   allExs.forEach(ex => {
     if (avoidKeywords.length) {
@@ -652,6 +654,23 @@ function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps
     if (effectiveN === 0) return [];
     return (byGroup[group] || []).slice(0, effectiveN).map((ex, i) => {
       const setsN = isCompound && i === 0 ? scheme.setsComp : scheme.sets;
+      const lead = isCompound && i === 0;
+      const muscle = ex.muscles?.primary?.[0] || group;
+      // Tempo solo cuando aporta: básicos pesados y aislamientos de hipertrofia
+      const tempo = lead
+        ? (goal === 'fuerza' ? '3-1-X' : '3-0-1')
+        : (ex.compound ? null : (/hipertrofia|recomposición/.test(goal) ? '2-1-2' : null));
+      // Objetivo breve del ejercicio en la sesión
+      const purpose = lead
+        ? `Básico principal — máxima tensión mecánica para ${muscle.toLowerCase()}.`
+        : ex.compound
+          ? `Multiarticular complementario — volumen de calidad para ${muscle.toLowerCase()}.`
+          : `Aislamiento — acumula volumen en ${muscle.toLowerCase()} con poca fatiga sistémica.`;
+      // Alternativas si no hay material (variantes de la base de ejercicios)
+      const alternatives = (ex.variants || [])
+        .map(vid => byId[vid]?.name)
+        .filter(Boolean)
+        .slice(0, 2);
       return {
         id: ex.id,
         name: ex.name,
@@ -661,7 +680,10 @@ function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps
         setsCount: setsN,
         repsRange: scheme.reps,
         rir: i === 0 ? scheme.rir : scheme.rir + 1,
-        rest: isCompound && i === 0 ? scheme.rest : '60-90s',
+        rest: lead ? scheme.rest : '60-90s',
+        tempo,
+        purpose,
+        alternatives,
       };
     });
   }
@@ -696,6 +718,63 @@ function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps
       muscles: [...new Set(exercises.flatMap(e => e.muscles?.primary?.slice(0, 1) || []))],
     };
   }).filter(s => s.exercises.length > 0);
+}
+
+// ── Program-level metadata (duración, progresión, justificación) ─────────────
+function acDurationWeeks(level) {
+  return { principiante: 6, intermedio: 8, avanzado: 12 }[level] || 8;
+}
+
+// Plan de progresión por bloques de 2 semanas, según objetivo
+function acBuildProgression(goal) {
+  if (goal === 'fuerza' || /rendimiento/.test(goal || '')) {
+    return [
+      { weeks: '1-2', carga: 'Establece 5RM de referencia (RIR 2)', reps: 'Mantén 3-6 reps', volumen: 'Volumen base del plan', intensidad: '~80% 1RM' },
+      { weeks: '3-4', carga: '+2,5 kg en básicos si completas todas las series', reps: 'Mismas reps, mejor técnica', volumen: 'Sin cambios', intensidad: '82-85% 1RM (RIR 1-2)' },
+      { weeks: '5-6', carga: '+2,5-5 kg cuando el RIR real suba de 2', reps: 'Baja al rango inferior (3-4)', volumen: '+1 serie en el básico principal', intensidad: '85-88% 1RM (RIR 1)' },
+      { weeks: '7-8', carga: 'Semana 7: intenta nuevos RM · Semana 8: descarga', reps: 'Semana 8: mitad de series', volumen: 'Semana 8: -50% volumen', intensidad: 'Semana 8: RIR 3-4' },
+    ];
+  }
+  // hipertrofia / recomposición / pérdida de grasa — doble progresión
+  return [
+    { weeks: '1-2', carga: 'Encuentra cargas que te dejen en RIR 3', reps: 'Parte baja del rango', volumen: 'Volumen base del plan', intensidad: 'RIR 3 — domina la técnica' },
+    { weeks: '3-4', carga: 'Misma carga', reps: '+1-2 reps por serie hasta el tope del rango', volumen: 'Sin cambios', intensidad: 'RIR 2' },
+    { weeks: '5-6', carga: '+2,5-5% cuando llegues al tope de reps', reps: 'Vuelve a la parte baja del rango', volumen: '+1 serie en grupos prioritarios', intensidad: 'RIR 1-2' },
+    { weeks: '7-8', carga: 'Mantén las cargas de la semana 6', reps: 'Busca récords de reps en semana 7', volumen: 'Semana 8: descarga (-40% series)', intensidad: 'Semana 7: RIR 0-1 · Semana 8: RIR 3-4' },
+  ];
+}
+
+// Justificación científica breve del diseño del plan
+function acBuildRationale(routine, profile) {
+  const days  = routine.frequency || 3;
+  const split = (routine.split || '').replace('_', ' ').toUpperCase();
+  const nSess = routine.sessions?.length || 1;
+  const avgSets = Math.round(
+    (routine.sessions || []).reduce((t, s) => t + (s.totalSets || 0), 0) / Math.max(1, nSess));
+  const lines = [
+    `Frecuencia: ${days} días/semana permite ~2 estímulos por grupo muscular, el rango con mejor evidencia para hipertrofia y fuerza.`,
+    `Distribución: split ${split} — cada sesión concentra grupos sinérgicos para maximizar calidad por serie.`,
+    `Volumen: ~${avgSets} series/sesión, dentro del rango efectivo (10-20 series semanales por grupo) sin exceder tu capacidad de recuperación.`,
+    `Selección: básicos multiarticulares primero (máxima tensión mecánica con SNC fresco) y aislamientos después para acumular volumen con poca fatiga.`,
+    `Progresión: doble progresión (reps → carga) con RIR programado — la sobrecarga progresiva es el principal impulsor de la adaptación.`,
+  ];
+  if ((routine.priorities || []).length > 0) {
+    lines.splice(2, 0, `Prioridades: ${routine.priorities.map(m => AP_MUS_MAP[m] || m).join(', ')} reciben ~1 serie extra por sesión (volumen dirigido).`);
+  }
+  if ((profile?.injuries || []).length > 0) {
+    lines.push(`Limitaciones: la selección evita patrones de riesgo para ${profile.injuries.map(i => i.replace(/_/g, ' ')).join(' y ')}.`);
+  }
+  return lines;
+}
+
+// Añade los metadatos de programa a una AtlasRoutine (única fuente de verdad)
+function acEnrichRoutineMeta(atlasRoutine, level, tiempo, profile) {
+  atlasRoutine.level         = level;
+  atlasRoutine.durationWeeks = acDurationWeeks(level);
+  atlasRoutine.sessionTime   = tiempo || 60;
+  atlasRoutine.progression   = acBuildProgression(atlasRoutine.objective);
+  atlasRoutine.rationale     = acBuildRationale(atlasRoutine, profile);
+  return atlasRoutine;
 }
 
 // ── Response generators ───────────────────────────────────────────────────────
@@ -842,6 +921,7 @@ function acResponseRoutine(params, ctx, profile, memory, allExs) {
     createdAt:  Date.now(),
     source:     'coach',
   };
+  acEnrichRoutineMeta(atlasRoutine, level, tiempo, profile);
   arSave(atlasRoutine);
 
   return {
@@ -851,6 +931,7 @@ function acResponseRoutine(params, ctx, profile, memory, allExs) {
     builderPayload: sessions[0]?.exercises || [],
     routineId,
     routineName: atlasRoutine.name,
+    routine: atlasRoutine,
   };
 }
 
@@ -1372,6 +1453,7 @@ function acResponseRoutineModify(userText, ctx, profile, memory, allExs) {
     createdAt:  Date.now(),
     source:     'coach-modify',
   };
+  acEnrichRoutineMeta(atlasRoutine, level, tiempo, base);
   arSave(atlasRoutine);
 
   const injuryNotes = allInjuries
@@ -1389,6 +1471,7 @@ function acResponseRoutineModify(userText, ctx, profile, memory, allExs) {
     builderPayload: sessions[0]?.exercises || [],
     routineId,
     routineName: atlasRoutine.name,
+    routine: atlasRoutine,
   };
 }
 
@@ -1761,8 +1844,98 @@ function AcTypingIndicator() {
   );
 }
 
+// Cabecera de programa: metadatos + justificación + progresión + exportar
+function AcProgramCard({ routine }) {
+  const [showWhy,  setShowWhy]  = React.useState(false);
+  const [showProg, setShowProg] = React.useState(false);
+  if (!routine) return null;
+
+  const meta = [
+    { k: 'OBJETIVO',  v: routine.objective },
+    { k: 'NIVEL',     v: routine.level },
+    { k: 'DURACIÓN',  v: routine.durationWeeks ? `${routine.durationWeeks} sem` : null },
+    { k: 'FRECUENCIA',v: `${routine.frequency || routine.sessions?.length || '—'} días/sem` },
+    { k: 'SESIÓN',    v: routine.sessionTime ? `~${routine.sessionTime} min` : null },
+  ].filter(m => m.v);
+
+  const toggleBtn = (active) => ({
+    flex: 1, padding: '8px 10px', borderRadius: 9, cursor: 'pointer',
+    border: `1px solid ${active ? 'rgba(59,130,246,0.40)' : AC.border}`,
+    background: active ? 'rgba(59,130,246,0.10)' : 'transparent',
+    color: active ? '#93C5FD' : AC.sub,
+    fontFamily: 'Inter,system-ui', fontSize: 11, fontWeight: 700,
+  });
+
+  return (
+    <div style={{ marginTop: 10, borderRadius: 14, border: `1px solid ${AC.border}`,
+      background: AC.card2, padding: '16px 18px', animation: 'fadeIn .25s ease' }}>
+      <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 8.5, fontWeight: 700,
+        color: '#93C5FD', letterSpacing: 1.5, marginBottom: 6 }}>PROGRAMA</div>
+      <div style={{ fontFamily: '"Space Grotesk",Inter,system-ui', fontSize: 17, fontWeight: 800,
+        color: AC.text, letterSpacing: -0.3, marginBottom: 12 }}>{routine.name}</div>
+
+      {/* Metadatos */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+        {meta.map(m => (
+          <div key={m.k} style={{ padding: '6px 12px', borderRadius: 9,
+            background: 'rgba(255,255,255,0.04)', border: `1px solid ${AC.border}` }}>
+            <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 7,
+              color: AC.muted, letterSpacing: 1, marginBottom: 2 }}>{m.k}</div>
+            <div style={{ fontFamily: 'Inter,system-ui', fontSize: 12, fontWeight: 700,
+              color: AC.text, textTransform: 'capitalize' }}>{m.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Toggles: justificación / progresión */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        {(routine.rationale || []).length > 0 && (
+          <button onClick={() => setShowWhy(w => !w)} style={toggleBtn(showWhy)}>
+            🧠 Por qué así
+          </button>
+        )}
+        {(routine.progression || []).length > 0 && (
+          <button onClick={() => setShowProg(p => !p)} style={toggleBtn(showProg)}>
+            📈 Progresión {routine.durationWeeks || 8} sem
+          </button>
+        )}
+      </div>
+
+      {showWhy && (
+        <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none' }}>
+          {routine.rationale.map((l, i) => (
+            <li key={i} style={{ display: 'flex', gap: 8, marginBottom: 7,
+              fontFamily: 'Inter,system-ui', fontSize: 12, lineHeight: 1.6, color: AC.sub }}>
+              <span style={{ color: '#3B82F6', flexShrink: 0 }}>›</span>{l}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {showProg && (
+        <div style={{ marginTop: 12 }}>
+          {routine.progression.map((p, i) => (
+            <div key={i} style={{ padding: '10px 12px', borderRadius: 10, marginBottom: 6,
+              background: 'rgba(255,255,255,0.03)', border: `1px solid ${AC.border}` }}>
+              <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10,
+                fontWeight: 800, color: '#93C5FD', marginBottom: 5 }}>SEMANAS {p.weeks}</div>
+              {[['Carga', p.carga], ['Reps', p.reps], ['Volumen', p.volumen], ['Intensidad', p.intensidad]].map(([k, v]) => (
+                <div key={k} style={{ fontFamily: 'Inter,system-ui', fontSize: 11.5,
+                  lineHeight: 1.55, color: AC.sub }}>
+                  <span style={{ fontWeight: 700, color: AC.text }}>{k}:</span> {v}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AcRoutineCard({ session, sessionIndex, totalSessions, routineId, routineName, onSendToBuilder, onSendToPlayer }) {
-  const [open, setOpen] = React.useState(true);
+  // Tarjeta resumida por día: se despliega al pulsar (planes de 1 día abiertos)
+  const [open, setOpen] = React.useState(totalSessions <= 1);
   const label = totalSessions > 1 ? `Día ${sessionIndex + 1} de ${totalSessions}` : null;
   return (
     <div style={{ marginTop:10, borderRadius:14, overflow:'hidden', border:`1px solid ${AC.border}`, background:AC.card2, animation:'fadeIn .25s ease' }}>
@@ -1782,6 +1955,15 @@ function AcRoutineCard({ session, sessionIndex, totalSessions, routineId, routin
               <span key={v} style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700, color:AC.muted, letterSpacing:0.3 }}>{v}</span>
             ))}
           </div>
+          {(session.muscles || []).length > 0 && (
+            <div style={{ display:'flex', gap:5, marginTop:6, flexWrap:'wrap' }}>
+              {session.muscles.slice(0,4).map((m, i) => (
+                <span key={i} style={{ padding:'1px 8px', borderRadius:999, fontSize:9,
+                  background:'rgba(255,255,255,0.05)', border:`1px solid ${AC.border}`,
+                  color:AC.sub, fontFamily:'Inter,system-ui' }}>{m}</span>
+              ))}
+            </div>
+          )}
         </div>
         <span style={{ color:AC.muted, fontSize:12, transform:open?'rotate(180deg)':'none', transition:'transform .2s', fontFamily:'ui-monospace,Menlo,monospace' }}>▾</span>
       </div>
@@ -1797,7 +1979,18 @@ function AcRoutineCard({ session, sessionIndex, totalSessions, routineId, routin
             <div key={ex.id||ei} style={{ display:'grid', gridTemplateColumns:'1fr 36px 56px 38px 56px', padding:'9px 18px', alignItems:'center', borderTop:`1px solid rgba(255,255,255,0.03)` }}>
               <div style={{ minWidth:0 }}>
                 <div style={{ fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600, color:AC.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ex.name}</div>
-                <div style={{ fontFamily:'Inter,system-ui', fontSize:9, color:AC.muted, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ex.muscles?.primary?.[0]||''}</div>
+                <div style={{ fontFamily:'Inter,system-ui', fontSize:9, color:AC.muted, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                  {ex.muscles?.primary?.[0]||''}
+                  {ex.tempo ? ` · tempo ${ex.tempo}` : ''}
+                </div>
+                {ex.purpose && (
+                  <div style={{ fontFamily:'Inter,system-ui', fontSize:9, color:AC.muted, marginTop:2, lineHeight:1.4, whiteSpace:'normal' }}>{ex.purpose}</div>
+                )}
+                {(ex.alternatives || []).length > 0 && (
+                  <div style={{ fontFamily:'Inter,system-ui', fontSize:9, color:'rgba(147,197,253,0.55)', marginTop:2, whiteSpace:'normal' }}>
+                    Sin material: {ex.alternatives.join(' · ')}
+                  </div>
+                )}
               </div>
               <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:15, fontWeight:800, color:AC.text, textAlign:'center' }}>{ex.setsCount ?? (Array.isArray(ex.sets) ? ex.sets.length : ex.sets) ?? 3}</div>
               <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:11, color:AC.sub, textAlign:'center' }}>{ex.repsRange||'8-12'}</div>
@@ -1923,6 +2116,7 @@ function AcCoachMessage({ content, onSendToBuilder, onSendToPlayer, onboardingPr
   if (content.type === 'routine') return (
     <div>
       <div style={bubble}>{content.text}</div>
+      <AcProgramCard routine={content.routine} />
       {(content.sessions || []).map((session, si) => (
         <AcRoutineCard
           key={si}
@@ -1935,6 +2129,14 @@ function AcCoachMessage({ content, onSendToBuilder, onSendToPlayer, onboardingPr
           onSendToPlayer={onSendToPlayer}
         />
       ))}
+      <button
+        onClick={() => window.AtlasExporter?.export(content.routine || arLoad(), 'pdf')}
+        style={{ width:'100%', marginTop:10, padding:'11px 16px', borderRadius:12,
+          border:`1px solid ${AC.border}`, cursor:'pointer',
+          background:'rgba(255,255,255,0.04)', color:AC.sub,
+          fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700 }}>
+        ⬇ Descargar rutina en PDF
+      </button>
     </div>
   );
   if (content.type === 'analysis') return (
@@ -2437,6 +2639,7 @@ function AtlasCoachSection() {
         split: splitKey, sessions, priorities: musclePriorities,
         createdAt: Date.now(), source: 'onboarding',
       };
+      acEnrichRoutineMeta(atlasRoutine, level, tiempo, { injuries, musclePriorities });
       arSave(atlasRoutine);
 
       // Store Day 1 as pending workout for Builder
