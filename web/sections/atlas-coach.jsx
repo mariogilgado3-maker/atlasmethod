@@ -509,11 +509,16 @@ function acExtractParams(text) {
   else if (/recomp|perder|definir/.test(t)) p.goal = 'recomp';
   const diasM = t.match(/(\d)\s*d[íi]a/);
   if (diasM) p.dias = parseInt(diasM[1]);
+  // Explicit exercise count: "rutina de 7 ejercicios", "algo de 5"
+  const countM = t.match(/(\d+)\s*ejercicio/);
+  if (countM) p.count = Math.min(12, Math.max(3, parseInt(countM[1])));
+  // Short/quick session shorthand
+  else if (/algo corto|sesi[oó]n corta|r[aá]pido|r[aá]pida|express/.test(t)) p.count = 4;
   return p;
 }
 
 // ── Detailed routine builder ──────────────────────────────────────────────────
-function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps = {}, avoidKeywords = []) {
+function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps = {}, avoidKeywords = [], musclePriorities = [], targetCount = null) {
   const byGroup = {};
   allExs.forEach(ex => {
     if (avoidKeywords.length) {
@@ -526,19 +531,20 @@ function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps
   });
 
   const scheme = {
-    hipertrofia:            { sets: 3, setsComp: 4, reps: '8-12',  rir: 2, rest: '90-120s' },
-    'pérdida de grasa':     { sets: 3, setsComp: 3, reps: '12-15', rir: 2, rest: '60s'     },
+    hipertrofia:             { sets: 3, setsComp: 4, reps: '8-12',  rir: 2, rest: '90-120s' },
+    'pérdida de grasa':      { sets: 3, setsComp: 3, reps: '12-15', rir: 2, rest: '60s'     },
     'recomposición corporal':{ sets: 3, setsComp: 4, reps: '10-14', rir: 2, rest: '75s'     },
-    fuerza:                 { sets: 4, setsComp: 5, reps: '3-6',   rir: 1, rest: '3-5 min' },
-    rendimiento:            { sets: 4, setsComp: 5, reps: '4-8',   rir: 1, rest: '2-3 min' },
-    'rendimiento deportivo':{ sets: 4, setsComp: 5, reps: '4-8',   rir: 1, rest: '2-3 min' },
+    fuerza:                  { sets: 4, setsComp: 5, reps: '3-6',   rir: 1, rest: '3-5 min' },
+    rendimiento:             { sets: 4, setsComp: 5, reps: '4-8',   rir: 1, rest: '2-3 min' },
+    'rendimiento deportivo': { sets: 4, setsComp: 5, reps: '4-8',   rir: 1, rest: '2-3 min' },
   }[goal] || { sets: 3, setsComp: 4, reps: '8-12', rir: 2, rest: '90s' };
 
-  function pick(group, n, isCompound) {
+  // Pick `n` exercises from a group starting at `offset`, marking first as compound
+  function pick(group, n, isCompound, offset = 0) {
     const cap = groupCaps[group];
     const effectiveN = cap !== undefined ? Math.min(n, cap) : n;
     if (effectiveN === 0) return [];
-    return (byGroup[group] || []).slice(0, effectiveN).map((ex, i) => {
+    return (byGroup[group] || []).slice(offset, offset + effectiveN).map((ex, i) => {
       const setsN = isCompound && i === 0 ? scheme.setsComp : scheme.sets;
       return {
         id: ex.id,
@@ -554,21 +560,122 @@ function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps
     });
   }
 
+  // ── Volume scaling ────────────────────────────────────────────────────────────
+  // lvlScale: 0 = principiante, 1 = intermedio, 2 = avanzado
+  const lvlScale = { principiante: 0, intermedio: 1, avanzado: 2 }[level] ?? 1;
+
+  // Map muscle groups to musclePriorities keys (from atlas profile)
+  const G_TO_PRIO = { pecho:'chest', espalda:'back', piernas:'legs', gluteos:'glutes', hombro:'shoulders', biceps:'arms', triceps:'arms' };
+  const priBonus = (g) => musclePriorities.includes(G_TO_PRIO[g]) ? 1 : 0;
+
+  // Max exercises per session from available time (duration = 5 + totalSets*2.8, avg ~3.5 sets/ex → ~9.8 min/ex)
+  const timeMaxEx = tiempo ? Math.max(3, Math.floor((tiempo - 5) / 9.8)) : 99;
+  // Session ceiling: level cap OR user-requested count, whichever is more restrictive
+  const sessionCeil = targetCount
+    ? Math.min(targetCount, timeMaxEx)
+    : Math.min({ principiante: 5, intermedio: 7, avanzado: 9 }[level] || 7, timeMaxEx);
+  // Session floor: minimum we aim to reach (level-dependent)
+  const sessionFloor = { principiante: 4, intermedio: 5, avanzado: 6 }[level] || 5;
+
+  // Build one session from a spec array: [{ group, base, ext, compound }]
+  // base = count at principiante, ext = added at intermedio (+1 more at avanzado)
+  function buildSession(name, spec) {
+    const usage = {}; // track how many exercises taken per group
+    let exs = [];
+
+    // Pass 1: fill from spec with level scaling + priority bonuses
+    spec.forEach(({ group, base, ext, compound }) => {
+      const desired = base + (lvlScale >= 1 ? ext : 0) + (lvlScale >= 2 ? 1 : 0) + priBonus(group);
+      const actual  = Math.min(desired, groupCaps[group] ?? 99, (byGroup[group] || []).length);
+      usage[group]  = actual;
+      exs.push(...pick(group, actual, compound, 0));
+    });
+
+    // Pass 2: compensate if below floor (group exhausted) — pull extras from most-available groups
+    if (exs.length < sessionFloor && exs.length < sessionCeil) {
+      // Try each group in spec order (isolation groups first, so we add variety)
+      const specOrdered = [...spec].reverse();
+      for (const { group, compound } of specOrdered) {
+        if (exs.length >= sessionFloor) break;
+        const offset = usage[group] || 0;
+        const available = (byGroup[group] || []).slice(offset);
+        if (available.length > 0) {
+          const extra = pick(group, 1, false, offset);
+          if (extra.length) { exs.push(...extra); usage[group] = offset + 1; }
+        }
+      }
+    }
+
+    // Trim to ceiling
+    if (exs.length > sessionCeil) exs = exs.slice(0, sessionCeil);
+
+    return { name, exs };
+  }
+
   const configs = {
-    push:         () => [{ name:'Push — Empuje', exs: [...pick('pecho',2,true), ...pick('hombro',1,false), ...pick('triceps',1,false)] }],
-    pull:         () => [{ name:'Pull — Tracción', exs: [...pick('espalda',2,true), ...pick('biceps',2,false)] }],
-    legs:         () => [{ name:'Legs — Piernas', exs: [...pick('piernas',2,true), ...pick('gluteos',1,false), ...pick('core',2,false)] }],
-    arms:         () => [{ name:'Brazos', exs: [...pick('biceps',2,false), ...pick('triceps',2,false)] }],
-    shoulders:    () => [{ name:'Hombros', exs: [...pick('hombro',3,false)] }],
-    fullbody:     () => [{ name:'Full Body', exs: [...pick('piernas',1,true), ...pick('pecho',1,true), ...pick('espalda',1,true), ...pick('hombro',1,false), ...pick('core',1,false)] }],
-    ppl:          () => [
-      { name:'Push — Empuje', exs: [...pick('pecho',2,true), ...pick('hombro',1,false), ...pick('triceps',1,false)] },
-      { name:'Pull — Tracción', exs: [...pick('espalda',2,true), ...pick('biceps',2,false)] },
-      { name:'Legs — Piernas', exs: [...pick('piernas',2,true), ...pick('gluteos',1,false), ...pick('core',1,false)] },
+    // Intermediate target: 3 pecho (1 comp + 2 isol) + 2 hombro + 2 tríceps = 7
+    push: () => [buildSession('Push — Empuje', [
+      { group:'pecho',   base:2, ext:1, compound:true  },  // beg:2 / int:3 / adv:4
+      { group:'hombro',  base:1, ext:1, compound:false },  // beg:1 / int:2 / adv:3
+      { group:'triceps', base:1, ext:1, compound:false },  // beg:1 / int:2 / adv:3
+    ])],
+    // Intermediate target: 3 espalda + 1 hombro posterior + 2 bíceps = 6
+    pull: () => [buildSession('Pull — Tracción', [
+      { group:'espalda', base:2, ext:1, compound:true  },  // beg:2 / int:3 / adv:4
+      { group:'hombro',  base:0, ext:1, compound:false },  // beg:0 / int:1 / adv:2 (delt. posterior)
+      { group:'biceps',  base:1, ext:1, compound:false },  // beg:1 / int:2 / adv:3
+    ])],
+    // Intermediate target: 3 piernas + 2 glúteos + 1 core = 6
+    legs: () => [buildSession('Legs — Piernas', [
+      { group:'piernas', base:2, ext:1, compound:true  },  // beg:2 / int:3 / adv:4
+      { group:'gluteos', base:1, ext:1, compound:true  },  // beg:1 / int:2 / adv:2
+      { group:'core',    base:1, ext:0, compound:false },  // beg:1 / int:1 / adv:2
+    ])],
+    arms: () => [buildSession('Brazos', [
+      { group:'biceps',  base:2, ext:1, compound:false },
+      { group:'triceps', base:2, ext:1, compound:false },
+    ])],
+    shoulders: () => [buildSession('Hombros', [
+      { group:'hombro',  base:2, ext:1, compound:false },
+      { group:'triceps', base:1, ext:1, compound:false },
+    ])],
+    fullbody: () => [buildSession('Full Body', [
+      { group:'piernas', base:1, ext:1, compound:true  },
+      { group:'pecho',   base:1, ext:0, compound:true  },
+      { group:'espalda', base:1, ext:0, compound:true  },
+      { group:'hombro',  base:1, ext:0, compound:false },
+      { group:'core',    base:1, ext:0, compound:false },
+    ])],
+    ppl: () => [
+      buildSession('Push — Empuje', [
+        { group:'pecho',   base:2, ext:1, compound:true  },
+        { group:'hombro',  base:1, ext:1, compound:false },
+        { group:'triceps', base:1, ext:1, compound:false },
+      ]),
+      buildSession('Pull — Tracción', [
+        { group:'espalda', base:2, ext:1, compound:true  },
+        { group:'hombro',  base:0, ext:1, compound:false },
+        { group:'biceps',  base:1, ext:1, compound:false },
+      ]),
+      buildSession('Legs — Piernas', [
+        { group:'piernas', base:2, ext:1, compound:true  },
+        { group:'gluteos', base:1, ext:1, compound:true  },
+        { group:'core',    base:1, ext:0, compound:false },
+      ]),
     ],
-    upper_lower:  () => [
-      { name:'Upper — Tren superior', exs: [...pick('pecho',2,true), ...pick('espalda',2,true), ...pick('hombro',1,false)] },
-      { name:'Lower — Tren inferior', exs: [...pick('piernas',2,true), ...pick('gluteos',1,false), ...pick('core',2,false)] },
+    upper_lower: () => [
+      buildSession('Upper — Tren superior', [
+        { group:'pecho',   base:1, ext:1, compound:true  },
+        { group:'espalda', base:1, ext:1, compound:true  },
+        { group:'hombro',  base:1, ext:0, compound:false },
+        { group:'biceps',  base:0, ext:1, compound:false },
+        { group:'triceps', base:0, ext:1, compound:false },
+      ]),
+      buildSession('Lower — Tren inferior', [
+        { group:'piernas', base:2, ext:1, compound:true  },
+        { group:'gluteos', base:1, ext:1, compound:true  },
+        { group:'core',    base:1, ext:0, compound:false },
+      ]),
     ],
   };
 
@@ -674,7 +781,7 @@ function acResponseRoutine(params, ctx, profile, memory, allExs) {
   const avoidKeywords = (avoidExercises || '').toLowerCase()
     .split(/[,;]/).map(s => s.trim()).filter(Boolean);
 
-  const sessions = acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps, avoidKeywords);
+  const sessions = acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps, avoidKeywords, musclePriorities, params.count || null);
   if (!sessions.length || sessions.every(s => !s.exercises.length)) {
     return { type:'text', text:'No pude armar la rutina con los ejercicios disponibles. Prueba con otro tipo de split.' };
   }
