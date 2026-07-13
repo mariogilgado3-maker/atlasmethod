@@ -1722,7 +1722,7 @@ function EmptyPanel({ onPick, priorities }) {
 }
 
 // ── Barra de sesión sticky ────────────────────────────────────────────────────
-function WorkoutBar({ workout, saved, duration, onSave, mobile }) {
+function WorkoutBar({ workout, saved, duration, onSave, onStart, mobile }) {
   return (
     <div style={{ position:'fixed', bottom:0, left:0, right:0, zIndex:200,
       background:'rgba(6,13,24,0.97)', backdropFilter:'blur(24px)',
@@ -1756,6 +1756,13 @@ function WorkoutBar({ workout, saved, duration, onSave, mobile }) {
           ~{duration} min
         </span>
       )}
+      <button onClick={onStart}
+        style={{ flexShrink:0, padding:'11px 18px', borderRadius:12, border:'none', cursor:'pointer',
+          background:'#22C55E', color:'#fff',
+          fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, transition:'all .25s', whiteSpace:'nowrap',
+          boxShadow:'0 4px 16px rgba(34,197,94,0.35)' }}>
+        ▶ Iniciar
+      </button>
       <button onClick={onSave}
         style={{ flexShrink:0, padding:'11px 20px', borderRadius:12, border:'none', cursor:'pointer',
           background: saved ? 'rgba(34,197,94,0.15)' : BD.blue,
@@ -2328,7 +2335,7 @@ function BuilderSection() {
       {workout.length > 0 && (
         <WorkoutBar
           workout={workout} saved={saved} duration={duration}
-          onSave={save} mobile={mobile}
+          onSave={save} onStart={startExecution} mobile={mobile}
         />
       )}
 
