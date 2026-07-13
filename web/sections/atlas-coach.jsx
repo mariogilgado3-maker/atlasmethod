@@ -472,6 +472,7 @@ function acBuildRichContext(state, profile) {
 function acDetectIntent(text) {
   const t = text.toLowerCase();
   if (/hazme|g[eé]nera|crea|dame.*rutina|rutina.*para|plan.*para|d[íi]a de|quiero.*entrena|qu[eé] hago hoy/.test(t)) return 'routine';
+  if (/quiero.*rutina|necesito.*rutina|una rutina|rutina de |d[aá]me.*rutina|h[aá]zme.*rutina/.test(t)) return 'routine';
   if (/quiero.*trabajar|mejorar.*pecho|mejorar.*espalda|mejorar.*pierna|foco en/.test(t)) return 'routine';
   if (/analiza|an[aá]lisis|c[oó]mo.*voy|qu[eé] tal.*entrena|revisar?|mi historial|mi progreso/.test(t)) return 'analysis';
   if (/me duele|me molesta|tengo.*dolor|lesi[oó]n|lastim|dolor en|molestia en/.test(t)) return 'injury';
@@ -489,7 +490,7 @@ function acDetectIntent(text) {
 
 function acExtractParams(text) {
   const t = text.toLowerCase();
-  const p = {};
+  const p = { raw: text };
   if (/mancuerna/.test(t)) p.equipment = 'mancuernas';
   else if (/en casa|sin.*gym|bodyweight|peso corporal/.test(t)) p.equipment = 'casa';
   const timeM = t.match(/(\d+)\s*min/);
@@ -623,6 +624,18 @@ function acResponseGreeting(ctx, profile, memory) {
 }
 
 function acResponseRoutine(params, ctx, profile, memory, allExs) {
+  // If no muscle group / split specified and the request is ambiguous, ask for clarification
+  if (!params.target && !params.split && !params.dias) {
+    const raw = (params.raw || '').toLowerCase();
+    const hasWeekContext = /semana|plan|programa|d[íi]as|completo|todo/.test(raw);
+    if (!hasWeekContext) {
+      return {
+        type: 'text',
+        text: '¿Qué tipo de rutina quieres?\n\n• **Push** — pecho, hombros y tríceps\n• **Pull** — espalda y bíceps\n• **Legs** — cuádriceps, isquiotibiales y glúteos\n• **Full Body** — todo el cuerpo en una sesión\n• **PPL completo** — plan Push/Pull/Legs de toda la semana\n• **Upper / Lower** — plan de semana dividido en superior/inferior\n\nDime cuál prefieres (o cuántos días entrenas por semana) y lo armo al instante.',
+      };
+    }
+  }
+
   const goal           = params.goal   || profile?.objetivo        || 'hipertrofia';
   const tiempo         = params.tiempo || profile?.tiempo          || 60;
   const level          = profile?.nivel                            || 'intermedio';
@@ -1545,7 +1558,7 @@ function AcRoutineCard({ session, sessionIndex, totalSessions, routineId, routin
               onClick={() => onSendToBuilder(session.exercises, { routineId, routineName, sessionIndex, totalSessions, sessionName: session.name })}
               style={{ flex:1, padding:'10px 12px', borderRadius:10, border:'1px solid rgba(59,130,246,0.30)', cursor:'pointer', background:'transparent', color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:12, fontWeight:700, letterSpacing:-0.2 }}
             >
-              Ver rutina
+              Abrir en Builder
             </button>
             <button
               onClick={() => onSendToPlayer(session.exercises, { routineId, routineName, sessionIndex, totalSessions, sessionName: session.name })}
@@ -1778,8 +1791,34 @@ function AcProfilePanel({ profile, onSave }) {
   );
 }
 
+// ── Mi Rutina widget ──────────────────────────────────────────────────────────
+function AcMiRutina({ onSendToBuilder, onSendToPlayer }) {
+  const routine = React.useMemo(() => { try { return JSON.parse(localStorage.getItem('atlas.routine.active.v1') || 'null'); } catch { return null; } }, []);
+  if (!routine || !Array.isArray(routine.sessions) || !routine.sessions.length) return null;
+  return (
+    <div style={{ padding:'10px 10px 0', borderTop:`1px solid ${AC.border}`, flexShrink:0 }}>
+      <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, fontWeight:700, color:AC.muted, letterSpacing:1.2, marginBottom:8 }}>MI RUTINA</div>
+      <div style={{ fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700, color:AC.text, marginBottom:7, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{routine.name || 'Rutina activa'}</div>
+      <div style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:8 }}>
+        {routine.sessions.map((session, i) => (
+          <div key={i} style={{ display:'flex', gap:4 }}>
+            <button
+              onClick={() => onSendToBuilder(session.exercises, { routineId: routine.id, routineName: routine.name, sessionIndex: i, totalSessions: routine.sessions.length, sessionName: session.name })}
+              style={{ flex:1, padding:'5px 8px', borderRadius:7, border:`1px solid rgba(59,130,246,0.22)`, background:'rgba(59,130,246,0.06)', color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:10, fontWeight:700, cursor:'pointer', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign:'left' }}
+            >{session.name || `Día ${i+1}`}</button>
+            <button
+              onClick={() => onSendToPlayer(session.exercises, { routineId: routine.id, routineName: routine.name, sessionIndex: i, totalSessions: routine.sessions.length, sessionName: session.name })}
+              style={{ flexShrink:0, padding:'5px 8px', borderRadius:7, border:'none', background:'#22C55E', color:'#fff', fontFamily:'Inter,system-ui', fontSize:10, fontWeight:800, cursor:'pointer' }}
+            >▶</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-function AcSidebar({ chats, activeChatId, onSelect, onNew, profile, onSaveProfile }) {
+function AcSidebar({ chats, activeChatId, onSelect, onNew, profile, onSaveProfile, onSendToBuilder, onSendToPlayer }) {
   return (
     <aside style={{ width:220, flexShrink:0, background:AC.sidebar, borderRight:`1px solid ${AC.border}`, display:'flex', flexDirection:'column', overflow:'hidden' }}>
       <div style={{ padding:'14px 12px', borderBottom:`1px solid ${AC.border}`, flexShrink:0 }}>
@@ -1803,6 +1842,7 @@ function AcSidebar({ chats, activeChatId, onSelect, onNew, profile, onSaveProfil
           );
         })}
       </div>
+      <AcMiRutina onSendToBuilder={onSendToBuilder} onSendToPlayer={onSendToPlayer} />
       <AcProfilePanel profile={profile} onSave={onSaveProfile} />
     </aside>
   );
@@ -2246,6 +2286,8 @@ function AtlasCoachSection() {
             onNew={startNewChat}
             profile={profile}
             onSaveProfile={handleSaveProfile}
+            onSendToBuilder={sendToBuilder}
+            onSendToPlayer={sendToPlayer}
           />
         )}
 

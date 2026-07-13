@@ -128,6 +128,32 @@ function CardProfile({ profile, userName, navigate }) {
   );
 }
 
+function CardRoutine({ routine, navigate }) {
+  const name = routine.name || 'Rutina activa';
+  const sessions = Array.isArray(routine.sessions) ? routine.sessions : [];
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+      <span style={{ fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 700, color: '#0F1A2E', letterSpacing: -0.2, whiteSpace: 'nowrap' }}>
+        Mi rutina
+      </span>
+      <Dot />
+      <span style={{ fontFamily: '"Inter",system-ui', fontSize: 12, color: '#5C6477', whiteSpace: 'nowrap' }}>
+        {name} · {sessions.length} día{sessions.length !== 1 ? 's' : ''}
+      </span>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {sessions.slice(0, 4).map((s, i) => (
+          <CtxPill key={i} label={s.name || `Día ${i+1}`} onClick={() => {
+            localStorage.setItem('atlas.pendingWorkout', JSON.stringify(s.exercises || []));
+            try { localStorage.setItem('atlas.pendingWorkoutMeta', JSON.stringify({ routineName: name, sessionName: s.name, sessionIndex: i, totalSessions: sessions.length, mode: 'player' })); } catch {}
+            navigate('/player');
+          }} />
+        ))}
+        <CtxPill label="Ver en Coach →" onClick={() => navigate('/coach')} primary />
+      </div>
+    </div>
+  );
+}
+
 // ─── Main component ────────────────────────────────────────────────────────────
 function HomeContextCard() {
   const { state } = useStore();
@@ -137,6 +163,10 @@ function HomeContextCard() {
     try { return JSON.parse(localStorage.getItem('atlas.profile.v1') || 'null'); } catch { return null; }
   }, []);
 
+  const activeRoutine = React.useMemo(() => {
+    try { return JSON.parse(localStorage.getItem('atlas.routine.active.v1') || 'null'); } catch { return null; }
+  }, []);
+
   const lastSession = (state.log || [])[0] || null;
   const coachPlan   = state.plan || null;
   const hasProfile  = !!(profile?.objective);
@@ -144,7 +174,9 @@ function HomeContextCard() {
 
   // Pick the highest-priority variant
   let content;
-  if (lastSession) {
+  if (activeRoutine && Array.isArray(activeRoutine.sessions) && activeRoutine.sessions.length) {
+    content = <CardRoutine routine={activeRoutine} navigate={navigate} />;
+  } else if (lastSession) {
     content = <CardSession session={lastSession} userName={userName} profile={profile} navigate={navigate} />;
   } else if (coachPlan) {
     content = <CardPlan plan={coachPlan} navigate={navigate} />;
