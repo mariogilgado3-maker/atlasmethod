@@ -268,7 +268,7 @@ function useStore() {
 }
 
 // ─── Hash router ──────────────────────────────────────
-const ROUTES = ['/', '/aula', '/laboratorio', '/coach', '/builder', '/perfil', '/admin'];
+const ROUTES = ['/', '/aula', '/laboratorio', '/coach', '/builder', '/perfil', '/admin', '/progreso', '/player'];
 
 function useRoute() {
   const [route, setRoute] = React.useState(() => {
