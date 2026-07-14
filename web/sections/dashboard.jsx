@@ -343,6 +343,10 @@ function DashboardSection() {
             })}
           </div>
         </div>
+
+        {/* Row 6 — data backup */}
+        <DataBackupBlock />
+
       </div>
     </section>
   );
@@ -417,5 +421,98 @@ const sectionLabelStyle = {
   fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, fontWeight: 700,
   color: '#9498A4', letterSpacing: 0.6, textTransform: 'uppercase',
 };
+
+function DataBackupBlock() {
+  const [confirm, setConfirm] = React.useState(null); // { summary, applyFn }
+  const [error,   setError]   = React.useState(null);
+  const fileRef = React.useRef(null);
+
+  function handleExport() {
+    if (typeof exportBackup === 'undefined') return;
+    exportBackup();
+  }
+
+  function handleFileChange(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+    if (typeof importBackup === 'undefined') return;
+    importBackup(file, {
+      onSummary: (lines, applyFn) => { setError(null); setConfirm({ summary: lines, applyFn }); },
+      onError:   (msg)            => { setConfirm(null); setError(msg); },
+    });
+  }
+
+  const btnBase = {
+    padding: '9px 18px', borderRadius: 10, cursor: 'pointer',
+    fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 700,
+    border: '1px solid rgba(15,26,46,0.12)', transition: 'background .14s',
+  };
+
+  return (
+    <div style={{ marginTop: 20, background: '#FAFAF7', borderRadius: 20, border: '1px solid rgba(15,26,46,0.06)', padding: '20px 24px' }}>
+      <div style={sectionLabelStyle}>Tus datos</div>
+      <p style={{ fontFamily: '"Inter",system-ui', fontSize: 12, color: '#9498A4', marginTop: 8, marginBottom: 16, lineHeight: 1.6 }}>
+        Tus datos viven solo en este dispositivo y navegador. Descarga una copia de seguridad para no perderlos si cambias de dispositivo o borras la caché.
+      </p>
+
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button onClick={handleExport} style={{ ...btnBase, background: '#0F1A2E', color: '#FAFAF7', border: 'none' }}>
+          Descargar copia de seguridad
+        </button>
+        <button
+          onClick={() => fileRef.current && fileRef.current.click()}
+          style={{ ...btnBase, background: 'transparent', color: '#3A4257' }}
+        >
+          Restaurar copia
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".json"
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+        />
+      </div>
+
+      {error && (
+        <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 10, background: 'rgba(180,40,40,0.06)', border: '1px solid rgba(180,40,40,0.15)', fontFamily: '"Inter",system-ui', fontSize: 12, color: '#9B1C1C', lineHeight: 1.5 }}>
+          {error}
+          <button onClick={() => setError(null)} style={{ marginLeft: 10, background: 'none', border: 'none', cursor: 'pointer', color: '#9B1C1C', fontSize: 11, fontWeight: 700, padding: 0 }}>✕</button>
+        </div>
+      )}
+
+      {confirm && (
+        <div style={{ marginTop: 14, padding: '14px 16px', borderRadius: 12, background: 'rgba(15,26,46,0.04)', border: '1px solid rgba(15,26,46,0.10)' }}>
+          <div style={{ fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 700, color: '#0F1A2E', marginBottom: 8 }}>
+            Este backup contiene:
+          </div>
+          <ul style={{ margin: '0 0 12px 18px', padding: 0 }}>
+            {confirm.summary.map((line, i) => (
+              <li key={i} style={{ fontFamily: '"Inter",system-ui', fontSize: 12, color: '#3A4257', marginBottom: 3 }}>{line}</li>
+            ))}
+          </ul>
+          <div style={{ fontFamily: '"Inter",system-ui', fontSize: 11, color: '#9498A4', marginBottom: 12 }}>
+            Esto sobrescribirá los datos actuales de este dispositivo. La app se recargará.
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => { confirm.applyFn(); setConfirm(null); }}
+              style={{ ...btnBase, background: '#0F1A2E', color: '#FAFAF7', border: 'none', fontSize: 12 }}
+            >
+              Restaurar ahora
+            </button>
+            <button
+              onClick={() => setConfirm(null)}
+              style={{ ...btnBase, background: 'transparent', color: '#9498A4', fontSize: 12 }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 Object.assign(window, { DashboardSection });
