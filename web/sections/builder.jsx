@@ -2159,6 +2159,21 @@ function BuilderSection() {
                   ▶ Iniciar
                 </button>
               )}
+              <button
+                title="Descargar rutina completa en PDF"
+                onClick={() => {
+                  if (typeof exportRoutinePDF === 'undefined') return;
+                  try {
+                    const full = JSON.parse(localStorage.getItem('atlas.routine.active.v1') || 'null');
+                    if (full && Array.isArray(full.sessions) && full.sessions.length) {
+                      exportRoutinePDF(full);
+                    } else {
+                      exportRoutinePDF({ name: coachBanner.routineName || 'Rutina', sessions: [{ name: coachBanner.sessionName || 'Día 1', exercises: workout }] });
+                    }
+                  } catch { exportRoutinePDF({ name: coachBanner.routineName || 'Rutina', sessions: [{ name: coachBanner.sessionName || 'Día 1', exercises: workout }] }); }
+                }}
+                style={{ padding:'5px 10px', borderRadius:7, border:'1px solid rgba(59,130,246,0.25)', background:'rgba(59,130,246,0.07)', color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700, cursor:'pointer', flexShrink:0 }}
+              >↓ PDF</button>
               <button onClick={() => setCoachBanner(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(147,197,253,0.35)', fontSize:14, padding:'2px 6px', flexShrink:0 }}>✕</button>
             </div>
             {/* Row 2: day tabs for multi-session plans */}

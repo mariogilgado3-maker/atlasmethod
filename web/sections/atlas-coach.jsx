@@ -1668,6 +1668,13 @@ function AcRoutineCard({ session, sessionIndex, totalSessions, routineId, routin
               Abrir en Builder
             </button>
             <button
+              title="Descargar PDF"
+              onClick={() => typeof exportRoutinePDF !== 'undefined' && exportRoutinePDF({ name: routineName, sessions: [session] })}
+              style={{ flexShrink:0, padding:'10px 13px', borderRadius:10, border:'1px solid rgba(59,130,246,0.25)', cursor:'pointer', background:'rgba(59,130,246,0.07)', color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700 }}
+            >
+              ↓ PDF
+            </button>
+            <button
               onClick={() => onSendToPlayer(session.exercises, { routineId, routineName, sessionIndex, totalSessions, sessionName: session.name })}
               style={{ flex:2, padding:'10px 16px', borderRadius:10, border:'none', cursor:'pointer', background:'#22C55E', color:'#fff', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, letterSpacing:-0.2, boxShadow:'0 4px 18px -4px rgba(34,197,94,0.45)' }}
             >
@@ -1904,7 +1911,14 @@ function AcMiRutina({ onSendToBuilder, onSendToPlayer }) {
   if (!routine || !Array.isArray(routine.sessions) || !routine.sessions.length) return null;
   return (
     <div style={{ padding:'10px 10px 0', borderTop:`1px solid ${AC.border}`, flexShrink:0 }}>
-      <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, fontWeight:700, color:AC.muted, letterSpacing:1.2, marginBottom:8 }}>MI RUTINA</div>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+        <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, fontWeight:700, color:AC.muted, letterSpacing:1.2 }}>MI RUTINA</div>
+        <button
+          title="Descargar rutina completa en PDF"
+          onClick={() => typeof exportRoutinePDF !== 'undefined' && exportRoutinePDF(routine)}
+          style={{ padding:'3px 8px', borderRadius:6, border:`1px solid rgba(59,130,246,0.22)`, background:'rgba(59,130,246,0.07)', color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:9, fontWeight:700, cursor:'pointer' }}
+        >↓ PDF</button>
+      </div>
       <div style={{ fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700, color:AC.text, marginBottom:7, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{routine.name || 'Rutina activa'}</div>
       <div style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:8 }}>
         {routine.sessions.map((session, i) => (
