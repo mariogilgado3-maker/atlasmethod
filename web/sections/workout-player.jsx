@@ -153,11 +153,51 @@ function WpRpeSelector({ value, onChange }) {
 
 // ── Finish Screen ─────────────────────────────────────────────────────────────
 
+// Returns per-exercise comparison rows against the most recent matching session
+function wpBuildComparison(finished) {
+  const history = WorkoutSessionStore.getHistory(20);
+  // history[0] is the just-completed session; search from [1] for prior sessions
+  const currNames = new Set((finished?.exercises || []).map(e => e.name));
+  let prev = null;
+  for (let i = 1; i < history.length; i++) {
+    const h = history[i];
+    const overlap = (h.exercises || []).filter(e => currNames.has(e.name)).length;
+    if (overlap >= Math.min(2, Math.floor(currNames.size * 0.4))) { prev = h; break; }
+  }
+  if (!prev) return null;
+
+  // Build previous-session max-kg map
+  const prevMap = {};
+  (prev.exercises || []).forEach(ex => {
+    const doneSets = (ex.sets || []).filter(s => s.done && Number(s.kg) > 0);
+    if (!doneSets.length) return;
+    prevMap[ex.name] = {
+      kg:   Math.max(...doneSets.map(s => Number(s.kg))),
+      reps: Math.round(doneSets.reduce((a, s) => a + Number(s.reps || 0), 0) / doneSets.length),
+      sets: doneSets.length,
+    };
+  });
+
+  const rows = (finished?.exercises || []).map(ex => {
+    const doneSets = (ex.sets || []).filter(s => s.done && Number(s.kg) > 0);
+    if (!doneSets.length) return null;
+    const currKg   = Math.max(...doneSets.map(s => Number(s.kg)));
+    const currReps = Math.round(doneSets.reduce((a, s) => a + Number(s.reps || 0), 0) / doneSets.length);
+    const p        = prevMap[ex.name];
+    const delta    = p ? +(currKg - p.kg).toFixed(1) : null;
+    return { name: ex.name, currKg, currReps, currSets: doneSets.length, prevKg: p?.kg, prevReps: p?.reps, delta };
+  }).filter(Boolean);
+
+  return rows.length ? { rows, prevDate: prev.date } : null;
+}
+
 function WpFinishScreen({ finished, onHome, onCoach }) {
   const dur = finished?.duration || 0;
   const muscles = [...new Set(
     (finished?.exercises || []).flatMap(ex => ex.muscles?.primary || [])
   )].slice(0, 6);
+
+  const comparison = React.useMemo(() => wpBuildComparison(finished), [finished]);
 
   return (
     <div style={{ minHeight:'100vh', background:WP.page, display:'flex', alignItems:'center', justifyContent:'center', padding:'24px 20px' }}>
@@ -194,6 +234,40 @@ function WpFinishScreen({ finished, onHome, onCoach }) {
               {muscles.map(m => (
                 <span key={m} style={{ padding:'3px 10px', borderRadius:999, fontFamily:'Inter,system-ui', fontSize:11, fontWeight:600, background:`${wpMuscleColor(m)}22`, border:`1px solid ${wpMuscleColor(m)}44`, color:wpMuscleColor(m) }}>{m}</span>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Per-exercise comparison */}
+        {comparison && (
+          <div style={{ marginBottom:24, textAlign:'left' }}>
+            <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, fontWeight:700, color:WP.muted, letterSpacing:1.2, marginBottom:10, textAlign:'center' }}>
+              VS SESIÓN ANTERIOR · {comparison.prevDate}
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:1, borderRadius:12, overflow:'hidden', border:`1px solid ${WP.border}` }}>
+              {comparison.rows.map((row, i) => {
+                const hasPrev    = row.prevKg != null;
+                const improved   = hasPrev && row.delta > 0;
+                const regressed  = hasPrev && row.delta < 0;
+                const indicator  = improved ? '↑' : regressed ? '↓' : hasPrev ? '=' : null;
+                const indColor   = improved ? WP.green : regressed ? WP.red : WP.muted;
+                const fmtKg      = v => (v % 1 === 0 ? String(v) : v.toFixed(1));
+                return (
+                  <div key={i} style={{ display:'flex', alignItems:'center', padding:'9px 14px', background: i % 2 === 0 ? 'rgba(255,255,255,0.03)' : 'transparent', gap:8 }}>
+                    <div style={{ flex:1, fontFamily:'Inter,system-ui', fontSize:11, fontWeight:600, color:WP.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {row.name}
+                    </div>
+                    <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:11, color:WP.sub, flexShrink:0 }}>
+                      {row.currSets}×{row.currReps} · {fmtKg(row.currKg)} kg
+                    </div>
+                    {indicator && (
+                      <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:11, fontWeight:800, color:indColor, flexShrink:0, minWidth:36, textAlign:'right' }}>
+                        {indicator}{row.delta !== 0 ? ` ${Math.abs(row.delta)}` : ''}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

@@ -518,7 +518,7 @@ function acExtractParams(text) {
 }
 
 // ── Detailed routine builder ──────────────────────────────────────────────────
-function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps = {}, avoidKeywords = [], musclePriorities = [], targetCount = null) {
+function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps = {}, avoidKeywords = [], musclePriorities = [], targetCount = null, log = []) {
   const byGroup = {};
   allExs.forEach(ex => {
     if (avoidKeywords.length) {
@@ -529,6 +529,21 @@ function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps
     if (!byGroup[g]) byGroup[g] = [];
     byGroup[g].push(ex);
   });
+
+  // Plateau-aware ordering: push stagnant exercises to the end of each group
+  // so non-stagnant alternatives are preferred when available.
+  const stagnantNames = new Set(
+    log.length >= 3 && typeof peGetStagnantExercises !== 'undefined'
+      ? peGetStagnantExercises(log, 3).map(e => e.name)
+      : []
+  );
+  if (stagnantNames.size > 0) {
+    Object.keys(byGroup).forEach(g => {
+      byGroup[g].sort((a, b) =>
+        (stagnantNames.has(a.name) ? 1 : 0) - (stagnantNames.has(b.name) ? 1 : 0)
+      );
+    });
+  }
 
   const scheme = {
     hipertrofia:             { sets: 3, setsComp: 4, reps: '8-12',  rir: 2, rest: '90-120s' },
@@ -545,17 +560,43 @@ function acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps
     const effectiveN = cap !== undefined ? Math.min(n, cap) : n;
     if (effectiveN === 0) return [];
     return (byGroup[group] || []).slice(offset, offset + effectiveN).map((ex, i) => {
-      const setsN = isCompound && i === 0 ? scheme.setsComp : scheme.sets;
+      const setsN   = isCompound && i === 0 ? scheme.setsComp : scheme.sets;
+      const isComp  = isCompound && i === 0;
+      const isStag  = stagnantNames.has(ex.name);
+
+      // ── History preloading & progression hint ─────────────────────────────
+      let progressionHint = null;
+      let preloadKg       = '';
+      if (log.length > 0 && typeof peGetProgressionHint !== 'undefined') {
+        const ph = peGetProgressionHint(log, ex.name, isComp, scheme.reps);
+        if (ph) {
+          if (isStag) {
+            // Plateau: show last load but no increase suggestion
+            const fmtKg = v => (v % 1 === 0 ? String(v) : v.toFixed(1));
+            progressionHint = `Última vez: ${ph.preloadReps} reps · ${fmtKg(ph.preloadKg)} kg · prueba variante`;
+            preloadKg = ph.preloadKg;
+          } else {
+            progressionHint = ph.hint;
+            preloadKg = ph.suggestedKg != null ? ph.suggestedKg : ph.preloadKg;
+          }
+        }
+      }
+
       return {
         id: ex.id,
         name: ex.name,
         muscles: { primary: (ex.muscles?.primary || []).slice(0, 2), secondary: [] },
         pattern: ex.pattern,
-        sets: Array.from({ length: setsN }, () => ({ kg: '', reps: scheme.reps.split('-')[0] })),
-        setsCount: setsN,
-        repsRange: scheme.reps,
-        rir: i === 0 ? scheme.rir : scheme.rir + 1,
-        rest: isCompound && i === 0 ? scheme.rest : '60-90s',
+        sets: Array.from({ length: setsN }, () => ({
+          kg:   preloadKg ? String(preloadKg) : '',
+          reps: scheme.reps.split('-')[0],
+        })),
+        setsCount:       setsN,
+        repsRange:       scheme.reps,
+        rir:             i === 0 ? scheme.rir : scheme.rir + 1,
+        rest:            isCompound && i === 0 ? scheme.rest : '60-90s',
+        progressionHint: progressionHint || undefined,
+        plateauAlert:    isStag || undefined,
       };
     });
   }
@@ -781,7 +822,7 @@ function acResponseRoutine(params, ctx, profile, memory, allExs) {
   const avoidKeywords = (avoidExercises || '').toLowerCase()
     .split(/[,;]/).map(s => s.trim()).filter(Boolean);
 
-  const sessions = acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps, avoidKeywords, musclePriorities, params.count || null);
+  const sessions = acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps, avoidKeywords, musclePriorities, params.count || null, ctx.log || []);
   if (!sessions.length || sessions.every(s => !s.exercises.length)) {
     return { type:'text', text:'No pude armar la rutina con los ejercicios disponibles. Prueba con otro tipo de split.' };
   }
@@ -814,6 +855,14 @@ function acResponseRoutine(params, ctx, profile, memory, allExs) {
   if (ctx.daysSinceLast > 6) contextNotes.push(`Llevas ${ctx.daysSinceLast} días sin entrenar — empieza al 70–80% de tus cargas habituales.`);
   if (ctx.pushPullRatio > 1.5 && !['pull','legs'].includes(splitKey)) contextNotes.push(`Tu tracción está por debajo de tu empuje esta semana; prioriza espalda en tu próxima sesión.`);
   if (ctx.plateaus.length > 0) contextNotes.push(`Noto plateau en ${ctx.plateaus[0].name} (${ctx.plateaus[0].kg} kg). Intenta superar ese peso en al menos una serie.`);
+
+  // Plateau alert: exercises kept in session because no alternative was available
+  const plateauAlertExs = sessions.flatMap(s => s.exercises.filter(e => e.plateauAlert));
+  if (plateauAlertExs.length > 0) {
+    const names = [...new Set(plateauAlertExs.map(e => e.name))].slice(0, 2).join(' y ');
+    const verb  = plateauAlertExs.length === 1 ? 'lleva' : 'llevan';
+    contextNotes.push(`⚠ ${names} ${verb} varias sesiones sin progresar. He preloadeado las cargas anteriores — prueba bajar el RIR en 1 punto o introducir una variación del mismo patrón de movimiento.`);
+  }
 
   // Injury explanations
   const injuryNotes = injuries
@@ -1653,6 +1702,16 @@ function AcRoutineCard({ session, sessionIndex, totalSessions, routineId, routin
               <div style={{ minWidth:0 }}>
                 <div style={{ fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600, color:AC.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ex.name}</div>
                 <div style={{ fontFamily:'Inter,system-ui', fontSize:9, color:AC.muted, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ex.muscles?.primary?.[0]||''}</div>
+                {ex.progressionHint && !ex.plateauAlert && (
+                  <div style={{ fontFamily:'Inter,system-ui', fontSize:9, marginTop:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color: ex.progressionHint.includes('→') ? '#4ADE80' : 'rgba(147,197,253,0.65)' }}>
+                    {ex.progressionHint}
+                  </div>
+                )}
+                {ex.plateauAlert && (
+                  <div style={{ fontFamily:'Inter,system-ui', fontSize:9, marginTop:3, color:'#F59E0B', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    {ex.progressionHint || '⚠ plateau — intenta bajar RIR o variar ejercicio'}
+                  </div>
+                )}
               </div>
               <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:15, fontWeight:800, color:AC.text, textAlign:'center' }}>{ex.setsCount ?? (Array.isArray(ex.sets) ? ex.sets.length : ex.sets) ?? 3}</div>
               <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:11, color:AC.sub, textAlign:'center' }}>{ex.repsRange||'8-12'}</div>
@@ -2309,7 +2368,7 @@ function AtlasCoachSection() {
 
       let sessions = [];
       try {
-        sessions = acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps, avoidKeywords);
+        sessions = acBuildDetailedRoutine(splitKey, goal, level, tiempo, allExs, groupCaps, avoidKeywords, [], null, state.log || []);
       } catch (e) {}
 
       if (!sessions.length || sessions.every(s => !s.exercises.length)) {

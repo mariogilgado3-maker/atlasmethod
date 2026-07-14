@@ -122,8 +122,50 @@ function peGetProgressSummary(log) {
   };
 }
 
+// Returns preload data + a visible hint string for a single exercise.
+// isCompound: true → +5 kg increment; false → +2.5 kg
+// repsRangeStr: e.g. "8-12" — used to decide whether user "completed the range"
+function peGetProgressionHint(log, exerciseName, isCompound, repsRangeStr) {
+  const history = peGetExerciseHistory(log, exerciseName);
+  if (!history.length) return null;
+
+  const last      = history[0];
+  const validSets = (last.sets || []).filter(s => Number(s.kg) > 0 && Number(s.reps) > 0);
+  if (!validSets.length) return null;
+
+  const maxKg  = Math.max(...validSets.map(s => Number(s.kg)));
+  const avgReps = Math.round(validSets.reduce((a, s) => a + Number(s.reps), 0) / validSets.length);
+  const minReps = Math.min(...validSets.map(s => Number(s.reps)));
+
+  // Parse upper rep-range bound (e.g. "8-12" → 12, "3-6" → 6)
+  let upperReps = 12;
+  if (repsRangeStr) {
+    const parts = String(repsRangeStr).split('-');
+    upperReps = parseInt(parts[parts.length - 1]) || 12;
+  }
+
+  const allHitUpper = minReps >= upperReps;
+  const increment   = isCompound ? 5 : 2.5;
+  // Round to nearest 0.5 kg
+  const suggKg      = Math.round((maxKg + increment) * 2) / 2;
+  const fmtKg       = v => (v % 1 === 0 ? String(v) : v.toFixed(1));
+  const setStr      = `${validSets.length}×${avgReps}`;
+
+  const hint = allHitUpper
+    ? `Última vez: ${setStr} con ${fmtKg(maxKg)} kg ✓ → prueba ${fmtKg(suggKg)} kg`
+    : `Última vez: ${setStr} con ${fmtKg(maxKg)} kg`;
+
+  return {
+    preloadKg:   maxKg,
+    preloadReps: avgReps,
+    suggestedKg: allHitUpper ? suggKg : null,
+    hint,
+    date: last.date,
+  };
+}
+
 Object.assign(window, {
   peGetExerciseHistory, peDetectProgress, peGetAllExercises,
   peGetStagnantExercises, peGetTopProgress, peGetWeeklyVolume,
-  peNeedsDeload, peGetProgressSummary,
+  peNeedsDeload, peGetProgressSummary, peGetProgressionHint,
 });
