@@ -1,7 +1,9 @@
 (function() {
   'use strict';
   const SESSION_KEY = 'atlas.activesession.v1';
-  const HISTORY_KEY = 'atlas.sessionhistory.v1';
+  // Canonical session history lives in atlas.store.v2 → state.log (written via
+  // the store's logSession action). This service no longer keeps its own copy.
+  const STORE_KEY = 'atlas.store.v2';
 
   function _r(k)    { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } }
   function _w(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
@@ -65,13 +67,40 @@
       }
     }
     const completed = { ...session, status: 'completed', endTime, duration, totalVolume: Math.round(totalVolume), completedSets, totalSets };
-    const history   = (_r(HISTORY_KEY) || []);
-    _w(HISTORY_KEY, [completed, ...history].slice(0, 50));
+    // The caller is responsible for persisting via the store's logSession action
+    // (single source of truth: atlas.store.v2 → state.log).
     localStorage.removeItem(SESSION_KEY);
     return completed;
   }
 
-  function wsGetHistory(n) { return (_r(HISTORY_KEY) || []).slice(0, n || 20); }
+  // Reads the canonical history (store.log) and adapts entries to player format
+  function wsGetHistory(n) {
+    const store = _r(STORE_KEY);
+    const log = (store && Array.isArray(store.log)) ? store.log : [];
+    return log.slice(0, n || 20).map(e => {
+      let totalVolume = 0, completedSets = 0;
+      const exercises = (e.exercises || []).map(ex => ({
+        name: ex.name,
+        group: ex.group || '',
+        muscles: Array.isArray(ex.muscles) ? { primary: ex.muscles, secondary: [] }
+               : (ex.muscles || { primary: [], secondary: [] }),
+        sets: (ex.sets || []).map(st => {
+          completedSets++;
+          totalVolume += (parseFloat(st.kg) || 0) * (parseInt(st.reps) || 0);
+          return { kg: st.kg, reps: st.reps, done: true };
+        }),
+      }));
+      return {
+        id: e.id, date: e.date, dateTs: e.dateTs, status: 'completed',
+        routineName: e.routineName || 'Entrenamiento',
+        sessionName: e.sessionName || '',
+        duration: e.duration || 0,
+        totalVolume: Math.round(totalVolume),
+        completedSets, totalSets: completedSets,
+        exercises,
+      };
+    });
+  }
 
   Object.assign(window, { WorkoutSessionStore: { create: wsCreate, getActive: wsGetActive, save: wsSave, complete: wsComplete, getHistory: wsGetHistory, discard: wsDiscard, normalize: wsNormalize } });
 })();

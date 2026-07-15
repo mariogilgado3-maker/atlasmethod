@@ -339,8 +339,23 @@ function acMergeAtlasProfile(atlasProfile, coachProfile) {
 }
 
 // ── Rich context builder ──────────────────────────────────────────────────────
+// Always read the freshest history available: localStorage may be ahead of the
+// React state (session saved from another view) or behind it (state updated
+// but the persistence effect hasn't flushed yet) — pick whichever is newest.
+function acLiveLog(state) {
+  const inState = state?.log || [];
+  let stored = [];
+  try {
+    const s = JSON.parse(localStorage.getItem('atlas.store.v2') || 'null');
+    if (s && Array.isArray(s.log)) stored = s.log;
+  } catch (e) {}
+  if (!stored.length) return inState;
+  if (!inState.length) return stored;
+  return (stored[0].dateTs || 0) >= (inState[0].dateTs || 0) ? stored : inState;
+}
+
 function acBuildRichContext(state, profile) {
-  const log      = state.log || [];
+  const log      = acLiveLog(state);
   const sessions = state.sessions || {};
   const now      = Date.now();
   const weekAgo  = now - 7  * 86400000;
@@ -471,6 +486,7 @@ function acBuildRichContext(state, profile) {
 // ── Intent + param extraction ─────────────────────────────────────────────────
 function acDetectIntent(text) {
   const t = text.toLowerCase();
+  if (/[uú]ltima sesi[oó]n|analiza.*sesi[oó]n|c[oó]mo fue mi (entrenamiento|sesi[oó]n)|mi entrenamiento de (hoy|ayer)|qu[eé] tal (fue|estuvo).*(entrena|sesi[oó]n)/.test(t)) return 'session-analysis';
   if (/hazme|g[eé]nera|crea|dame.*rutina|rutina.*para|plan.*para|d[íi]a de|quiero.*entrena|qu[eé] hago hoy/.test(t)) return 'routine';
   if (/quiero.*rutina|necesito.*rutina|una rutina|rutina de |d[aá]me.*rutina|h[aá]zme.*rutina/.test(t)) return 'routine';
   if (/quiero.*trabajar|mejorar.*pecho|mejorar.*espalda|mejorar.*pierna|foco en/.test(t)) return 'routine';
@@ -1298,6 +1314,81 @@ function acResponseVolumeScience(ctx, profile) {
   };
 }
 
+// ── Last-session analysis ─────────────────────────────────────────────────────
+// Post-session breakdown: volume per group, comparison with the previous
+// similar session, progressions/regressions, and a suggestion for the next one.
+function acResponseSessionAnalysis(ctx) {
+  const log  = ctx.log || [];
+  const last = log[0];
+  if (!last) {
+    return { type:'text', text:'Todavía no tienes ninguna sesión registrada. Completa un entrenamiento desde el Builder o el player y podré analizarlo aquí.' };
+  }
+
+  const lines = [];
+  const name = [last.routineName, last.sessionName].filter(Boolean).join(' · ');
+  const when = last.date === new Date().toDateString() ? 'hoy'
+             : last.date === new Date(Date.now() - 86400000).toDateString() ? 'ayer'
+             : last.date;
+
+  let totalSets = 0, totalVolume = 0;
+  const groupVol = {};
+  (last.exercises || []).forEach(ex => {
+    const sets = ex.sets || [];
+    totalSets += sets.length;
+    sets.forEach(st => { totalVolume += (parseFloat(st.kg) || 0) * (parseInt(st.reps) || 0); });
+    const g = (Array.isArray(ex.muscles) ? ex.muscles[0] : ex.muscles?.primary?.[0]) || ex.group || 'otros';
+    groupVol[g] = (groupVol[g] || 0) + sets.length;
+  });
+
+  lines.push(`📊 Análisis de tu última sesión (${when}${name ? ` — ${name}` : ''}):`);
+  lines.push(`${(last.exercises || []).length} ejercicios · ${totalSets} series · ${Math.round(totalVolume).toLocaleString('es-ES')} kg de volumen${last.duration ? ` · ${Math.max(1, Math.round(last.duration / 60))} min` : ''}.`);
+
+  const gv = Object.entries(groupVol).sort((a, b) => b[1] - a[1]);
+  if (gv.length) lines.push('Volumen por grupo: ' + gv.map(([g, n]) => `${g} ${n} ${n === 1 ? 'serie' : 'series'}`).join(' · ') + '.');
+
+  // Find the previous comparable session (≥40% exercise-name overlap)
+  const currNames = new Set((last.exercises || []).map(e => e.name));
+  let prev = null;
+  for (let i = 1; i < log.length; i++) {
+    const overlap = (log[i].exercises || []).filter(e => currNames.has(e.name)).length;
+    if (overlap >= Math.min(2, Math.ceil(currNames.size * 0.4))) { prev = log[i]; break; }
+  }
+
+  if (prev) {
+    const prevMap = {};
+    (prev.exercises || []).forEach(ex => {
+      const kgs = (ex.sets || []).map(s => parseFloat(s.kg) || 0).filter(k => k > 0);
+      if (kgs.length) prevMap[ex.name] = Math.max(...kgs);
+    });
+    const ups = [], downs = [], sames = [];
+    (last.exercises || []).forEach(ex => {
+      const kgs = (ex.sets || []).map(s => parseFloat(s.kg) || 0).filter(k => k > 0);
+      if (!kgs.length || prevMap[ex.name] === undefined) return;
+      const d = +(Math.max(...kgs) - prevMap[ex.name]).toFixed(1);
+      if (d > 0) ups.push(`${ex.name} +${d} kg`);
+      else if (d < 0) downs.push(`${ex.name} ${d} kg`);
+      else sames.push(ex.name);
+    });
+    lines.push(`Comparado con tu sesión similar del ${prev.date}:`);
+    if (ups.length)   lines.push(`↑ Progresiones: ${ups.join(', ')}.`);
+    if (sames.length) lines.push(`= Sin cambio: ${sames.slice(0, 4).join(', ')}${sames.length > 4 ? '…' : ''}.`);
+    if (downs.length) lines.push(`↓ Retrocesos: ${downs.join(', ')}. Si se repite, revisa descanso y nutrición.`);
+    if (!ups.length && !downs.length && sames.length) lines.push('Cargas estables — en la próxima intenta añadir 1-2 reps o subir el peso del primer ejercicio.');
+  } else {
+    lines.push('No encuentro una sesión previa comparable — cuando repitas ejercicios similares podré medir tu progresión.');
+  }
+
+  if (ctx.plateaus?.length) {
+    lines.push(`💡 Para la próxima: ${ctx.plateaus[0].name} lleva ${ctx.plateaus[0].sessions} sesiones en ${ctx.plateaus[0].kg} kg — prueba una variante del mismo patrón o cambia el rango de reps.`);
+  } else if (prev) {
+    lines.push('💡 Para la próxima: mantén lo que progresa y sube ~2,5 kg donde completaste todas las series en el rango objetivo.');
+  } else {
+    lines.push('💡 Registra kg y reps en cada serie para que pueda darte sugerencias de progresión precisas.');
+  }
+
+  return { type:'text', text: lines.join('\n') };
+}
+
 // ── Master response generator ─────────────────────────────────────────────────
 function acGenerateSmartResponse(userText, state, profile, memory, allExs) {
   const intent = acDetectIntent(userText);
@@ -1308,6 +1399,7 @@ function acGenerateSmartResponse(userText, state, profile, memory, allExs) {
     case 'greeting':    return acResponseGreeting(ctx, profile, memory);
     case 'routine':     return acResponseRoutine(params, ctx, profile, memory, allExs);
     case 'analysis':    return acResponseAnalysis(ctx, profile);
+    case 'session-analysis': return acResponseSessionAnalysis(ctx);
     case 'injury':      return acResponseInjury(userText, memory);
     case 'plateau':     return acResponsePlateau(ctx);
     case 'programming':    return acResponseProgramming(userText, ctx);
@@ -2083,6 +2175,22 @@ function AtlasCoachSection() {
         content: { type:'text', text: lines.join(' ') },
         ts: Date.now(),
       }],
+    }));
+  }, [activeChatId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Proactive post-session analysis — flag set by logSession on save ────────
+  React.useEffect(() => {
+    if (!activeChatId) return;
+    let pending = null;
+    try { pending = JSON.parse(localStorage.getItem('atlas.coach.pendingAnalysis.v1') || 'null'); } catch { return; }
+    if (!pending) return;
+    localStorage.removeItem('atlas.coach.pendingAnalysis.v1');
+    const liveCtx = acBuildRichContext(state, acMergeAtlasProfile(apLoadProfile(), acLoadProfile()));
+    if (!liveCtx.log.length) return;
+    const content = acResponseSessionAnalysis(liveCtx);
+    setChats(prev => prev.map(c => c.id !== activeChatId ? c : {
+      ...c,
+      messages: [...c.messages, { id:`pa-${Date.now()}`, role:'coach', content, ts:Date.now() }],
     }));
   }, [activeChatId]); // eslint-disable-line react-hooks/exhaustive-deps
 

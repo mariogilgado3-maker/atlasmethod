@@ -125,7 +125,8 @@ function exEquipment(ex) {
 function exGroup(ex) {
   if (ex.group) return ex.group;
   const p   = ex.pattern || '';
-  const pm0 = (ex.muscles?.primary[0] || '').toLowerCase();
+  // muscles can be {primary:[...]} (DB format) or a plain array (log format)
+  const pm0 = ((Array.isArray(ex.muscles) ? ex.muscles[0] : ex.muscles?.primary?.[0]) || '').toLowerCase();
 
   if (p === 'empuje-horizontal') {
     if (pm0.includes('tríceps') || pm0.includes('triceps')) return 'triceps';
