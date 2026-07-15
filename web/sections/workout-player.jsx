@@ -156,11 +156,15 @@ function WpRpeSelector({ value, onChange }) {
 // Returns per-exercise comparison rows against the most recent matching session
 function wpBuildComparison(finished) {
   const history = WorkoutSessionStore.getHistory(20);
-  // history[0] is the just-completed session; search from [1] for prior sessions
+  // Skip the just-completed session itself: anything logged at/after this
+  // workout started is the current session (it may or may not have been
+  // persisted to the store yet when this renders).
+  const startTs = finished?.startTime || finished?.dateTs || 0;
   const currNames = new Set((finished?.exercises || []).map(e => e.name));
   let prev = null;
-  for (let i = 1; i < history.length; i++) {
+  for (let i = 0; i < history.length; i++) {
     const h = history[i];
+    if ((h.dateTs || 0) >= startTs) continue;
     const overlap = (h.exercises || []).filter(e => currNames.has(e.name)).length;
     if (overlap >= Math.min(2, Math.floor(currNames.size * 0.4))) { prev = h; break; }
   }
@@ -703,6 +707,7 @@ function WorkoutPlayerSection() {
     // Build exercises payload for logSession (compatible with store format)
     const logExercises = completed.exercises.map(ex => ({
       name: ex.name,
+      group: ex.group || '',
       muscles: (ex.muscles?.primary || []),
       sets: ex.sets.filter(s => s.done).map(s => ({ kg: s.kg, reps: s.reps })),
     }));

@@ -33,24 +33,78 @@ const DEFAULT_STORE = {
   currentWorkout: [],
 };
 
+// One-time migration: fold sessions that exist only in the legacy
+// atlas.sessionhistory.v1 store (written by the old wsComplete) into store.log,
+// which is the single canonical session history. Legacy player sessions were
+// double-written with different timestamps (start vs finish), so dedupe by
+// calendar date + exercise-name overlap rather than by exact dateTs.
+function migrateLegacyHistory(log) {
+  const LEGACY_KEY = 'atlas.sessionhistory.v1';
+  try {
+    const raw = localStorage.getItem(LEGACY_KEY);
+    if (!raw) return log;
+    const legacy = JSON.parse(raw);
+    if (!Array.isArray(legacy) || !legacy.length) {
+      localStorage.removeItem(LEGACY_KEY);
+      return log;
+    }
+    const isDupe = (s) => log.some(e => {
+      if (e.date !== s.date) return false;
+      const names = new Set((e.exercises || []).map(x => x.name));
+      const sNames = (s.exercises || []).map(x => x.name);
+      if (!sNames.length) return true;
+      const overlap = sNames.filter(n => names.has(n)).length;
+      return overlap >= Math.ceil(sNames.length * 0.5);
+    });
+    const converted = legacy
+      .filter(s => s && s.dateTs && !isDupe(s))
+      .map(s => ({
+        id: s.dateTs,
+        date: s.date || new Date(s.dateTs).toDateString(),
+        dateTs: s.dateTs,
+        exercises: (s.exercises || []).map(ex => ({
+          name: ex.name,
+          muscles: Array.isArray(ex.muscles) ? ex.muscles : (ex.muscles?.primary || []),
+          sets: (ex.sets || []).filter(st => st.done).map(st => ({ kg: st.kg, reps: st.reps })),
+        })),
+        gems: 0,
+        ...(s.duration ? { duration: s.duration } : {}),
+        ...(s.routineName ? { routineName: s.routineName } : {}),
+        ...(s.sessionName ? { sessionName: s.sessionName } : {}),
+      }));
+    localStorage.removeItem(LEGACY_KEY);
+    if (!converted.length) return log;
+    return [...log, ...converted]
+      .sort((a, b) => (b.dateTs || 0) - (a.dateTs || 0))
+      .slice(0, 100);
+  } catch (e) {
+    return log;
+  }
+}
+
 function readStore() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return structuredClone(DEFAULT_STORE);
-    const parsed = JSON.parse(raw);
-    // Deep merge to handle new fields
-    const merged = structuredClone(DEFAULT_STORE);
-    if (parsed.user) merged.user = { ...merged.user, ...parsed.user };
-    if (parsed.gems) merged.gems = { ...merged.gems, ...parsed.gems };
-    if (parsed.favorites) merged.favorites = parsed.favorites;
-    if (parsed.reading) merged.reading = { ...merged.reading, ...parsed.reading };
-    if (parsed.plan !== undefined) merged.plan = parsed.plan;
-    if (parsed.sessions) merged.sessions = { ...merged.sessions, ...parsed.sessions };
-    if (parsed.log) merged.log = parsed.log;
-    if (parsed.store) merged.store = { ...merged.store, ...parsed.store };
-    if (parsed.achievements) merged.achievements = parsed.achievements;
-    if (parsed.prefs) merged.prefs = { ...merged.prefs, ...parsed.prefs };
-    if (parsed.currentWorkout) merged.currentWorkout = parsed.currentWorkout;
+    let merged;
+    if (!raw) {
+      merged = structuredClone(DEFAULT_STORE);
+    } else {
+      const parsed = JSON.parse(raw);
+      // Deep merge to handle new fields
+      merged = structuredClone(DEFAULT_STORE);
+      if (parsed.user) merged.user = { ...merged.user, ...parsed.user };
+      if (parsed.gems) merged.gems = { ...merged.gems, ...parsed.gems };
+      if (parsed.favorites) merged.favorites = parsed.favorites;
+      if (parsed.reading) merged.reading = { ...merged.reading, ...parsed.reading };
+      if (parsed.plan !== undefined) merged.plan = parsed.plan;
+      if (parsed.sessions) merged.sessions = { ...merged.sessions, ...parsed.sessions };
+      if (parsed.log) merged.log = parsed.log;
+      if (parsed.store) merged.store = { ...merged.store, ...parsed.store };
+      if (parsed.achievements) merged.achievements = parsed.achievements;
+      if (parsed.prefs) merged.prefs = { ...merged.prefs, ...parsed.prefs };
+      if (parsed.currentWorkout) merged.currentWorkout = parsed.currentWorkout;
+    }
+    merged.log = migrateLegacyHistory(merged.log);
     return merged;
   } catch (e) {
     return structuredClone(DEFAULT_STORE);
@@ -149,6 +203,11 @@ function StoreProvider({ children }) {
 
       const newLog = [entry, ...s.log].slice(0, 100);
       const newCompleted = s.sessions.completed + (alreadyToday ? 0 : 1);
+
+      // Flag the session for proactive analysis next time Atlas Coach opens
+      try {
+        localStorage.setItem('atlas.coach.pendingAnalysis.v1', JSON.stringify({ dateTs: entry.dateTs }));
+      } catch (e) {}
 
       // Check achievements
       const newAchievements = [...s.achievements];
