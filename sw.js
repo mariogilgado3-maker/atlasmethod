@@ -7,7 +7,7 @@
  * and forces a fresh precache run.
  */
 
-const CACHE_VER    = 'atlas-v3';
+const CACHE_VER    = 'atlas-v4';
 const SHELL_CACHE  = `${CACHE_VER}-shell`;
 const DYN_CACHE    = `${CACHE_VER}-dynamic`;
 

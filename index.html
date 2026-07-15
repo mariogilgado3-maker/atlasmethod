@@ -41,6 +41,30 @@
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-thumb { background: rgba(15,26,46,0.14); border-radius: 999px; }
   html { scroll-behavior: smooth; }
+  /* splash screen — pure HTML/CSS, visible at millisecond zero */
+  #splash {
+    position: fixed; inset: 0; z-index: 10000;
+    background: #0F1A2E;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 26px;
+    opacity: 1; transition: opacity .3s ease;
+  }
+  #splash.splash-hide { opacity: 0; pointer-events: none; }
+  #splash svg {
+    width: 88px; height: 88px;
+    animation: splashIn .7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  #splash .splash-wordmark {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 13px; font-weight: 700;
+    color: rgba(250,250,247,0.82);
+    letter-spacing: 7px; text-indent: 7px; /* compensate last letter's tracking */
+    animation: splashIn .7s cubic-bezier(0.22, 1, 0.36, 1) .12s both;
+  }
+  @keyframes splashIn {
+    from { opacity: 0; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1); }
+  }
   /* offline bar */
   #offline-bar {
     display: none;
@@ -58,6 +82,15 @@
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 </head>
 <body>
+<!-- Splash — shown instantly while Babel compiles the app; removed on mount -->
+<div id="splash">
+  <svg viewBox="0 0 100 100" fill="none" aria-label="Atlas Method">
+    <path d="M20 86 L50 14 L80 86" stroke="#2563EB" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M30 60 Q50 76 70 60" stroke="#2563EB" stroke-width="9" stroke-linecap="round"/>
+  </svg>
+  <div class="splash-wordmark">ATLAS METHOD</div>
+</div>
+<script>window.__splashStart = Date.now();</script>
 <div id="root"></div>
 <div id="offline-bar">Sin conexión · El modo entrenamiento sigue disponible</div>
 
@@ -147,6 +180,35 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 
 <script>
+/* ── Splash screen removal ──────────────────────────────────────────
+   Hide once React has mounted (#root has children), respecting a
+   ~600ms minimum display so fast loads don't flash, with a 6s safety
+   timeout so a failed mount never traps the user behind the overlay. */
+(function () {
+  var MIN_SHOW = 600, FADE = 320, SAFETY = 6000;
+  var splash = document.getElementById('splash');
+  if (!splash) return;
+  var hidden = false;
+
+  function hide() {
+    if (hidden) return;
+    hidden = true;
+    var elapsed = Date.now() - (window.__splashStart || 0);
+    var wait = Math.max(0, MIN_SHOW - elapsed);
+    setTimeout(function () {
+      splash.classList.add('splash-hide');
+      setTimeout(function () {
+        if (splash.parentNode) splash.parentNode.removeChild(splash);
+      }, FADE);
+    }, wait);
+  }
+
+  var poll = setInterval(function () {
+    if (document.querySelector('#root > *')) { clearInterval(poll); hide(); }
+  }, 50);
+  setTimeout(function () { clearInterval(poll); hide(); }, SAFETY);
+})();
+
 /* ── Service Worker registration ─────────────────────────────────── */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
