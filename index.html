@@ -109,6 +109,7 @@
 <script type="text/babel" src="web/sections/method.jsx"></script>
 <script type="text/babel" src="web/sections/lab.jsx"></script>
 <script type="text/babel" src="web/services/exercises.jsx"></script>
+<script src="web/services/exercise-images.js"></script>
 <script type="text/babel" src="web/services/exercise-media.jsx"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
 <script src="web/services/exportRoutinePDF.js"></script>
@@ -119,6 +120,7 @@
 <script src="web/services/aulaEngine.js"></script>
 <script src="web/services/atlasProgressionEngine.js"></script>
 <script type="text/babel" src="web/sections/builder.jsx"></script>
+<script type="text/babel" src="web/sections/rutinas.jsx"></script>
 <script type="text/babel" src="web/sections/dashboard.jsx"></script>
 <script type="text/babel" src="web/sections/coach.jsx"></script>
 <script type="text/babel" src="web/sections/atlas-coach.jsx"></script>
@@ -140,6 +142,7 @@ function AulaPage()        { return <AulaSection />; }
 function CoachPage()       { return <AtlasCoachSection />; }
 function LaboratorioPage() { return <AtlasCoachSection />; }
 function BuilderPage()     { return <BuilderSection />; }
+function RutinasPage()     { return <MisRutinasSection />; }
 function PerfilPage()      { return <><DashboardSection /><GemsStoreSection /></>; }
 function AdminPage()       { return <AulaAdminSection />; }
 function PlayerPage()   { return <WorkoutPlayerSection />; }
@@ -153,6 +156,7 @@ function Routes() {
     '/coach': CoachPage,
     '/laboratorio': LaboratorioPage,
     '/builder': BuilderPage,
+    '/rutinas': RutinasPage,
     '/perfil': PerfilPage,
     '/admin': AdminPage,
     '/player': PlayerPage,
@@ -166,7 +170,7 @@ function Routes() {
   );
 }
 
-const APP_ROUTES = new Set(['/coach', '/builder', '/laboratorio', '/player', '/progreso']);
+const APP_ROUTES = new Set(['/coach', '/builder', '/rutinas', '/laboratorio', '/player', '/progreso']);
 
 function ConditionalFooter() {
   const { route } = useRoute();

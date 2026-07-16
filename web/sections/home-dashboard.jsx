@@ -57,6 +57,7 @@ function CardNew({ navigate }) {
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <CtxPill label="Hablar con Coach →" onClick={() => navigate('/coach')} primary />
         <CtxPill label="Crear rutina"        onClick={() => navigate('/builder')} />
+        <CtxPill label="Mis rutinas"         onClick={() => navigate('/rutinas')} />
         <CtxPill label="Explorar Aula"       onClick={() => navigate('/aula')} />
       </div>
     </div>
@@ -148,7 +149,7 @@ function CardRoutine({ routine, navigate }) {
             navigate('/player');
           }} />
         ))}
-        <CtxPill label="Ver en Coach →" onClick={() => navigate('/coach')} primary />
+        <CtxPill label="Mis rutinas →" onClick={() => navigate('/rutinas')} primary />
       </div>
     </div>
   );

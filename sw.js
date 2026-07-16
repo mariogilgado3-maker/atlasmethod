@@ -7,9 +7,12 @@
  * and forces a fresh precache run.
  */
 
-const CACHE_VER    = 'atlas-v4';
+const CACHE_VER    = 'atlas-v5';
 const SHELL_CACHE  = `${CACHE_VER}-shell`;
 const DYN_CACHE    = `${CACHE_VER}-dynamic`;
+// Exercise photos (free-exercise-db) are immutable and heavy; keep them in a
+// version-independent cache so they survive CACHE_VER bumps and aren't re-fetched.
+const IMG_CACHE    = 'atlas-exercise-images';
 
 /* ── App shell — precached on install ───────────────────────────── */
 const SHELL_URLS = [
@@ -30,6 +33,7 @@ const SHELL_URLS = [
   '/web/sections/method.jsx',
   '/web/sections/lab.jsx',
   '/web/sections/builder.jsx',
+  '/web/sections/rutinas.jsx',
   '/web/sections/dashboard.jsx',
   '/web/sections/coach.jsx',
   '/web/sections/atlas-coach.jsx',
@@ -45,6 +49,7 @@ const SHELL_URLS = [
 
   /* Services */
   '/web/services/exercises.jsx',
+  '/web/services/exercise-images.js',
   '/web/services/exercise-media.jsx',
   '/web/services/articles.jsx',
   '/web/services/exportRoutinePDF.js',
@@ -85,7 +90,7 @@ self.addEventListener('activate', event => {
     caches.keys().then(keys =>
       Promise.all(
         keys
-          .filter(k => k !== SHELL_CACHE && k !== DYN_CACHE)
+          .filter(k => k !== SHELL_CACHE && k !== DYN_CACHE && k !== IMG_CACHE)
           .map(k => {
             console.log('[SW] deleting old cache:', k);
             return caches.delete(k);
@@ -106,6 +111,12 @@ self.addEventListener('fetch', event => {
   // Skip browser-extension requests
   if (!url.protocol.startsWith('http')) return;
 
+  // Exercise photos → cache-first into a persistent, version-independent cache
+  if (url.hostname === 'raw.githubusercontent.com' && url.pathname.includes('/free-exercise-db/')) {
+    event.respondWith(cacheFirstImages(req));
+    return;
+  }
+
   const isShell = isShellResource(url);
 
   if (isShell) {
@@ -114,6 +125,22 @@ self.addEventListener('fetch', event => {
     event.respondWith(networkFirst(req));
   }
 });
+
+/* Cache-first for exercise images: persistent cache, lazily populated */
+async function cacheFirstImages(req) {
+  const cached = await caches.match(req);
+  if (cached) return cached;
+  try {
+    const resp = await fetch(req);
+    if (resp.ok) {
+      const cache = await caches.open(IMG_CACHE);
+      cache.put(req, resp.clone());
+    }
+    return resp;
+  } catch (err) {
+    return new Response('', { status: 503, statusText: 'Offline' });
+  }
+}
 
 function isShellResource(url) {
   const origin = self.location.origin;
