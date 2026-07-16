@@ -1723,7 +1723,7 @@ function EmptyPanel({ onPick, priorities }) {
 }
 
 // ── Barra de sesión sticky ────────────────────────────────────────────────────
-function WorkoutBar({ workout, saved, duration, onSave, onStart, mobile }) {
+function WorkoutBar({ workout, saved, routineSaved, duration, onSave, onSaveRoutine, onStart, mobile }) {
   return (
     <div style={{ position:'fixed', bottom:0, left:0, right:0, zIndex:200,
       background:'rgba(6,13,24,0.97)', backdropFilter:'blur(24px)',
@@ -1764,6 +1764,14 @@ function WorkoutBar({ workout, saved, duration, onSave, onStart, mobile }) {
           boxShadow:'0 4px 16px rgba(34,197,94,0.35)' }}>
         ▶ Iniciar
       </button>
+      <button onClick={onSaveRoutine}
+        title="Guardar como rutina reutilizable en Mis rutinas"
+        style={{ flexShrink:0, padding:'11px 16px', borderRadius:12, cursor:'pointer',
+          background: routineSaved ? 'rgba(34,197,94,0.15)' : 'transparent',
+          color: routineSaved ? BD.green : '#93C5FD', border:`1px solid ${routineSaved ? 'rgba(34,197,94,0.3)' : 'rgba(59,130,246,0.28)'}`,
+          fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, transition:'all .25s', whiteSpace:'nowrap' }}>
+        {routineSaved ? '✓ Rutina' : '＋ Rutina'}
+      </button>
       <button onClick={onSave}
         style={{ flexShrink:0, padding:'11px 20px', borderRadius:12, border:'none', cursor:'pointer',
           background: saved ? 'rgba(34,197,94,0.15)' : BD.blue,
@@ -1783,6 +1791,19 @@ function parseRestSec(restStr) {
 }
 
 // ── Workout execution view (Coach → Builder active session) ───────────────────
+// Small exercise thumbnail for execution rows — lazy, self-hiding on miss
+function BdExThumb({ id, name }) {
+  const [ok, setOk] = React.useState(true);
+  const url = (typeof ExerciseImages !== 'undefined') ? ExerciseImages.urlFor(id) : null;
+  if (!url || !ok) return null;
+  return (
+    <div style={{ width:38, height:38, borderRadius:8, overflow:'hidden', flexShrink:0, background:'#EDEEF0' }}>
+      <img src={url} alt={name} loading="lazy" onError={() => setOk(false)}
+        style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+    </div>
+  );
+}
+
 function WorkoutExecution({ session, onFinish, onCancel }) {
   const [exs,       setExs]       = React.useState(session.exercises);
   const [restTimer, setRestTimer] = React.useState(null);
@@ -1885,6 +1906,7 @@ function WorkoutExecution({ session, onFinish, onCancel }) {
               <div style={{ width:20, height:20, borderRadius:'50%', border:`2px solid ${ex.done ? C.green : C.border}`, background: ex.done ? 'rgba(34,197,94,0.12)' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                 {ex.done && <span style={{ fontSize:9, color:C.green, fontWeight:900 }}>✓</span>}
               </div>
+              {!ex.done && <BdExThumb id={ex.id} name={ex.name} />}
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontSize:13, fontWeight:700, color: ex.done ? C.muted : C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ex.name}</div>
                 <div style={{ fontSize:10, color:C.muted, marginTop:1 }}>
@@ -1946,6 +1968,7 @@ function BuilderSection() {
   const [cfgFromDet, setCfgFromDet]= React.useState(false);
   const [workout,    setWorkout]   = React.useState([]);
   const [saved,      setSaved]     = React.useState(false);
+  const [routineSaved, setRoutineSaved] = React.useState(false);
   const [flash,      setFlash]     = React.useState(false);
   const [showPlan,   setShowPlan]  = React.useState(false);
   const [execSession,setExecSession]= React.useState(null);
@@ -2078,6 +2101,42 @@ function BuilderSection() {
     setSaved(true); setFlash(true);
     setTimeout(() => setFlash(false), 2500);
     setTimeout(() => { setSaved(false); setWorkout([]); setMuscle(null); setQuery(''); setMode('empty'); }, 3000);
+  }
+
+  // Save the current workout as a reusable routine template ("Mis rutinas").
+  function saveAsRoutine() {
+    if (!workout.length) return;
+    const muscles = [...new Set(workout.flatMap(ex =>
+      Array.isArray(ex.muscles) ? ex.muscles : (ex.muscles?.primary || [])))].slice(0, 4);
+    const totalSets = workout.reduce((t, ex) => t + (ex.sets?.length || 0), 0);
+    const dateLabel = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    const name = coachBanner?.routineName
+      || (muscles.length ? `Rutina ${muscles.slice(0, 2).join(' + ')}` : `Rutina ${dateLabel}`);
+    const routine = {
+      id: `routine-${Date.now()}`,
+      name,
+      objective: null,
+      source: 'builder',
+      createdAt: Date.now(),
+      sessions: [{
+        name: coachBanner?.sessionName || 'Sesión 1',
+        exercises: workout.map(ex => ({
+          id: ex.id, name: ex.name, group: exGroup(ex),
+          muscles: Array.isArray(ex.muscles) ? { primary: ex.muscles, secondary: [] } : (ex.muscles || { primary: [], secondary: [] }),
+          pattern: ex.pattern,
+          sets: ex.sets,
+          setsCount: ex.sets?.length,
+          repsRange: ex.repsRange || (ex.sets?.[0]?.reps ? String(ex.sets[0].reps) : '8-12'),
+          rir: ex.rir ?? 2,
+          rest: ex.rest || '90s',
+        })),
+        totalSets,
+        muscles,
+      }],
+    };
+    actions.saveRoutine(routine);
+    setRoutineSaved(true);
+    setTimeout(() => setRoutineSaved(false), 2800);
   }
 
   function loadRoutineDay(dayIndex) {
@@ -2350,8 +2409,8 @@ function BuilderSection() {
 
       {workout.length > 0 && (
         <WorkoutBar
-          workout={workout} saved={saved} duration={duration}
-          onSave={save} onStart={startExecution} mobile={mobile}
+          workout={workout} saved={saved} routineSaved={routineSaved} duration={duration}
+          onSave={save} onSaveRoutine={saveAsRoutine} onStart={startExecution} mobile={mobile}
         />
       )}
 

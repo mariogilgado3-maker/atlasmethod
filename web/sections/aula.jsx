@@ -181,6 +181,33 @@ function AlEvBadge({ level }) {
   );
 }
 
+// ── "Nuevo" badge — shown for an article's first 2 weeks ──────────────────────
+function AlNewBadge({ article }) {
+  const isNew = (typeof ArticlesService !== 'undefined' && ArticlesService.isNew)
+    ? ArticlesService.isNew(article) : false;
+  if (!isNew) return null;
+  return (
+    <span style={{
+      display:'inline-flex', alignItems:'center', gap:4,
+      padding:'2px 9px', borderRadius:5,
+      background:'rgba(5,150,105,0.10)', color:'#059669',
+      fontFamily:'"Inter",system-ui', fontSize:10, fontWeight:800, letterSpacing:0.4, textTransform:'uppercase',
+    }}>
+      <span style={{ width:5, height:5, borderRadius:'50%', background:'#059669', display:'block' }} />
+      Nuevo
+    </span>
+  );
+}
+
+// Format an ISO publish date as e.g. "10 ene 2026"
+function alFmtPubDate(iso) {
+  if (!iso) return '';
+  const t = Date.parse(iso);
+  if (isNaN(t)) return '';
+  try { return new Date(t).toLocaleDateString('es-ES', { day:'numeric', month:'short', year:'numeric' }); }
+  catch { return ''; }
+}
+
 // ── Category pill ─────────────────────────────────────────────────────────────
 function AlCatPill({ category }) {
   const m = ALcat[category] || ALcat.fuerza;
@@ -320,8 +347,12 @@ function AulaFeatured({ article, isRead, onOpen }) {
       {/* Right: content */}
       <div style={{ padding:'36px 40px', display:'flex', flexDirection:'column', justifyContent:'center' }}>
         <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap', alignItems:'center' }}>
+          <AlNewBadge article={article} />
           <AlCatPill category={article.category} />
           <AlEvBadge level={article.evidenceLevel} />
+          {alFmtPubDate(article.publishedAt) && (
+            <span style={{ fontFamily:'"Inter",system-ui', fontSize:11, color:AL.muted, fontWeight:600 }}>{alFmtPubDate(article.publishedAt)}</span>
+          )}
         </div>
 
         <h2 style={{ fontFamily:'"Space Grotesk",system-ui', fontSize:30, fontWeight:700, color:AL.navy, letterSpacing:-1.2, lineHeight:1.08, margin:'0 0 12px' }}>
@@ -389,6 +420,7 @@ function AulaCard({ article, isRead, onOpen, imgIdx }) {
 
       <div style={{ padding:'18px 22px 22px' }}>
         <div style={{ display:'flex', gap:7, marginBottom:12, alignItems:'center', flexWrap:'wrap' }}>
+          <AlNewBadge article={article} />
           <AlCatPill category={article.category} />
           <AlEvBadge level={article.evidenceLevel} />
         </div>
@@ -399,7 +431,9 @@ function AulaCard({ article, isRead, onOpen, imgIdx }) {
           {article.subtitle}
         </p>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <span style={{ fontFamily:'"Inter",system-ui', fontSize:11, color:AL.muted, fontWeight:600 }}>{article.readTime} min lectura</span>
+          <span style={{ fontFamily:'"Inter",system-ui', fontSize:11, color:AL.muted, fontWeight:600 }}>
+            {alFmtPubDate(article.publishedAt) ? `${alFmtPubDate(article.publishedAt)} · ` : ''}{article.readTime} min
+          </span>
           {!isRead
             ? <span style={{ fontFamily:'"Inter",system-ui', fontSize:11, color:'#059669', fontWeight:700 }}>+{article.gems} 💎</span>
             : <span style={{ fontFamily:'"Inter",system-ui', fontSize:11, color:'#059669', fontWeight:600 }}>Completado</span>
@@ -626,8 +660,12 @@ function AulaDetail({ article, isRead, onBack, onMarkRead, allArticles, complete
       </div>
 
       <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14, flexWrap:'wrap' }}>
+        <AlNewBadge article={article} />
         <AlCatPill category={article.category} />
         <AlEvBadge level={article.evidenceLevel} />
+        {alFmtPubDate(article.publishedAt) && (
+          <span style={{ fontFamily:'"Inter",system-ui', fontSize:12, color:AL.muted }}>· {alFmtPubDate(article.publishedAt)}</span>
+        )}
         <span style={{ fontFamily:'"Inter",system-ui', fontSize:12, color:AL.muted }}>· {article.readTime} min lectura</span>
         {article.publishYear && article.journal && (
           <span style={{ fontFamily:'"Inter",system-ui', fontSize:12, color:AL.muted }}>· {article.journal} ({article.publishYear})</span>

@@ -2058,17 +2058,28 @@ function AcProfilePanel({ profile, onSave }) {
 
 // ── Mi Rutina widget ──────────────────────────────────────────────────────────
 function AcMiRutina({ onSendToBuilder, onSendToPlayer }) {
+  const { state, actions } = useStore();
+  const { navigate } = useRoute();
   const routine = React.useMemo(() => { try { return JSON.parse(localStorage.getItem('atlas.routine.active.v1') || 'null'); } catch { return null; } }, []);
+  const isSaved = !!routine && (state.savedRoutines || []).some(r => r.id === routine.id);
+  const [justSaved, setJustSaved] = React.useState(false);
   if (!routine || !Array.isArray(routine.sessions) || !routine.sessions.length) return null;
   return (
     <div style={{ padding:'10px 10px 0', borderTop:`1px solid ${AC.border}`, flexShrink:0 }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
         <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:8, fontWeight:700, color:AC.muted, letterSpacing:1.2 }}>MI RUTINA</div>
-        <button
-          title="Descargar rutina completa en PDF"
-          onClick={() => typeof exportRoutinePDF !== 'undefined' && exportRoutinePDF(routine)}
-          style={{ padding:'3px 8px', borderRadius:6, border:`1px solid rgba(59,130,246,0.22)`, background:'rgba(59,130,246,0.07)', color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:9, fontWeight:700, cursor:'pointer' }}
-        >↓ PDF</button>
+        <div style={{ display:'flex', gap:5 }}>
+          <button
+            title="Guardar en Mis rutinas"
+            onClick={() => { actions.saveRoutine(routine); setJustSaved(true); }}
+            style={{ padding:'3px 8px', borderRadius:6, border:`1px solid rgba(34,197,94,0.28)`, background:'rgba(34,197,94,0.08)', color:'#4ADE80', fontFamily:'Inter,system-ui', fontSize:9, fontWeight:700, cursor:'pointer' }}
+          >{justSaved || isSaved ? '✓ Guardada' : '＋ Guardar'}</button>
+          <button
+            title="Descargar rutina completa en PDF"
+            onClick={() => typeof exportRoutinePDF !== 'undefined' && exportRoutinePDF(routine)}
+            style={{ padding:'3px 8px', borderRadius:6, border:`1px solid rgba(59,130,246,0.22)`, background:'rgba(59,130,246,0.07)', color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:9, fontWeight:700, cursor:'pointer' }}
+          >↓ PDF</button>
+        </div>
       </div>
       <div style={{ fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700, color:AC.text, marginBottom:7, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{routine.name || 'Rutina activa'}</div>
       <div style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:8 }}>
@@ -2085,6 +2096,10 @@ function AcMiRutina({ onSendToBuilder, onSendToPlayer }) {
           </div>
         ))}
       </div>
+      <button
+        onClick={() => navigate('/rutinas')}
+        style={{ width:'100%', padding:'6px', borderRadius:7, border:`1px solid ${AC.border}`, background:'transparent', color:AC.muted, fontFamily:'Inter,system-ui', fontSize:10, fontWeight:700, cursor:'pointer', marginBottom:8 }}
+      >Mis rutinas →</button>
     </div>
   );
 }

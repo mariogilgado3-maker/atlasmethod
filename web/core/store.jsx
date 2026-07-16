@@ -24,6 +24,7 @@ const DEFAULT_STORE = {
     lastDate: null,
   },
   log: [],
+  savedRoutines: [],
   store: { owned: [] },
   achievements: [],
   prefs: {
@@ -99,6 +100,7 @@ function readStore() {
       if (parsed.plan !== undefined) merged.plan = parsed.plan;
       if (parsed.sessions) merged.sessions = { ...merged.sessions, ...parsed.sessions };
       if (parsed.log) merged.log = parsed.log;
+      if (parsed.savedRoutines) merged.savedRoutines = parsed.savedRoutines;
       if (parsed.store) merged.store = { ...merged.store, ...parsed.store };
       if (parsed.achievements) merged.achievements = parsed.achievements;
       if (parsed.prefs) merged.prefs = { ...merged.prefs, ...parsed.prefs };
@@ -235,6 +237,47 @@ function StoreProvider({ children }) {
       };
     }),
 
+    // ── Saved routines ("Mis rutinas") — single source of truth ──────────────
+    // Save (or update) a named routine template. If a routine with the same id
+    // already exists it is replaced; otherwise it is prepended (cap 50).
+    saveRoutine: (routine) => setState(s => {
+      if (!routine) return s;
+      const id = routine.id || `routine-${Date.now()}`;
+      const entry = { ...routine, id, savedAt: Date.now() };
+      const existing = (s.savedRoutines || []).some(r => r.id === id);
+      const savedRoutines = existing
+        ? s.savedRoutines.map(r => r.id === id ? { ...entry, createdAt: r.createdAt || entry.createdAt } : r)
+        : [entry, ...(s.savedRoutines || [])].slice(0, 50);
+      return { ...s, savedRoutines };
+    }),
+
+    renameRoutine: (id, name) => setState(s => ({
+      ...s,
+      savedRoutines: (s.savedRoutines || []).map(r =>
+        r.id === id ? { ...r, name: name || r.name, savedAt: Date.now() } : r),
+    })),
+
+    duplicateRoutine: (id) => setState(s => {
+      const orig = (s.savedRoutines || []).find(r => r.id === id);
+      if (!orig) return s;
+      const copy = {
+        ...orig,
+        id: `routine-${Date.now()}`,
+        name: `${orig.name} (copia)`,
+        createdAt: Date.now(),
+        savedAt: Date.now(),
+      };
+      const idx = s.savedRoutines.findIndex(r => r.id === id);
+      const next = [...s.savedRoutines];
+      next.splice(idx + 1, 0, copy);
+      return { ...s, savedRoutines: next.slice(0, 50) };
+    }),
+
+    deleteRoutine: (id) => setState(s => ({
+      ...s,
+      savedRoutines: (s.savedRoutines || []).filter(r => r.id !== id),
+    })),
+
     // NEW: Mark an article as read, award gems if first time
     markArticleRead: (id) => setState(s => {
       const alreadyRead = (s.reading.completed || []).includes(id);
@@ -327,7 +370,7 @@ function useStore() {
 }
 
 // ─── Hash router ──────────────────────────────────────
-const ROUTES = ['/', '/aula', '/laboratorio', '/coach', '/builder', '/perfil', '/admin', '/player', '/progreso'];
+const ROUTES = ['/', '/aula', '/laboratorio', '/coach', '/builder', '/rutinas', '/perfil', '/admin', '/player', '/progreso'];
 
 function useRoute() {
   const [route, setRoute] = React.useState(() => {

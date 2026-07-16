@@ -285,12 +285,19 @@ const SEED = [
 ];
 
 // ─── In-memory store (localStorage-backed) ───────────────────────────────────
+// Adding a new article = adding an entry to SEED. On load we merge any SEED
+// article whose id isn't already stored, so new monthly content appears without
+// wiping user reading state or admin edits to existing articles.
 let _articles = (function () {
+  let stored = null;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) stored = JSON.parse(raw);
   } catch (e) {}
-  return SEED.map(a => ({ ...a }));
+  if (!Array.isArray(stored) || !stored.length) return SEED.map(a => ({ ...a }));
+  const ids = new Set(stored.map(a => a.id));
+  const additions = SEED.filter(a => !ids.has(a.id)).map(a => ({ ...a }));
+  return additions.length ? [...stored, ...additions] : stored;
 })();
 
 function _persist() {
@@ -341,6 +348,15 @@ const ArticlesService = {
     // TODO: fetch('/api/articles/' + id)
     await _delay();
     return _articles.find(a => a.id === id) || null;
+  },
+
+  // "Nuevo" tag window: an article counts as new for its first 2 weeks.
+  NEW_WINDOW_DAYS: 14,
+  isNew(article) {
+    if (!article || !article.publishedAt) return false;
+    const t = Date.parse(article.publishedAt);
+    if (isNaN(t)) return false;
+    return (Date.now() - t) < this.NEW_WINDOW_DAYS * 86400000;
   },
 
   async search(query) {

@@ -354,6 +354,24 @@ function WpHistoryScreen({ onNewWorkout }) {
 
 // ── Active View ───────────────────────────────────────────────────────────────
 
+// Exercise demonstration image for the active workout — lazy, self-hiding on miss
+function WpExerciseImage({ id, name }) {
+  const [ok, setOk] = React.useState(true);
+  const url = (typeof ExerciseImages !== 'undefined') ? ExerciseImages.urlFor(id) : null;
+  if (!url || !ok) return null;
+  return (
+    <div style={{ borderRadius:12, overflow:'hidden', marginBottom:14, background:'#EDEEF0', height:180 }}>
+      <img
+        src={url}
+        alt={name}
+        loading="lazy"
+        onError={() => setOk(false)}
+        style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'center', display:'block' }}
+      />
+    </div>
+  );
+}
+
 function WpActiveView({ session, exIdx, setIdx, elapsed, restTimer, onCompleteSet, onUpdateSet, onSelectSet, onNavigateEx, onFinish, onExit, onRestAdjust, onRestSkip }) {
   const ex = session.exercises[exIdx];
   if (!ex) return null;
@@ -409,6 +427,7 @@ function WpActiveView({ session, exIdx, setIdx, elapsed, restTimer, onCompleteSe
 
           {/* Exercise card */}
           <div style={{ borderRadius:16, border:`1px solid ${WP.border}`, background:WP.card, padding:'18px 18px 14px', marginBottom:16 }}>
+            <WpExerciseImage id={ex.id} name={ex.name} />
             <div style={{ fontFamily:'Inter,system-ui', fontSize:20, fontWeight:800, color:WP.text, letterSpacing:-0.5, marginBottom:10 }}>
               {ex.name}
             </div>

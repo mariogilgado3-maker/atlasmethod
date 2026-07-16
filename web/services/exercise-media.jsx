@@ -222,6 +222,7 @@ const MUSCLE_SVG_MAP = {
 
 function ExerciseThumbnailMedia({ exercise, group, isAdded, height = 92 }) {
   const [groupPhotoOk, setGroupPhotoOk] = React.useState(true);
+  const [dbImgOk, setDbImgOk] = React.useState(true);
   const gs = EXERCISE_GROUP_STYLE[group] || EXERCISE_GROUP_STYLE.core;
   const SvgComp = MUSCLE_SVG_MAP[group] || SVG_CORE;
 
@@ -244,7 +245,62 @@ function ExerciseThumbnailMedia({ exercise, group, isAdded, height = 92 }) {
     );
   }
 
-  // 2. Curated group photo — B&W editorial + muscle SVG overlay
+  // 1b. free-exercise-db photo mapped by exercise id — lazy-loaded, cached by
+  //     the service worker for offline. Falls through to the placeholder on error.
+  const dbImg = (typeof ExerciseImages !== 'undefined' && exercise.id)
+    ? ExerciseImages.urlFor(exercise.id) : null;
+  if (dbImg && dbImgOk) {
+    return (
+      <div style={{ position: 'relative', height, overflow: 'hidden', flexShrink: 0, background: '#EDEEF0' }}>
+        <img
+          src={dbImg}
+          alt={exercise.name}
+          loading="lazy"
+          onError={() => setDbImgOk(false)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
+        />
+        {/* subtle navy edge so the light photo sits in the design system */}
+        <div style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 0 0 1px rgba(15,26,46,0.06)', pointerEvents: 'none' }} />
+        {exercise.compound && (
+          <div style={{
+            position: 'absolute', top: 6, left: 6,
+            fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 7, fontWeight: 700,
+            color: 'rgba(255,255,255,0.9)', letterSpacing: 0.8,
+            background: 'rgba(15,26,46,0.62)', backdropFilter: 'blur(4px)',
+            padding: '2px 6px', borderRadius: 3,
+          }}>CPT</div>
+        )}
+        {isAdded && <AddedOverlay />}
+      </div>
+    );
+  }
+
+  // 2. Elegant navy placeholder — for exercises with no image correspondence
+  //    (or when the mapped photo fails). Muscle silhouette over design-system navy.
+  const noDbMatch = (typeof ExerciseImages !== 'undefined' && exercise.id)
+    ? !ExerciseImages.hasImage(exercise.id) : false;
+  if (noDbMatch || (dbImg && !dbImgOk)) {
+    return (
+      <div style={{
+        height, flexShrink: 0, position: 'relative', overflow: 'hidden',
+        background: 'linear-gradient(150deg, #16233B 0%, #0F1A2E 100%)',
+      }}>
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: 'radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px)',
+          backgroundSize: '15px 15px',
+        }} />
+        {/* muscle silhouette, tinted with the group accent */}
+        <div style={{ position: 'absolute', inset: 0, opacity: 0.5 }}>
+          <SvgComp />
+        </div>
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, background: gs.to, opacity: 0.6 }} />
+        {isAdded && <AddedOverlay />}
+      </div>
+    );
+  }
+
+  // 3. Curated group photo — B&W editorial + muscle SVG overlay
   const groupPhoto = GROUP_PHOTOS[group];
   if (groupPhoto && groupPhotoOk) {
     return (
