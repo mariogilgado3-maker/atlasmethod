@@ -7,7 +7,7 @@
  * and forces a fresh precache run.
  */
 
-const CACHE_VER    = 'atlas-v6';
+const CACHE_VER    = 'atlas-v7';
 const SHELL_CACHE  = `${CACHE_VER}-shell`;
 const DYN_CACHE    = `${CACHE_VER}-dynamic`;
 // Exercise photos (free-exercise-db) are immutable and heavy; keep them in a

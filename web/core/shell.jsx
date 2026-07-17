@@ -67,7 +67,7 @@ function AppMobileTabBar() {
 function AppMobileHeader() {
   const { navigate } = useRoute();
   return (
-    <nav style={{
+    <nav className="atlas-mobile-header" style={{
       position: 'sticky', top: 0, zIndex: 50,
       background: 'rgba(250,250,247,0.9)',
       backdropFilter: 'saturate(180%) blur(20px)',
