@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=1200">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Atlas Method — Datos. Decisiones. Rendimiento.</title>
 
 <!-- PWA manifest & theme -->
@@ -25,6 +25,10 @@
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: #FAFAF7; color: #0F1A2E; font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+  /* Phase A safety net: prevent section internals (still desktop-width until
+     phases B–D) from forcing horizontal page scroll. `clip` (not `hidden`)
+     avoids turning the root into a scroll container, so sticky nav still works. */
+  html, body { overflow-x: clip; max-width: 100%; }
   ::selection { background: #0F1A2E; color: #FAFAF7; }
   button:focus, input:focus, textarea:focus { outline: none; }
   input::placeholder, textarea::placeholder { color: rgba(250,250,247,0.4); }
@@ -61,14 +65,6 @@
     letter-spacing: 7px; text-indent: 7px; /* compensate last letter's tracking */
     animation: splashIn .7s cubic-bezier(0.22, 1, 0.36, 1) .12s both;
   }
-  /* Real phones: the width=1200 layout viewport is scaled down ~3× on a
-     ~390px-wide device, shrinking px-bound sizes. When the device is narrow
-     but the layout is wide, compensate so the visual size matches intent. */
-  @media (max-device-width: 700px) and (min-width: 1000px) {
-    #splash { gap: 64px; }
-    #splash svg { width: clamp(288px, 40vw, 520px); height: clamp(288px, 40vw, 520px); }
-    #splash .splash-wordmark { font-size: clamp(42px, 3.5vw, 66px); letter-spacing: 21px; text-indent: 21px; }
-  }
   @keyframes splashIn {
     from { opacity: 0; transform: scale(0.92); }
     to   { opacity: 1; transform: scale(1); }
@@ -83,6 +79,11 @@
     border-top: 1px solid rgba(255,255,255,0.07);
   }
   body.offline #offline-bar { display: block; }
+  /* Mobile bottom tab bar clearance — keep content above the fixed nav (Phase A) */
+  @media (max-width: 679px) {
+    body { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
+    #offline-bar { bottom: calc(56px + env(safe-area-inset-bottom)); }
+  }
 </style>
 
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
