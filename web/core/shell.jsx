@@ -1,8 +1,97 @@
 // AppShell — top nav (functional routing), gem tray, page outlet, transitions
 
+// Tracks the mobile breakpoint (<680px) with a resize listener. Matches the
+// isMobile checks scattered through the section components.
+function useIsMobile(bp = 680) {
+  const [m, setM] = React.useState(() => typeof window !== 'undefined' && window.innerWidth < bp);
+  React.useEffect(() => {
+    const onResize = () => setM(window.innerWidth < bp);
+    window.addEventListener('resize', onResize);
+    onResize();
+    return () => window.removeEventListener('resize', onResize);
+  }, [bp]);
+  return m;
+}
+
+// Minimal stroke icons for the mobile tab bar
+function NavIcon({ name, color }) {
+  const p = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' };
+  if (name === 'home')    return <svg {...p}><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></svg>;
+  if (name === 'coach')   return <svg {...p}><path d="M4 5h16v10H9l-4 4v-4H4z" /></svg>;
+  if (name === 'builder') return <svg {...p}><path d="M4 6h16M4 12h16M4 18h10" /></svg>;
+  if (name === 'play')    return <svg {...p}><path d="M7 4.5v15l12-7.5z" fill={color} /></svg>;
+  if (name === 'user')    return <svg {...p}><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></svg>;
+  return null;
+}
+
+// Fixed bottom tab bar for mobile — native-app style navigation
+function AppMobileTabBar() {
+  const { route, navigate } = useRoute();
+  const tabs = [
+    { path: '/',        label: 'Inicio',   icon: 'home' },
+    { path: '/coach',   label: 'Coach',    icon: 'coach' },
+    { path: '/builder', label: 'Builder',  icon: 'builder' },
+    { path: '/player',  label: 'Entrenar', icon: 'play' },
+    { path: '/perfil',  label: 'Perfil',   icon: 'user' },
+  ];
+  const ACTIVE = '#3B82F6';
+  const IDLE   = 'rgba(250,250,247,0.5)';
+  return (
+    <nav style={{
+      position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 300,
+      background: '#0F1A2E', borderTop: '1px solid rgba(255,255,255,0.08)',
+      paddingBottom: 'env(safe-area-inset-bottom)',
+      display: 'flex', alignItems: 'stretch',
+    }}>
+      {tabs.map(t => {
+        const active = route === t.path;
+        const color = active ? ACTIVE : IDLE;
+        return (
+          <a key={t.path} href={'#' + t.path}
+            onClick={(e) => { e.preventDefault(); navigate(t.path); }}
+            style={{
+              flex: 1, height: 56, textDecoration: 'none',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
+              color, transition: 'color .15s',
+            }}>
+            <NavIcon name={t.icon} color={color} />
+            <span style={{ fontFamily: '"Inter",system-ui', fontSize: 10, fontWeight: active ? 700 : 500, letterSpacing: -0.1 }}>{t.label}</span>
+          </a>
+        );
+      })}
+    </nav>
+  );
+}
+
+// Slim mobile top header — logo + gems, keeps brand and balance visible
+function AppMobileHeader() {
+  const { navigate } = useRoute();
+  return (
+    <nav style={{
+      position: 'sticky', top: 0, zIndex: 50,
+      background: 'rgba(250,250,247,0.9)',
+      backdropFilter: 'saturate(180%) blur(20px)',
+      WebkitBackdropFilter: 'saturate(180%) blur(20px)',
+      borderBottom: '1px solid rgba(15,26,46,0.06)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px' }}>
+        <a href="#/" onClick={(e) => { e.preventDefault(); navigate('/'); }}
+          style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: '#0F1A2E' }}>
+          <AtlasA size={24} color="#0F1A2E" stroke={9} />
+          <span style={{ fontFamily: '"Inter",system-ui', fontWeight: 800, fontSize: 16, letterSpacing: -0.4 }}>
+            Atlas <span style={{ fontWeight: 500, opacity: 0.55 }}>Method</span>
+          </span>
+        </a>
+        <GemTray />
+      </div>
+    </nav>
+  );
+}
+
 function AppNav() {
   const { route, navigate } = useRoute();
   const { state } = useStore();
+  const isMobile = useIsMobile();
 
   const items = [
     { path: '/', label: 'Inicio' },
@@ -13,6 +102,16 @@ function AppNav() {
     { path: '/progreso', label: 'Progreso' },
     { path: '/perfil', label: 'Perfil' },
   ];
+
+  // Mobile: slim top header + fixed bottom tab bar (native-app navigation)
+  if (isMobile) {
+    return (
+      <>
+        <AppMobileHeader />
+        <AppMobileTabBar />
+      </>
+    );
+  }
 
   return (
     <nav style={{
