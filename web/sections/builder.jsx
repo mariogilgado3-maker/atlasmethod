@@ -1295,6 +1295,7 @@ function PlanModal({ priorities, log, sessionSets, workout, onClose, onGoLab }) 
 // ── Barra de búsqueda global ──────────────────────────────────────────────────
 function SearchBar({ query, onQuery, muscle, onMuscle }) {
   const [focused, setFocused] = React.useState(false);
+  const mobile = useIsMobile();
   return (
     <div style={{ marginBottom:22 }}>
       <div style={{ position:'relative' }}>
@@ -1306,10 +1307,10 @@ function SearchBar({ query, onQuery, muscle, onMuscle }) {
         <input value={query} onChange={e => onQuery(e.target.value)}
           onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
           placeholder="Buscar ejercicios, músculos, patrones..."
-          style={{ width:'100%', padding:'13px 42px 13px 42px', borderRadius:14, boxSizing:'border-box',
+          style={{ width:'100%', padding: mobile ? '14px 42px' : '13px 42px', borderRadius:14, boxSizing:'border-box',
             background:'rgba(255,255,255,0.04)',
             border:`1.5px solid ${focused ? 'rgba(59,130,246,0.50)' : 'rgba(255,255,255,0.09)'}`,
-            fontFamily:'Inter,system-ui', fontSize:14, color:BD.text, transition:'border-color .15s', outline:'none' }} />
+            fontFamily:'Inter,system-ui', fontSize: mobile ? 16 : 14, color:BD.text, transition:'border-color .15s', outline:'none' }} />
         {query && (
           <button onClick={() => onQuery('')}
             style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)',
@@ -1326,10 +1327,10 @@ function SearchBar({ query, onQuery, muscle, onMuscle }) {
           const active = muscle === id;
           return (
             <button key={id} onClick={() => onMuscle(active ? null : id)}
-              style={{ flexShrink:0, padding:'5px 13px', borderRadius:999, border:'none', cursor:'pointer',
+              style={{ flexShrink:0, padding: mobile ? '9px 15px' : '5px 13px', minHeight: mobile ? 38 : undefined, borderRadius:999, border:'none', cursor:'pointer',
                 background: active ? BD.blue : 'rgba(255,255,255,0.06)',
                 color: active ? '#fff' : BD.muted,
-                fontFamily:'Inter,system-ui', fontSize:11, fontWeight:600, transition:'background .14s, color .14s' }}>
+                fontFamily:'Inter,system-ui', fontSize: mobile ? 13 : 11, fontWeight:600, transition:'background .14s, color .14s' }}>
               {def.label}
             </button>
           );
@@ -1805,13 +1806,22 @@ function BdExThumb({ id, name }) {
 }
 
 function WorkoutExecution({ session, onFinish, onCancel }) {
+  const mobile = useIsMobile();
   const [exs,       setExs]       = React.useState(session.exercises);
   const [restTimer, setRestTimer] = React.useState(null);
   const [elapsed,   setElapsed]   = React.useState(0);
+  // Clearance for the fixed mobile tab bar so nothing sits behind it
+  const TABBAR = 'calc(56px + env(safe-area-inset-bottom))';
 
   React.useEffect(() => {
     const iv = setInterval(() => setElapsed(Math.floor((Date.now() - session.startTime) / 1000)), 1000);
     return () => clearInterval(iv);
+  }, []);
+
+  // Immersive training: hide the app's mobile top header while executing
+  React.useEffect(() => {
+    document.body.classList.add('atlas-training');
+    return () => document.body.classList.remove('atlas-training');
   }, []);
 
   React.useEffect(() => {
@@ -1852,13 +1862,22 @@ function WorkoutExecution({ session, onFinish, onCancel }) {
   };
   const inp = {
     background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`,
-    borderRadius: 6, color: C.text, padding: '5px 8px', fontSize: 13, fontWeight: 600,
+    borderRadius: mobile ? 9 : 6, color: C.text,
+    padding: mobile ? '11px 10px' : '5px 8px',
+    minHeight: mobile ? 46 : undefined,
+    fontSize: mobile ? 17 : 13, fontWeight: 600,
     width: '100%', boxSizing: 'border-box', textAlign: 'center', fontFamily: 'ui-monospace,Menlo,monospace',
     outline: 'none',
   };
+  // Bigger checkmark + wider input columns on mobile for one-handed tapping
+  const setCols = mobile ? '20px 1fr 1fr 52px' : '22px 1fr 1fr 32px';
+  const checkSize = mobile ? 46 : 28;
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100%', background:C.bg, color:C.text, fontFamily:'Inter,system-ui,sans-serif' }}>
+    <div style={{ display:'flex', flexDirection:'column', background:C.bg, color:C.text, fontFamily:'Inter,system-ui,sans-serif',
+      // Mobile: fill the screen (the app top header is hidden via body.atlas-training);
+      // the fixed bottom tab bar shows over the padded finish bar.
+      ...(mobile ? { minHeight:'100dvh' } : { height:'100%' }) }}>
 
       {/* Header */}
       <div style={{ padding:'14px 20px', borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
@@ -1880,21 +1899,20 @@ function WorkoutExecution({ session, onFinish, onCancel }) {
         </div>
       </div>
 
-      {/* Rest timer */}
+      {/* Rest timer — always visible while resting (flex header, never scrolls away) */}
       {restTimer && restTimer.rem > 0 && (
-        <div style={{ padding:'10px 20px', background:'rgba(59,130,246,0.07)', borderBottom:`1px solid rgba(59,130,246,0.14)`, display:'flex', alignItems:'center', gap:14, flexShrink:0 }}>
-          <span style={{ fontSize:16 }}>⏱</span>
-          <div style={{ flex:1 }}>
+        <div style={{ padding: mobile ? '12px 16px' : '10px 20px', background:'rgba(59,130,246,0.09)', borderBottom:`1px solid rgba(59,130,246,0.16)`, display:'flex', alignItems:'center', gap: mobile ? 10 : 14, flexShrink:0 }}>
+          <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontSize:9, fontWeight:700, color:C.blue, letterSpacing:1.2, fontFamily:'ui-monospace,Menlo,monospace' }}>DESCANSO</div>
-            <div style={{ fontSize:20, fontWeight:800, color:C.text, fontVariantNumeric:'tabular-nums', fontFamily:'ui-monospace,Menlo,monospace', lineHeight:1.2 }}>{fmt(restTimer.rem)}</div>
+            <div style={{ fontSize: mobile ? 24 : 20, fontWeight:800, color:C.text, fontVariantNumeric:'tabular-nums', fontFamily:'ui-monospace,Menlo,monospace', lineHeight:1.2 }}>{fmt(restTimer.rem)}</div>
           </div>
-          <div style={{ width:36, height:36, borderRadius:'50%', border:'3px solid rgba(59,130,246,0.18)', position:'relative', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
-            <div style={{ position:'absolute', inset:0, borderRadius:'50%', background:`conic-gradient(${C.blue} ${Math.round((1 - restTimer.rem / restTimer.total) * 360)}deg, transparent 0)` }} />
-            <div style={{ width:28, height:28, borderRadius:'50%', background:C.bg, position:'relative', zIndex:1 }} />
+          <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+            <button onClick={() => setRestTimer(r => r ? { ...r, rem: Math.max(1, r.rem - 15), total: Math.max(r.total, r.rem) } : null)}
+              style={{ minWidth: mobile ? 48 : 40, minHeight: mobile ? 44 : 30, borderRadius:9, border:`1px solid rgba(59,130,246,0.25)`, background:'rgba(255,255,255,0.05)', color:C.sub, cursor:'pointer', fontSize:13, fontWeight:700, fontFamily:'Inter,system-ui' }}>−15</button>
+            <button onClick={() => setRestTimer(r => r ? { ...r, rem: r.rem + 15, total: r.total + 15 } : null)}
+              style={{ minWidth: mobile ? 48 : 40, minHeight: mobile ? 44 : 30, borderRadius:9, border:`1px solid rgba(59,130,246,0.25)`, background:'rgba(255,255,255,0.05)', color:C.sub, cursor:'pointer', fontSize:13, fontWeight:700, fontFamily:'Inter,system-ui' }}>+15</button>
+            <button onClick={() => setRestTimer(null)} style={{ minHeight: mobile ? 44 : 30, background:C.blue, border:'none', borderRadius:9, color:'#fff', padding: mobile ? '0 16px' : '6px 14px', cursor:'pointer', fontSize:13, fontWeight:700, fontFamily:'Inter,system-ui' }}>Saltar →</button>
           </div>
-          <button onClick={() => setRestTimer(null)} style={{ background:'rgba(59,130,246,0.12)', border:`1px solid rgba(59,130,246,0.25)`, borderRadius:8, color:C.blue, padding:'6px 14px', cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'Inter,system-ui', flexShrink:0 }}>
-            Saltar →
-          </button>
         </div>
       )}
 
@@ -1920,18 +1938,18 @@ function WorkoutExecution({ session, onFinish, onCancel }) {
               </div>
             </div>
             {!ex.done && (
-              <div style={{ borderTop:`1px solid ${C.border}`, padding:'8px 14px 10px' }}>
-                <div style={{ display:'grid', gridTemplateColumns:'22px 1fr 1fr 32px', gap:6, marginBottom:5 }}>
+              <div style={{ borderTop:`1px solid ${C.border}`, padding: mobile ? '10px 14px 12px' : '8px 14px 10px' }}>
+                <div style={{ display:'grid', gridTemplateColumns:setCols, gap: mobile ? 8 : 6, marginBottom:5 }}>
                   {['', 'Kg', 'Reps', ''].map((h, i) => (
                     <div key={i} style={{ fontSize:8, fontWeight:700, color:C.muted, letterSpacing:1.1, fontFamily:'ui-monospace,Menlo,monospace', textAlign: i===3 ? 'center' : 'left' }}>{h}</div>
                   ))}
                 </div>
                 {ex.sets.map((s, si) => (
-                  <div key={si} style={{ display:'grid', gridTemplateColumns:'22px 1fr 1fr 32px', gap:6, marginBottom:4, alignItems:'center', opacity: s.done ? 0.35 : 1 }}>
-                    <div style={{ fontSize:10, color:C.muted, fontWeight:700, fontFamily:'ui-monospace,Menlo,monospace' }}>{si + 1}</div>
-                    <input type="number" min="0" step="0.5" value={s.kg} onChange={e => updateSetField(ei, si, 'kg', e.target.value)} placeholder="—" style={inp} />
-                    <input type="number" min="1" step="1"   value={s.reps} onChange={e => updateSetField(ei, si, 'reps', e.target.value)} placeholder="—" style={inp} />
-                    <button onClick={() => toggleSetDone(ei, si)} style={{ width:28, height:28, borderRadius:6, flexShrink:0, cursor:'pointer', border:`1px solid ${s.done ? 'rgba(34,197,94,0.50)' : C.border}`, background: s.done ? 'rgba(34,197,94,0.14)' : 'rgba(255,255,255,0.04)', color: s.done ? C.green : C.muted, fontSize:11, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900, transition:'all .15s', }}>✓</button>
+                  <div key={si} style={{ display:'grid', gridTemplateColumns:setCols, gap: mobile ? 8 : 6, marginBottom: mobile ? 8 : 4, alignItems:'center', opacity: s.done ? 0.4 : 1 }}>
+                    <div style={{ fontSize:11, color:C.muted, fontWeight:700, fontFamily:'ui-monospace,Menlo,monospace' }}>{si + 1}</div>
+                    <input type="number" inputMode="decimal" min="0" step="0.5" value={s.kg} onChange={e => updateSetField(ei, si, 'kg', e.target.value)} placeholder="—" style={inp} />
+                    <input type="number" inputMode="numeric" min="1" step="1"   value={s.reps} onChange={e => updateSetField(ei, si, 'reps', e.target.value)} placeholder="—" style={inp} />
+                    <button onClick={() => toggleSetDone(ei, si)} style={{ width:checkSize, height:checkSize, borderRadius: mobile ? 10 : 6, flexShrink:0, cursor:'pointer', border:`1px solid ${s.done ? 'rgba(34,197,94,0.50)' : C.border}`, background: s.done ? 'rgba(34,197,94,0.16)' : 'rgba(255,255,255,0.04)', color: s.done ? C.green : C.muted, fontSize: mobile ? 18 : 11, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900, transition:'all .15s', }}>✓</button>
                   </div>
                 ))}
               </div>
@@ -1942,8 +1960,8 @@ function WorkoutExecution({ session, onFinish, onCancel }) {
       </div>
 
       {/* Finish */}
-      <div style={{ padding:'14px 20px', borderTop:`1px solid ${C.border}`, background:C.bg, flexShrink:0 }}>
-        <button onClick={() => onFinish(exs)} style={{ width:'100%', padding:'13px', borderRadius:12, border:'none', cursor:'pointer', background: pct === 100 ? C.green : `rgba(34,197,94,${Math.max(0.10, pct / 200)})`, color: pct === 100 ? '#fff' : C.green, fontSize:14, fontWeight:700, letterSpacing:-0.2, fontFamily:'Inter,system-ui', transition:'all .2s', boxShadow: pct === 100 ? '0 4px 20px rgba(34,197,94,0.30)' : 'none' }}>
+      <div style={{ padding:'14px 20px', paddingBottom: mobile ? `calc(14px + ${TABBAR})` : 14, borderTop:`1px solid ${C.border}`, background:C.bg, flexShrink:0 }}>
+        <button onClick={() => onFinish(exs)} style={{ width:'100%', padding: mobile ? '15px' : '13px', borderRadius:12, border:'none', cursor:'pointer', background: pct === 100 ? C.green : `rgba(34,197,94,${Math.max(0.10, pct / 200)})`, color: pct === 100 ? '#fff' : C.green, fontSize: mobile ? 16 : 14, fontWeight:700, letterSpacing:-0.2, fontFamily:'Inter,system-ui', transition:'all .2s', boxShadow: pct === 100 ? '0 4px 20px rgba(34,197,94,0.30)' : 'none' }}>
           {pct === 100 ? '✓ Finalizar entrenamiento' : `Finalizar entrenamiento · ${pct}% completado`}
         </button>
         {pct < 100 && <div style={{ textAlign:'center', marginTop:8, fontSize:11, color:C.muted }}>Puedes finalizar aunque no hayas completado todas las series</div>}
@@ -2214,7 +2232,7 @@ function BuilderSection() {
                   ? (coachBanner.sessionName ? ` · ${coachBanner.sessionName}` : '')
                   : ` · ${coachBanner.sessionName || `Día ${(coachBanner.sessionIndex || 0) + 1}`}`}
               </span>
-              {workout.length > 0 && (
+              {workout.length > 0 && !mobile && (
                 <button onClick={startExecution} style={{ background:'#22C55E', border:'none', borderRadius:8, color:'#fff', padding:'6px 13px', cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'Inter,system-ui', flexShrink:0, boxShadow:'0 3px 12px rgba(34,197,94,0.30)' }}>
                   ▶ Iniciar
                 </button>
@@ -2236,6 +2254,12 @@ function BuilderSection() {
               >↓ PDF</button>
               <button onClick={() => setCoachBanner(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(147,197,253,0.35)', fontSize:14, padding:'2px 6px', flexShrink:0 }}>✕</button>
             </div>
+            {/* Mobile: prominent full-width start button */}
+            {workout.length > 0 && mobile && (
+              <button onClick={startExecution} style={{ width:'100%', marginTop:12, background:'#22C55E', border:'none', borderRadius:11, color:'#fff', padding:'14px', cursor:'pointer', fontSize:16, fontWeight:800, fontFamily:'Inter,system-ui', boxShadow:'0 4px 16px rgba(34,197,94,0.32)' }}>
+                ▶ Iniciar entrenamiento
+              </button>
+            )}
             {/* Row 2: day tabs for multi-session plans */}
             {coachBanner.totalSessions > 1 && (
               <div style={{ display:'flex', gap:6, marginTop:10, flexWrap:'wrap' }}>

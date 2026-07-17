@@ -50,7 +50,7 @@ function WpSpinner() {
 
 // ── Rest Timer Banner ─────────────────────────────────────────────────────────
 
-function WpRestTimer({ restTimer, onSkip, onAdjust }) {
+function WpRestTimer({ restTimer, onSkip, onAdjust, isMobile }) {
   if (!restTimer) return null;
   const { rem, total } = restTimer;
   const pct = total > 0 ? Math.max(0, rem / total) : 0;
@@ -86,9 +86,9 @@ function WpRestTimer({ restTimer, onSkip, onAdjust }) {
       <div style={{ flex:1 }}>
         <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700, color:'rgba(34,197,94,0.70)', letterSpacing:1.6, marginBottom:6 }}>DESCANSO</div>
         <div style={{ display:'flex', gap:6 }}>
-          <button onClick={() => onAdjust(-15)} style={{ padding:'5px 10px', borderRadius:8, border:`1px solid ${WP.border}`, background:'rgba(255,255,255,0.06)', color:WP.sub, fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700, cursor:'pointer' }}>- 15s</button>
-          <button onClick={onSkip} style={{ padding:'5px 14px', borderRadius:8, border:'none', background:WP.green, color:'#fff', fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700, cursor:'pointer' }}>Skip →</button>
-          <button onClick={() => onAdjust(15)} style={{ padding:'5px 10px', borderRadius:8, border:`1px solid ${WP.border}`, background:'rgba(255,255,255,0.06)', color:WP.sub, fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700, cursor:'pointer' }}>+ 15s</button>
+          <button onClick={() => onAdjust(-15)} style={{ minWidth: isMobile ? 52 : undefined, minHeight: isMobile ? 44 : undefined, padding: isMobile ? '0 12px' : '5px 10px', borderRadius:8, border:`1px solid ${WP.border}`, background:'rgba(255,255,255,0.06)', color:WP.sub, fontFamily:'Inter,system-ui', fontSize: isMobile ? 13 : 11, fontWeight:700, cursor:'pointer' }}>−15s</button>
+          <button onClick={onSkip} style={{ minHeight: isMobile ? 44 : undefined, padding: isMobile ? '0 18px' : '5px 14px', borderRadius:8, border:'none', background:WP.green, color:'#fff', fontFamily:'Inter,system-ui', fontSize: isMobile ? 13 : 11, fontWeight:700, cursor:'pointer' }}>Skip →</button>
+          <button onClick={() => onAdjust(15)} style={{ minWidth: isMobile ? 52 : undefined, minHeight: isMobile ? 44 : undefined, padding: isMobile ? '0 12px' : '5px 10px', borderRadius:8, border:`1px solid ${WP.border}`, background:'rgba(255,255,255,0.06)', color:WP.sub, fontFamily:'Inter,system-ui', fontSize: isMobile ? 13 : 11, fontWeight:700, cursor:'pointer' }}>+15s</button>
         </div>
       </div>
     </div>
@@ -373,6 +373,15 @@ function WpExerciseImage({ id, name }) {
 }
 
 function WpActiveView({ session, exIdx, setIdx, elapsed, restTimer, onCompleteSet, onUpdateSet, onSelectSet, onNavigateEx, onFinish, onExit, onRestAdjust, onRestSkip }) {
+  const isMobile = useIsMobile();
+  const TABBAR = 'calc(56px + env(safe-area-inset-bottom))';
+
+  // Immersive training: hide the app's mobile top header during the active view
+  React.useEffect(() => {
+    document.body.classList.add('atlas-training');
+    return () => document.body.classList.remove('atlas-training');
+  }, []);
+
   const ex = session.exercises[exIdx];
   if (!ex) return null;
   const set = ex.sets[setIdx];
@@ -390,7 +399,9 @@ function WpActiveView({ session, exIdx, setIdx, elapsed, restTimer, onCompleteSe
   }, [ex.id]);
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', minHeight:'100vh', background:WP.page }}>
+    <div style={{ display:'flex', flexDirection:'column', background:WP.page,
+      // Mobile: fill the screen; the app top header is hidden via body.atlas-training
+      minHeight: isMobile ? '100dvh' : '100vh' }}>
 
       {/* Fixed header */}
       <div style={{ background:'rgba(6,13,24,0.97)', borderBottom:`1px solid ${WP.border}`, flexShrink:0, position:'sticky', top:0, zIndex:10 }}>
@@ -419,10 +430,10 @@ function WpActiveView({ session, exIdx, setIdx, elapsed, restTimer, onCompleteSe
       </div>
 
       {/* Rest timer banner */}
-      <WpRestTimer restTimer={restTimer} onSkip={onRestSkip} onAdjust={onRestAdjust} />
+      <WpRestTimer restTimer={restTimer} onSkip={onRestSkip} onAdjust={onRestAdjust} isMobile={isMobile} />
 
-      {/* Scrollable content */}
-      <div style={{ flex:1, overflowY:'auto', padding:'20px 16px 100px' }}>
+      {/* Scrollable content — clears the fixed mobile tab bar */}
+      <div style={{ flex:1, overflowY:'auto', padding: isMobile ? `20px 16px calc(40px + ${TABBAR})` : '20px 16px 100px' }}>
         <div style={{ maxWidth:540, margin:'0 auto' }}>
 
           {/* Exercise card */}
@@ -475,7 +486,7 @@ function WpActiveView({ session, exIdx, setIdx, elapsed, restTimer, onCompleteSe
                   value={set?.kg || ''}
                   onChange={e => onUpdateSet(exIdx, setIdx, { kg: e.target.value })}
                   placeholder="0"
-                  style={{ width:'100%', padding:'10px 12px', borderRadius:10, border:`1px solid ${WP.border}`, background:WP.input, color:WP.text, fontFamily:'ui-monospace,Menlo,monospace', fontSize:20, fontWeight:800, textAlign:'center', boxSizing:'border-box' }}
+                  style={{ width:'100%', padding: isMobile ? '13px 12px' : '10px 12px', minHeight: isMobile ? 50 : undefined, borderRadius:10, border:`1px solid ${WP.border}`, background:WP.input, color:WP.text, fontFamily:'ui-monospace,Menlo,monospace', fontSize: isMobile ? 22 : 20, fontWeight:800, textAlign:'center', boxSizing:'border-box' }}
                 />
               </div>
               <div style={{ flex:1 }}>
@@ -486,7 +497,7 @@ function WpActiveView({ session, exIdx, setIdx, elapsed, restTimer, onCompleteSe
                   value={set?.reps || ''}
                   onChange={e => onUpdateSet(exIdx, setIdx, { reps: e.target.value })}
                   placeholder="0"
-                  style={{ width:'100%', padding:'10px 12px', borderRadius:10, border:`1px solid ${WP.border}`, background:WP.input, color:WP.text, fontFamily:'ui-monospace,Menlo,monospace', fontSize:20, fontWeight:800, textAlign:'center', boxSizing:'border-box' }}
+                  style={{ width:'100%', padding: isMobile ? '13px 12px' : '10px 12px', minHeight: isMobile ? 50 : undefined, borderRadius:10, border:`1px solid ${WP.border}`, background:WP.input, color:WP.text, fontFamily:'ui-monospace,Menlo,monospace', fontSize: isMobile ? 22 : 20, fontWeight:800, textAlign:'center', boxSizing:'border-box' }}
                 />
               </div>
             </div>
@@ -501,11 +512,11 @@ function WpActiveView({ session, exIdx, setIdx, elapsed, restTimer, onCompleteSe
               onClick={() => !set?.done && onCompleteSet(exIdx, setIdx)}
               disabled={!!set?.done}
               style={{
-                width:'100%', padding:'13px 16px', borderRadius:12, border:'none',
+                width:'100%', padding: isMobile ? '16px' : '13px 16px', minHeight: isMobile ? 54 : undefined, borderRadius:12, border:'none',
                 cursor: set?.done ? 'default' : 'pointer',
                 background: set?.done ? 'rgba(34,197,94,0.20)' : WP.green,
                 color: set?.done ? WP.green : '#fff',
-                fontFamily:'Inter,system-ui', fontSize:15, fontWeight:800, letterSpacing:-0.3,
+                fontFamily:'Inter,system-ui', fontSize: isMobile ? 16 : 15, fontWeight:800, letterSpacing:-0.3,
                 boxShadow: set?.done ? 'none' : '0 4px 18px -4px rgba(34,197,94,0.45)',
                 transition:'all .15s',
               }}

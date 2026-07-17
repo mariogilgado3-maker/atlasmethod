@@ -83,6 +83,10 @@
   @media (max-width: 679px) {
     body { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
     #offline-bar { bottom: calc(56px + env(safe-area-inset-bottom)); }
+    /* Immersive training mode: the training screen has its own top bar, so hide
+       the app's mobile header and drop the bottom padding (it manages its own). */
+    body.atlas-training { padding-bottom: 0; }
+    body.atlas-training .atlas-mobile-header { display: none; }
   }
 </style>
 
