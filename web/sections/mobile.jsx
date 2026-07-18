@@ -1,15 +1,16 @@
 // Synerduo — la app móvil como sección/showcase dentro de Atlas Method
 function MobileSection() {
+  const isMobile = useIsMobile();
   return (
-    <section id="mobile" style={{ padding: '160px 32px', background: '#FAFAF7', borderTop: '1px solid rgba(15,26,46,0.06)' }}>
-      <div style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
+    <section id="mobile" style={{ padding: isMobile ? '48px 20px' : '160px 32px', background: '#FAFAF7', borderTop: '1px solid rgba(15,26,46,0.06)' }}>
+      <div style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 32 : 80, alignItems: 'center' }}>
         <div>
           <span style={{ fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 700, letterSpacing: 1.6, textTransform: 'uppercase', color: '#5C6477' }}>
             Synerduo · App móvil
           </span>
           <h2 style={{
-            fontFamily: '"Inter",system-ui', fontSize: 56, fontWeight: 700,
-            color: '#0F1A2E', letterSpacing: -2, lineHeight: 1.02,
+            fontFamily: '"Inter",system-ui', fontSize: 'clamp(28px, 7vw, 56px)', fontWeight: 700,
+            color: '#0F1A2E', letterSpacing: isMobile ? -1 : -2, lineHeight: 1.04,
             margin: '12px 0 20px',
           }}>
             Atlas, en tu <span style={{ fontFamily: '"Instrument Serif",serif', fontStyle: 'italic', fontWeight: 400 }}>bolsillo.</span>
@@ -43,17 +44,17 @@ function MobileSection() {
             ))}
           </div>
 
-          <div style={{ display: 'flex', gap: 10 }}>
-            <a href="Symmetry.html" style={storeBtn(true)}>
+          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 10 }}>
+            <a href="Symmetry.html" style={{ ...storeBtn(true), ...(isMobile ? { width:'100%', justifyContent:'center', minHeight:48 } : {}) }}>
               <svg width="20" height="20" viewBox="0 0 20 20" fill="#FAFAF7"><path d="M14.94 10.6a3.97 3.97 0 0 1 1.9-3.34 4.07 4.07 0 0 0-3.21-1.74c-1.34-.14-2.65.8-3.34.8-.7 0-1.76-.78-2.9-.76A4.27 4.27 0 0 0 3.8 7.76c-1.55 2.7-.4 6.66 1.1 8.84.74 1.06 1.6 2.26 2.74 2.22 1.1-.05 1.52-.71 2.85-.71 1.32 0 1.7.71 2.86.69 1.18-.02 1.93-1.08 2.65-2.16a9.55 9.55 0 0 0 1.21-2.5 3.84 3.84 0 0 1-2.27-3.54Zm-2.21-6.5a3.9 3.9 0 0 0 .89-2.8 3.97 3.97 0 0 0-2.57 1.33 3.71 3.71 0 0 0-.92 2.7 3.28 3.28 0 0 0 2.6-1.23Z"/></svg>
               Ver showcase iOS
             </a>
-            <a href="#" style={storeBtn(false)}>One-pager PDF</a>
+            <a href="#" style={{ ...storeBtn(false), ...(isMobile ? { width:'100%', justifyContent:'center', minHeight:48 } : {}) }}>One-pager PDF</a>
           </div>
         </div>
 
-        {/* Phones */}
-        <div style={{ position: 'relative', height: 600 }}>
+        {/* Phones — decorative showcase, hidden on mobile (fixed 280px mocks overflow) */}
+        <div style={{ position: 'relative', height: 600, display: isMobile ? 'none' : 'block' }}>
           <PhoneMock x={0} y={0} rotate={-4} z={2}>
             <PhoneScreenA />
           </PhoneMock>

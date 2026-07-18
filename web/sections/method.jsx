@@ -1,5 +1,6 @@
 // Sistema Atlas — módulos NO secuenciales.
 function MethodSection() {
+  const isMobile = useIsMobile();
   const [active, setActive] = React.useState(null);
   const [hover, setHover] = React.useState(null);
 
@@ -33,15 +34,15 @@ function MethodSection() {
   const focus = active != null ? modules.find(m => m.id === active) : null;
 
   return (
-    <section id="method" style={{ padding: '160px 32px', background: '#FAFAF7' }}>
+    <section id="method" style={{ padding: isMobile ? '48px 20px' : '160px 32px', background: '#FAFAF7' }}>
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
-        <div style={{ marginBottom: 56, maxWidth: 760 }}>
+        <div style={{ marginBottom: isMobile ? 28 : 56, maxWidth: 760 }}>
           <span style={{ fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 700, letterSpacing: 1.6, textTransform: 'uppercase', color: '#5C6477' }}>
             El Sistema Atlas
           </span>
           <h2 style={{
-            fontFamily: '"Inter",system-ui', fontSize: 56, fontWeight: 700,
-            color: '#0F1A2E', letterSpacing: -2, lineHeight: 1.02,
+            fontFamily: '"Inter",system-ui', fontSize: 'clamp(28px, 7vw, 56px)', fontWeight: 700,
+            color: '#0F1A2E', letterSpacing: isMobile ? -1 : -2, lineHeight: 1.04,
             margin: '12px 0 20px',
           }}>
             Cuatro módulos. <span style={{ fontFamily: '"Instrument Serif",Georgia,serif', fontStyle: 'italic', fontWeight: 400 }}>Tu orden.</span>
@@ -52,7 +53,7 @@ function MethodSection() {
         </div>
 
         {/* 4 module cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 40 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)', gap: 14, marginBottom: 40 }}>
           {modules.map(m => {
             const isActive = active === m.id;
             const isHover = hover === m.id;
@@ -104,8 +105,8 @@ function MethodSection() {
 
         {/* Detail panel + free network visual */}
         <div style={{
-          display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 40,
-          padding: 36, borderRadius: 24,
+          display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: isMobile ? 24 : 40,
+          padding: isMobile ? 22 : 36, borderRadius: 24,
           background: '#FFFFFF', border: '1px solid rgba(15,26,46,0.06)',
           boxShadow: '0 20px 60px -30px rgba(15,26,46,0.15)',
         }}>
@@ -115,7 +116,7 @@ function MethodSection() {
                 <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, fontWeight: 700, color: '#5C6477', letterSpacing: 0.6 }}>
                   MÓDULO {focus.n} · {focus.tag}
                 </span>
-                <h3 style={{ fontFamily: '"Inter",system-ui', fontSize: 38, fontWeight: 700, color: '#0F1A2E', letterSpacing: -1.2, lineHeight: 1.05, margin: '10px 0 14px' }}>
+                <h3 style={{ fontFamily: '"Inter",system-ui', fontSize: 'clamp(26px, 6.5vw, 38px)', fontWeight: 700, color: '#0F1A2E', letterSpacing: -1.2, lineHeight: 1.05, margin: '10px 0 14px' }}>
                   {focus.title}
                 </h3>
                 <p style={{ fontFamily: '"Inter",system-ui', fontSize: 16, color: '#3A4257', lineHeight: 1.55, letterSpacing: -0.15, margin: '0 0 24px', maxWidth: 520 }}>
@@ -132,7 +133,7 @@ function MethodSection() {
                 <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, fontWeight: 700, color: '#5C6477', letterSpacing: 0.6 }}>
                   ¿POR DÓNDE EMPIEZO?
                 </span>
-                <h3 style={{ fontFamily: '"Inter",system-ui', fontSize: 30, fontWeight: 700, color: '#0F1A2E', letterSpacing: -0.9, lineHeight: 1.15, margin: '10px 0 14px' }}>
+                <h3 style={{ fontFamily: '"Inter",system-ui', fontSize: 'clamp(22px, 5.5vw, 30px)', fontWeight: 700, color: '#0F1A2E', letterSpacing: -0.9, lineHeight: 1.15, margin: '10px 0 14px' }}>
                   Tres rutas habituales — pero no las únicas.
                 </h3>
                 <div style={{ display: 'grid', gap: 10 }}>

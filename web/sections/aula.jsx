@@ -224,28 +224,29 @@ function AlCatPill({ category }) {
 
 // ── Hero ──────────────────────────────────────────────────────────────────────
 function AulaHero({ total, completed, query, onQuery }) {
+  const isMobile = useIsMobile();
   return (
-    <div style={{ paddingBottom: 40, marginBottom: 40, borderBottom: `1px solid ${AL.border}` }}>
+    <div style={{ paddingBottom: isMobile ? 24 : 40, marginBottom: isMobile ? 24 : 40, borderBottom: `1px solid ${AL.border}` }}>
       <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:16 }}>
         <div style={{ width:7, height:7, borderRadius:'50%', background:'#10B981' }} />
         <span style={{ fontFamily:'"Inter",system-ui', fontSize:11, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:AL.muted }}>Aula Atlas</span>
       </div>
 
-      <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', gap:24, flexWrap:'wrap' }}>
+      <div style={{ display:'flex', alignItems: isMobile ? 'stretch' : 'flex-end', flexDirection: isMobile ? 'column' : 'row', justifyContent:'space-between', gap: isMobile ? 16 : 24, flexWrap:'wrap' }}>
         <div style={{ maxWidth:600 }}>
           <h1 style={{
             fontFamily:'"Space Grotesk",system-ui', fontWeight:700,
-            fontSize:54, color:AL.navy, letterSpacing:-2.5,
-            lineHeight:0.98, margin:'0 0 18px',
+            fontSize:'clamp(30px, 8vw, 54px)', color:AL.navy, letterSpacing: isMobile ? -1.2 : -2.5,
+            lineHeight:1.0, margin:'0 0 14px',
           }}>
             Entrena con evidencia.
           </h1>
-          <p style={{ fontFamily:'"Inter",system-ui', fontSize:17, color:AL.sub, lineHeight:1.55, margin:0, letterSpacing:-0.2, maxWidth:520 }}>
+          <p style={{ fontFamily:'"Inter",system-ui', fontSize:16, color:AL.sub, lineHeight:1.55, margin:0, letterSpacing:-0.2, maxWidth:520 }}>
             Ciencia aplicada al entrenamiento. Sin dogma, sin ruido. Solo lo que funciona.
           </p>
         </div>
 
-        <div style={{ display:'flex', flexDirection:'column', gap:6, alignItems:'flex-end' }}>
+        <div style={{ display:'flex', flexDirection:'column', gap:6, alignItems: isMobile ? 'stretch' : 'flex-end' }}>
           {/* Search */}
           <div style={{ position:'relative' }}>
             <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:AL.muted, fontSize:14, pointerEvents:'none' }}>⌕</span>
@@ -253,10 +254,10 @@ function AulaHero({ total, completed, query, onQuery }) {
               value={query} onChange={e => onQuery(e.target.value)}
               placeholder="Buscar artículos…"
               style={{
-                padding:'10px 14px 10px 34px', borderRadius:12,
+                padding: isMobile ? '13px 14px 13px 34px' : '10px 14px 10px 34px', borderRadius:12,
                 border:`1px solid ${AL.bord2}`, background:'#FFFFFF',
-                color:AL.navy, fontFamily:'"Inter",system-ui', fontSize:13,
-                outline:'none', width:220,
+                color:AL.navy, fontFamily:'"Inter",system-ui', fontSize: isMobile ? 16 : 13,
+                outline:'none', width: isMobile ? '100%' : 220, boxSizing:'border-box',
               }}
             />
           </div>
@@ -306,6 +307,7 @@ function AlCatStrip({ active, onChange }) {
 // ── Featured article (horizontal hero card) ───────────────────────────────────
 function AulaFeatured({ article, isRead, onOpen }) {
   const [hov, setHov] = React.useState(false);
+  const isMobile = useIsMobile();
   const m = ALcat[article.category] || ALcat.fuerza;
 
   return (
@@ -314,19 +316,19 @@ function AulaFeatured({ article, isRead, onOpen }) {
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        display:'grid', gridTemplateColumns:'1fr 1fr',
+        display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
         borderRadius:24, overflow:'hidden',
         background:AL.card, border:`1px solid ${AL.border}`,
         cursor:'pointer',
         boxShadow: hov ? '0 24px 64px rgba(15,26,46,0.15)' : '0 4px 20px rgba(15,26,46,0.07)',
         transform: hov ? 'translateY(-4px)' : 'none',
         transition:'all .3s cubic-bezier(.2,.8,.2,1)',
-        marginBottom:56,
+        marginBottom: isMobile ? 28 : 56,
       }}
     >
       {/* Left: cover */}
       <div style={{ position:'relative', overflow:'hidden' }}>
-        <AlCover category={article.category} height={340} imgIdx={0} />
+        <AlCover category={article.category} height={isMobile ? 200 : 340} imgIdx={0} />
         <div style={{
           position:'absolute', top:16, left:16,
           padding:'4px 10px', borderRadius:6,
@@ -456,6 +458,7 @@ function AlSectionHead({ label, sublabel }) {
 
 // ── Micro-learning strip ──────────────────────────────────────────────────────
 function AulaMicroLearning() {
+  const isMobile = useIsMobile();
   const typeColors = {
     fact:  { c:'#1E40AF', bg:'rgba(30,64,175,0.07)'  },
     myth:  { c:'#B45309', bg:'rgba(180,83,9,0.07)'   },
@@ -466,7 +469,7 @@ function AulaMicroLearning() {
   return (
     <div style={{ marginBottom:64 }}>
       <AlSectionHead label="30 segundos de ciencia" sublabel="Datos rápidos, basados en evidencia" />
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14 }}>
+      <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap:14 }}>
         {MICRO_TIPS.map((tip, i) => {
           const tc = typeColors[tip.type] || typeColors.fact;
           return (
@@ -497,14 +500,15 @@ function AulaMicroLearning() {
 
 // ── Science feed ──────────────────────────────────────────────────────────────
 function AulaScienceFeed() {
+  const isMobile = useIsMobile();
   return (
     <div style={{ marginBottom:64 }}>
       <AlSectionHead label="Avances recientes" sublabel="Últimos hallazgos con aplicación práctica" />
       <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
         {SCIENCE_NEWS.map((item, i) => (
           <div key={i} style={{
-            display:'grid', gridTemplateColumns:'80px 1fr 1fr',
-            gap:24, padding:'22px 24px', borderRadius:16,
+            display:'grid', gridTemplateColumns: isMobile ? '1fr' : '80px 1fr 1fr',
+            gap: isMobile ? 12 : 24, padding:'22px 24px', borderRadius:16,
             background:AL.card, border:`1px solid ${AL.border}`,
             marginBottom:2,
             alignItems:'center',
@@ -610,10 +614,11 @@ function AulaVideos() {
 
 // ── Explore by topic ──────────────────────────────────────────────────────────
 function AulaExplore({ onCategory }) {
+  const isMobile = useIsMobile();
   return (
     <div style={{ marginBottom:64 }}>
       <AlSectionHead label="Explorar por tema" sublabel="Elige lo que quieres aprender hoy" />
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
+      <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3,1fr)', gap:10 }}>
         {EXPLORE_TOPICS.map(topic => {
           const m = ALcat[topic.id] || ALcat.fuerza;
           return (
@@ -643,6 +648,7 @@ function AulaExplore({ onCategory }) {
 
 // ── Article detail (kept from v1, style polish) ───────────────────────────────
 function AulaDetail({ article, isRead, onBack, onMarkRead, allArticles, completedIds, onOpen, onAskCoach }) {
+  const isMobile = useIsMobile();
   const [openSecs, setOpenSecs] = React.useState({ 0:true });
   const [showAi, setShowAi]     = React.useState(false);
   const m  = ALcat[article.category] || ALcat.fuerza;
@@ -672,10 +678,10 @@ function AulaDetail({ article, isRead, onBack, onMarkRead, allArticles, complete
         )}
       </div>
 
-      <h1 style={{ fontFamily:'"Space Grotesk",system-ui', fontSize:40, fontWeight:700, color:AL.navy, letterSpacing:-1.8, lineHeight:1.02, margin:'0 0 10px' }}>
+      <h1 style={{ fontFamily:'"Space Grotesk",system-ui', fontSize:'clamp(26px, 7vw, 40px)', fontWeight:700, color:AL.navy, letterSpacing: isMobile ? -0.8 : -1.8, lineHeight:1.06, margin:'0 0 10px' }}>
         {article.title}
       </h1>
-      <p style={{ fontFamily:'"Inter",system-ui', fontSize:17, color:AL.sub, margin:'0 0 8px', fontWeight:500, letterSpacing:-0.2 }}>
+      <p style={{ fontFamily:'"Inter",system-ui', fontSize:17, color:AL.sub, margin:'0 0 8px', fontWeight:500, letterSpacing:-0.2, lineHeight:1.5 }}>
         {article.subtitle}
       </p>
       {article.authors?.length > 0 && (
@@ -688,7 +694,7 @@ function AulaDetail({ article, isRead, onBack, onMarkRead, allArticles, complete
       {/* Abstract */}
       <div style={{ padding:'20px 24px', borderRadius:16, background:'rgba(15,26,46,0.03)', border:`1px solid ${AL.border}`, marginBottom:24 }}>
         <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700, color:AL.muted, letterSpacing:1, marginBottom:10 }}>ABSTRACT</div>
-        <p style={{ fontFamily:'"Inter",system-ui', fontSize:15, color:'#3A4257', lineHeight:1.65, margin:0 }}>{article.summary}</p>
+        <p style={{ fontFamily:'"Inter",system-ui', fontSize: isMobile ? 16 : 15, color:'#3A4257', lineHeight:1.6, margin:0 }}>{article.summary}</p>
       </div>
 
       {/* AI summary */}
@@ -715,8 +721,8 @@ function AulaDetail({ article, isRead, onBack, onMarkRead, allArticles, complete
               <span style={{ color: openSecs[i] ? 'rgba(250,250,247,0.5)' : AL.muted, fontSize:11 }}>{openSecs[i] ? '↑' : '↓'}</span>
             </button>
             {openSecs[i] && (
-              <div style={{ padding:'18px 20px', background:AL.page }}>
-                <p style={{ fontFamily:'"Inter",system-ui', fontSize:14, color:'#3A4257', lineHeight:1.7, margin:0 }}>{s.body}</p>
+              <div style={{ padding: isMobile ? '18px 20px' : '18px 20px', background:AL.page }}>
+                <p style={{ fontFamily:'"Inter",system-ui', fontSize: isMobile ? 16 : 14, color:'#3A4257', lineHeight:1.6, margin:0 }}>{s.body}</p>
               </div>
             )}
           </div>
@@ -734,7 +740,7 @@ function AulaDetail({ article, isRead, onBack, onMarkRead, allArticles, complete
       )}
 
       {/* Read CTA */}
-      <div style={{ padding:'22px 26px', borderRadius:18, background: isRead ? 'rgba(5,150,105,0.07)' : AL.navy, border: isRead ? '1px solid rgba(5,150,105,0.16)' : 'none', display:'flex', alignItems:'center', justifyContent:'space-between', gap:16 }}>
+      <div style={{ padding:'22px 26px', borderRadius:18, background: isRead ? 'rgba(5,150,105,0.07)' : AL.navy, border: isRead ? '1px solid rgba(5,150,105,0.16)' : 'none', display:'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', justifyContent:'space-between', gap:16 }}>
         {isRead ? (
           <div style={{ fontFamily:'"Inter",system-ui', fontSize:14, fontWeight:700, color:'#059669' }}>✓ Artículo completado · gemas acreditadas</div>
         ) : (
@@ -743,7 +749,7 @@ function AulaDetail({ article, isRead, onBack, onMarkRead, allArticles, complete
               <div style={{ fontFamily:'"Inter",system-ui', fontSize:14, fontWeight:700, color:'#FAFAF7' }}>¿Has terminado de leer?</div>
               <div style={{ fontFamily:'"Inter",system-ui', fontSize:12, color:'rgba(250,250,247,0.55)', marginTop:2 }}>Gana {article.gems} gemas al marcarlo como leído</div>
             </div>
-            <button onClick={onMarkRead} style={{ padding:'11px 22px', borderRadius:12, border:'none', cursor:'pointer', background:'#FAFAF7', color:AL.navy, fontFamily:'"Inter",system-ui', fontSize:13, fontWeight:700, whiteSpace:'nowrap' }}>
+            <button onClick={onMarkRead} style={{ minHeight: isMobile ? 46 : undefined, padding:'11px 22px', borderRadius:12, border:'none', cursor:'pointer', background:'#FAFAF7', color:AL.navy, fontFamily:'"Inter",system-ui', fontSize:14, fontWeight:700, whiteSpace:'nowrap' }}>
               Marcar como leído 💎
             </button>
           </>
@@ -770,6 +776,7 @@ function AulaDetail({ article, isRead, onBack, onMarkRead, allArticles, complete
 
 // ── For You — personalized article strip ──────────────────────────────────────
 function AulaForYou({ articles, profile, completedIds, onOpen }) {
+  const isMobile = useIsMobile();
   if (typeof aulaGetRecommended === 'undefined' || !profile) return null;
   const recommended = aulaGetRecommended(articles, profile, completedIds, 4);
   if (!recommended.length) return null;
@@ -786,7 +793,7 @@ function AulaForYou({ articles, profile, completedIds, onOpen }) {
       <p style={{ fontFamily: '"Inter",system-ui', fontSize: 12, color: AL.muted, margin: '0 0 20px' }}>
         {profile.experience === 'beginner' ? 'Empezamos por los fundamentos.' : profile.experience === 'advanced' ? 'Contenido avanzado alineado con tu nivel.' : 'Contenido intermedio ordenado por relevancia.'}
       </p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4,1fr)', gap: 16 }}>
         {recommended.map((a, i) => (
           <AulaCard key={a.id} article={a} isRead={completedIds.includes(a.id)} onOpen={onOpen} imgIdx={i} />
         ))}
@@ -898,6 +905,7 @@ function AulaRelated({ allArticles, currentId, completedIds, onOpen }) {
 function AulaSection() {
   const { state, actions } = useStore();
   const { navigate }       = useRoute();
+  const isMobile = useIsMobile();
   const [articles, setArticles] = React.useState([]);
   const [loading, setLoading]   = React.useState(true);
   const [query, setQuery]       = React.useState('');
@@ -956,7 +964,7 @@ function AulaSection() {
   }
 
   return (
-    <section style={{ padding:'100px 32px 100px', background:AL.page, minHeight:'100vh' }}>
+    <section style={{ padding: isMobile ? '24px 20px 32px' : '100px 32px 100px', background:AL.page, minHeight:'100vh' }}>
       {gemFlash && (
         <div style={{ position:'fixed', top:80, right:32, zIndex:300, background:AL.navy, color:'#FAFAF7', padding:'10px 20px', borderRadius:999, fontFamily:'"Inter",system-ui', fontSize:14, fontWeight:700, animation:'fadeIn .3s ease', boxShadow:'0 8px 32px rgba(15,26,46,0.25)' }}>
           💎 {gemFlash}
@@ -1000,7 +1008,7 @@ function AulaSection() {
 
             {/* ── Loading skeleton ──────────────────────────────────── */}
             {loading && (
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
+              <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:20 }}>
                 {[1,2,3,4].map(i => <div key={i} style={{ borderRadius:20, background:'rgba(15,26,46,0.05)', height:280 }} />)}
               </div>
             )}
@@ -1030,7 +1038,7 @@ function AulaSection() {
                   label={category === 'all' ? 'Lo más reciente' : (ALcat[category]?.label || 'Artículos')}
                   sublabel={`${feedItems.length} artículo${feedItems.length !== 1 ? 's' : ''}`}
                 />
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:20 }}>
+                <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2,1fr)', gap:20 }}>
                   {feedItems.map((a, i) => (
                     <AulaCard key={a.id} article={a} isRead={completed.includes(a.id)} onOpen={setOpenId} imgIdx={i} />
                   ))}

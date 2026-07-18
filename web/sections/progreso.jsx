@@ -293,11 +293,12 @@ function PrAlerts({ alerts, navigate }) {
 
 // ── Strength breakdown — progressing vs stagnant ───────────────────────────────
 function PrProgressBreakdown({ strength }) {
+  const isMobile = useIsMobile();
   const tp = strength.topProgressing || [];
   const st = strength.stagnant || [];
   if (!tp.length && !st.length) return null;
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 16 }}>
       {tp.length > 0 && (
         <div style={{ borderRadius: 14, border: `1px solid rgba(34,197,94,0.18)`, background: 'rgba(34,197,94,0.04)', padding: '14px 16px' }}>
           <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 8, fontWeight: 800, color: PR.green, letterSpacing: 1, marginBottom: 10 }}>PROGRESANDO</div>
@@ -348,7 +349,7 @@ function PrEmptyState({ navigate }) {
 function ProgresoSection() {
   const { state }   = useStore();
   const { navigate } = useRoute();
-  const mobile      = window.innerWidth < 680;
+  const mobile      = useIsMobile();
 
   const profile = React.useMemo(() => prReadProfile(), []);
   const log     = state.log || [];
@@ -382,6 +383,22 @@ function ProgresoSection() {
           <PrEmptyState navigate={navigate} />
         ) : (
           <>
+            {/* Mobile: key numbers as big cards up top */}
+            {mobile && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+                {[
+                  { v: (panel.volume?.weeklyVolume?.slice(-1)[0]?.totalVolume || 0).toLocaleString('es-ES'), l: 'kg esta sem.' },
+                  { v: panel.consistency?.streak || 0, l: 'días racha', hot: (panel.consistency?.streak || 0) >= 3 },
+                  { v: (panel.strength?.topProgressing || []).length, l: 'progresando', good: true },
+                ].map((t, i) => (
+                  <div key={i} style={{ background: PR.card, border: `1px solid ${PR.border}`, borderRadius: 14, padding: '14px 10px', textAlign: 'center' }}>
+                    <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 'clamp(18px, 6vw, 24px)', fontWeight: 900, letterSpacing: -1, color: t.hot ? PR.green : t.good ? PR.green : PR.text }}>{t.v}</div>
+                    <div style={{ fontFamily: 'Inter,system-ui', fontSize: 10, color: PR.muted, fontWeight: 600, marginTop: 3 }}>{t.l}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Atlas Score */}
             <PrAtlasScore score={panel.score} />
 

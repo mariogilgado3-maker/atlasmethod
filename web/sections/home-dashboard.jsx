@@ -391,7 +391,17 @@ function HomeMobileDashboard() {
 // ─── Full HomePage (original landing + context card) ──────────────────────────
 function HomePage() {
   const isMobile = useIsMobile();
-  if (isMobile) return <HomeMobileDashboard />;
+  // Mobile: utility dashboard first, then the (now mobile-adapted) marketing
+  // landing below so the hero/method/Synerduo story is still reachable.
+  if (isMobile) return (
+    <>
+      <HomeMobileDashboard />
+      <Hero />
+      <MethodSection />
+      <MobileSection />
+      <ClosingSection />
+    </>
+  );
   return (
     <>
       <HomeContextCard />
