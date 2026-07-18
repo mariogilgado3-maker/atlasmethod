@@ -34,6 +34,7 @@ function computeAdherence(sessions, log) {
 
 function DashboardSection() {
   const { state, actions } = useStore();
+  const isMobile = useIsMobile();
   const [editingName, setEditingName] = React.useState(false);
   const [nameInput, setNameInput] = React.useState(state.user.name);
   const nameRef = React.useRef(null);
@@ -84,7 +85,7 @@ function DashboardSection() {
   const lvlColor = levelColors[state.user.level] || levelColors.intermedio;
 
   return (
-    <section style={{ padding: '120px 32px', background: '#FFFFFF', minHeight: '80vh' }}>
+    <section style={{ padding: isMobile ? '24px 16px' : '120px 32px', background: '#FFFFFF', minHeight: '80vh' }}>
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
 
         {/* Header */}
@@ -150,7 +151,7 @@ function DashboardSection() {
         </div>
 
         {/* Row 1 — 4 key stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? 10 : 16, marginBottom: isMobile ? 14 : 24 }}>
           <StatCard label="Racha actual" value={sessions.streak} unit="días" color="#0F1A2E" icon="🔥" />
           <StatCard label="Sesiones totales" value={sessions.completed} unit="" color="#1a4fa0" icon="🏋️" />
           <StatCard label="Gemas acumuladas" value={gems.balance.toLocaleString('es-ES')} unit="" color="#1F8B3A" icon="💎" />
@@ -158,7 +159,7 @@ function DashboardSection() {
         </div>
 
         {/* Row 2 — calendar + chart */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: isMobile ? 14 : 24 }}>
 
           {/* Streak calendar */}
           <div style={{ background: '#FAFAF7', borderRadius: 20, border: '1px solid rgba(15,26,46,0.06)', padding: '20px 24px' }}>
@@ -261,7 +262,7 @@ function DashboardSection() {
                 </span>
               )}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
               <div>
                 <div style={{ fontFamily: '"Inter",system-ui', fontSize: 11, fontWeight: 700, color: '#1F8B3A', letterSpacing: 0.3, textTransform: 'uppercase', marginBottom: 10 }}>
                   En progresión ↑
@@ -312,7 +313,7 @@ function DashboardSection() {
               {achievements.length} / {ACHIEVEMENTS.length} desbloqueados
             </span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10 }}>
             {ACHIEVEMENTS.map(ach => {
               const unlocked = achievements.includes(ach.id);
               return (
@@ -423,6 +424,7 @@ const sectionLabelStyle = {
 };
 
 function DataBackupBlock() {
+  const isMobile = useIsMobile();
   const [confirm, setConfirm] = React.useState(null); // { summary, applyFn }
   const [error,   setError]   = React.useState(null);
   const fileRef = React.useRef(null);
@@ -444,19 +446,20 @@ function DataBackupBlock() {
   }
 
   const btnBase = {
-    padding: '9px 18px', borderRadius: 10, cursor: 'pointer',
-    fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 700,
+    padding: isMobile ? '13px 18px' : '9px 18px', minHeight: isMobile ? 46 : undefined,
+    borderRadius: 10, cursor: 'pointer',
+    fontFamily: '"Inter",system-ui', fontSize: isMobile ? 15 : 13, fontWeight: 700,
     border: '1px solid rgba(15,26,46,0.12)', transition: 'background .14s',
   };
 
   return (
-    <div style={{ marginTop: 20, background: '#FAFAF7', borderRadius: 20, border: '1px solid rgba(15,26,46,0.06)', padding: '20px 24px' }}>
+    <div style={{ marginTop: 20, background: '#FAFAF7', borderRadius: 20, border: '1px solid rgba(15,26,46,0.06)', padding: isMobile ? '18px 16px' : '20px 24px' }}>
       <div style={sectionLabelStyle}>Tus datos</div>
-      <p style={{ fontFamily: '"Inter",system-ui', fontSize: 12, color: '#9498A4', marginTop: 8, marginBottom: 16, lineHeight: 1.6 }}>
+      <p style={{ fontFamily: '"Inter",system-ui', fontSize: isMobile ? 13 : 12, color: '#9498A4', marginTop: 8, marginBottom: 16, lineHeight: 1.6 }}>
         Tus datos viven solo en este dispositivo y navegador. Descarga una copia de seguridad para no perderlos si cambias de dispositivo o borras la caché.
       </p>
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 10, flexWrap: 'wrap', alignItems: isMobile ? 'stretch' : 'center' }}>
         <button onClick={handleExport} style={{ ...btnBase, background: '#0F1A2E', color: '#FAFAF7', border: 'none' }}>
           Descargar copia de seguridad
         </button>

@@ -1,26 +1,29 @@
 // Closing CTA + footer
 function ClosingSection() {
+  const isMobile = useIsMobile();
   return (
-    <section style={{ padding: '180px 32px 100px', background: '#FFFFFF', borderTop: '1px solid rgba(15,26,46,0.06)', textAlign: 'center' }}>
+    <section style={{ padding: isMobile ? '56px 20px 48px' : '180px 32px 100px', background: '#FFFFFF', borderTop: '1px solid rgba(15,26,46,0.06)', textAlign: 'center' }}>
       <div style={{ maxWidth: 880, margin: '0 auto' }}>
         <h2 style={{
-          fontFamily: '"Inter",system-ui', fontSize: 88, fontWeight: 700,
-          color: '#0F1A2E', letterSpacing: -3.5, lineHeight: 0.95, margin: '0 0 28px',
+          fontFamily: '"Inter",system-ui', fontSize: 'clamp(34px, 10vw, 88px)', fontWeight: 700,
+          color: '#0F1A2E', letterSpacing: isMobile ? -1.5 : -3.5, lineHeight: 0.98, margin: '0 0 24px',
         }}>
           Empieza con un<br/>
           <span style={{ fontFamily: '"Instrument Serif",serif', fontStyle: 'italic', fontWeight: 400 }}>diagnóstico.</span>
         </h2>
-        <p style={{ fontFamily: '"Inter",system-ui', fontSize: 20, color: '#3A4257', letterSpacing: -0.3, lineHeight: 1.4, maxWidth: 540, margin: '0 auto 44px' }}>
+        <p style={{ fontFamily: '"Inter",system-ui', fontSize: isMobile ? 16 : 20, color: '#3A4257', letterSpacing: -0.3, lineHeight: 1.5, maxWidth: 540, margin: '0 auto 32px' }}>
           12 preguntas. Una semana de prueba. Acceso completo al laboratorio, builder, dashboard y AI Coach.
         </p>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 10, justifyContent: 'center' }}>
           <button style={{
+            width: isMobile ? '100%' : undefined, minHeight: isMobile ? 50 : undefined,
             padding: '17px 30px', borderRadius: 999, border: 'none', cursor: 'pointer',
             background: '#0F1A2E', color: '#FAFAF7',
             fontFamily: '"Inter",system-ui', fontSize: 16, fontWeight: 600, letterSpacing: -0.2,
             boxShadow: '0 12px 32px -12px rgba(15,26,46,0.6)',
           }}>Iniciar diagnóstico →</button>
           <button style={{
+            width: isMobile ? '100%' : undefined, minHeight: isMobile ? 50 : undefined,
             padding: '17px 30px', borderRadius: 999, cursor: 'pointer',
             background: 'transparent', color: '#0F1A2E',
             border: '1px solid rgba(15,26,46,0.18)',

@@ -173,6 +173,7 @@ const HERO_STEPS = [
 
 function Hero() {
   const { navigate } = useRoute();
+  const isMobile = useIsMobile();
   const [insightIdx, setInsightIdx] = React.useState(0);
 
   React.useEffect(() => {
@@ -183,7 +184,7 @@ function Hero() {
   return (
     <section style={{
       position: 'relative', overflow: 'hidden',
-      padding: '140px 48px 100px',
+      padding: isMobile ? '28px 20px 44px' : '140px 48px 100px',
       background: 'radial-gradient(1400px 700px at 60% -80px, #EEF0F7 0%, #FAFAF7 55%)',
     }}>
       {/* Subtle dot grid */}
@@ -195,7 +196,7 @@ function Hero() {
         WebkitMaskImage:'radial-gradient(ellipse 80% 60% at 60% 0%, black 0%, transparent 70%)',
       }} />
 
-      <div style={{ maxWidth:1200, margin:'0 auto', position:'relative', display:'grid', gridTemplateColumns:'1fr 1.08fr', gap:'72px', alignItems:'center' }}>
+      <div style={{ maxWidth:1200, margin:'0 auto', position:'relative', display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.08fr', gap: isMobile ? 0 : '72px', alignItems:'center' }}>
 
         {/* ── LEFT: headline + steps + CTAs ──────────────────────── */}
         <div>
@@ -207,7 +208,7 @@ function Hero() {
           </div>
 
           {/* Headline */}
-          <h1 style={{ fontFamily:'"Inter",system-ui', fontSize:66, fontWeight:700, color:'#0F1A2E', letterSpacing:-3, lineHeight:0.95, margin:'0 0 24px' }}>
+          <h1 style={{ fontFamily:'"Inter",system-ui', fontSize:'clamp(34px, 8.5vw, 66px)', fontWeight:700, color:'#0F1A2E', letterSpacing: isMobile ? -1.5 : -3, lineHeight:0.98, margin:'0 0 24px' }}>
             Entrena<br/>
             con propósito.{' '}
             <span style={{ display:'block', fontFamily:'"Instrument Serif",serif', fontStyle:'italic', fontWeight:400, letterSpacing:-2, color:'#3A4257' }}>
@@ -221,16 +222,16 @@ function Hero() {
           </p>
 
           {/* CTAs */}
-          <div style={{ display:'flex', gap:10, marginBottom:56, flexWrap:'wrap' }}>
+          <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', gap:10, marginBottom: isMobile ? 36 : 56, flexWrap:'wrap' }}>
             <button
               onClick={() => navigate('/builder')}
-              style={{ padding:'14px 26px', borderRadius:999, border:'none', cursor:'pointer', background:'#0F1A2E', color:'#FAFAF7', fontFamily:'"Inter",system-ui', fontSize:15, fontWeight:700, letterSpacing:-0.3, boxShadow:'0 12px 32px -12px rgba(15,26,46,0.55)', display:'inline-flex', alignItems:'center', gap:6 }}
+              style={{ width: isMobile ? '100%' : undefined, minHeight: isMobile ? 48 : undefined, justifyContent:'center', padding:'14px 26px', borderRadius:999, border:'none', cursor:'pointer', background:'#0F1A2E', color:'#FAFAF7', fontFamily:'"Inter",system-ui', fontSize:15, fontWeight:700, letterSpacing:-0.3, boxShadow:'0 12px 32px -12px rgba(15,26,46,0.55)', display:'inline-flex', alignItems:'center', gap:6 }}
             >
               Empezar en el Builder →
             </button>
             <button
               onClick={() => navigate('/coach')}
-              style={{ padding:'14px 26px', borderRadius:999, cursor:'pointer', background:'transparent', color:'#0F1A2E', border:'1px solid rgba(15,26,46,0.18)', fontFamily:'"Inter",system-ui', fontSize:15, fontWeight:600, letterSpacing:-0.2 }}
+              style={{ width: isMobile ? '100%' : undefined, minHeight: isMobile ? 48 : undefined, padding:'14px 26px', borderRadius:999, cursor:'pointer', background:'transparent', color:'#0F1A2E', border:'1px solid rgba(15,26,46,0.18)', fontFamily:'"Inter",system-ui', fontSize:15, fontWeight:600, letterSpacing:-0.2 }}
             >
               Ver Atlas Coach
             </button>
@@ -259,8 +260,8 @@ function Hero() {
 
         </div>
 
-        {/* ── RIGHT: Atlas Coach mockup ───────────────────────────── */}
-        <div style={{ position:'relative' }}>
+        {/* ── RIGHT: Atlas Coach mockup (decorative — hidden on mobile) ── */}
+        <div style={{ position:'relative', display: isMobile ? 'none' : 'block' }}>
           {/* Glow behind card */}
           <div style={{ position:'absolute', inset:-40, background:'radial-gradient(ellipse at center, rgba(42,111,219,0.08) 0%, transparent 70%)', pointerEvents:'none' }} />
           <HeroCoachMockup insightIdx={insightIdx} />
