@@ -1470,8 +1470,26 @@ function acWelcomeMessage(state, profile, memory) {
 
 // ── UI Components ─────────────────────────────────────────────────────────────
 
-// Invitation card shown on first visit — non-blocking, dismissable
+// Invitation card shown on first visit — non-blocking, dismissable.
+// On mobile it collapses to a single compact line so it never dominates the chat.
 function AtlasProfileCard({ onStart, onDismiss }) {
+  const isMobile = useIsMobile();
+  if (isMobile) {
+    return (
+      <div style={{
+        display:'flex', alignItems:'center', gap:10,
+        borderRadius:12, border:'1px solid rgba(59,130,246,0.28)',
+        background:'linear-gradient(135deg, rgba(10,20,50,0.98) 0%, rgba(6,13,24,0.98) 100%)',
+        padding:'10px 12px', marginBottom:16, animation:'fadeIn .3s ease',
+      }}>
+        <span style={{ fontFamily:'Inter,system-ui', fontSize:13, color:'rgba(232,237,248,0.72)', flex:1, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          Personaliza tu experiencia Atlas
+        </span>
+        <button onClick={onStart} style={{ flexShrink:0, minHeight:36, padding:'0 14px', borderRadius:9, border:'none', cursor:'pointer', background:'#3B82F6', color:'#fff', fontFamily:'Inter,system-ui', fontSize:12, fontWeight:700 }}>Crear</button>
+        <button onClick={onDismiss} aria-label="Descartar" style={{ flexShrink:0, width:32, height:32, borderRadius:8, border:'none', cursor:'pointer', background:'transparent', color:'rgba(232,237,248,0.3)', fontSize:15 }}>✕</button>
+      </div>
+    );
+  }
   return (
     <div style={{
       borderRadius: 16,
@@ -1759,6 +1777,7 @@ function AcTypingIndicator() {
 
 function AcRoutineCard({ session, sessionIndex, totalSessions, routineId, routineName, onSendToBuilder, onSendToPlayer }) {
   const [open, setOpen] = React.useState(true);
+  const isMobile = useIsMobile();
   const label = totalSessions > 1 ? `Día ${sessionIndex + 1} de ${totalSessions}` : null;
   return (
     <div style={{ marginTop:10, borderRadius:14, overflow:'hidden', border:`1px solid ${AC.border}`, background:AC.card2, animation:'fadeIn .25s ease' }}>
@@ -1811,25 +1830,25 @@ function AcRoutineCard({ session, sessionIndex, totalSessions, routineId, routin
               <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, color:AC.muted, textAlign:'center' }}>{ex.rest||'90s'}</div>
             </div>
           ))}
-          <div style={{ padding:'12px 18px', borderTop:'1px solid rgba(255,255,255,0.05)', display:'flex', gap:8 }}>
+          <div style={{ padding:'12px 18px', borderTop:'1px solid rgba(255,255,255,0.05)', display:'flex', flexDirection: isMobile ? 'column' : 'row', gap:8 }}>
+            <button
+              onClick={() => onSendToPlayer(session.exercises, { routineId, routineName, sessionIndex, totalSessions, sessionName: session.name })}
+              style={{ order: isMobile ? 0 : 3, flex:2, minHeight: isMobile ? 46 : undefined, padding:'11px 16px', borderRadius:10, border:'none', cursor:'pointer', background:'#22C55E', color:'#fff', fontFamily:'Inter,system-ui', fontSize: isMobile ? 15 : 13, fontWeight:700, letterSpacing:-0.2, boxShadow:'0 4px 18px -4px rgba(34,197,94,0.45)' }}
+            >
+              ▶ Entrenar ahora
+            </button>
             <button
               onClick={() => onSendToBuilder(session.exercises, { routineId, routineName, sessionIndex, totalSessions, sessionName: session.name })}
-              style={{ flex:1, padding:'10px 12px', borderRadius:10, border:'1px solid rgba(59,130,246,0.30)', cursor:'pointer', background:'transparent', color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:12, fontWeight:700, letterSpacing:-0.2 }}
+              style={{ flex:1, minHeight: isMobile ? 46 : undefined, padding:'11px 12px', borderRadius:10, border:'1px solid rgba(59,130,246,0.30)', cursor:'pointer', background:'transparent', color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize: isMobile ? 14 : 12, fontWeight:700, letterSpacing:-0.2 }}
             >
               Abrir en Builder
             </button>
             <button
               title="Descargar PDF"
               onClick={() => typeof exportRoutinePDF !== 'undefined' && exportRoutinePDF({ name: routineName, sessions: [session] })}
-              style={{ flexShrink:0, padding:'10px 13px', borderRadius:10, border:'1px solid rgba(59,130,246,0.25)', cursor:'pointer', background:'rgba(59,130,246,0.07)', color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700 }}
+              style={{ flexShrink:0, minHeight: isMobile ? 46 : undefined, padding:'11px 13px', borderRadius:10, border:'1px solid rgba(59,130,246,0.25)', cursor:'pointer', background:'rgba(59,130,246,0.07)', color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize: isMobile ? 14 : 13, fontWeight:700 }}
             >
-              ↓ PDF
-            </button>
-            <button
-              onClick={() => onSendToPlayer(session.exercises, { routineId, routineName, sessionIndex, totalSessions, sessionName: session.name })}
-              style={{ flex:2, padding:'10px 16px', borderRadius:10, border:'none', cursor:'pointer', background:'#22C55E', color:'#fff', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, letterSpacing:-0.2, boxShadow:'0 4px 18px -4px rgba(34,197,94,0.45)' }}
-            >
-              ▶ Entrenar ahora
+              ↓ Descargar PDF
             </button>
           </div>
         </>
@@ -1926,7 +1945,8 @@ function AcAulaChips({ articleIds, onOpenAula }) {
 }
 
 function AcCoachMessage({ content, onSendToBuilder, onSendToPlayer, onboardingProps, onOpenAula }) {
-  const bubble = { padding:'13px 18px', borderRadius:'4px 18px 18px 18px', background:AC.card, border:`1px solid ${AC.border}`, fontFamily:'Inter,system-ui', fontSize:14, lineHeight:1.65, color:AC.text, whiteSpace:'pre-line' };
+  const isMobile = useIsMobile();
+  const bubble = { padding:'13px 18px', borderRadius:'4px 18px 18px 18px', background:AC.card, border:`1px solid ${AC.border}`, fontFamily:'Inter,system-ui', fontSize: isMobile ? 15 : 14, lineHeight:1.65, color:AC.text, whiteSpace:'pre-line' };
   if (content.type === 'text') return (
     <div>
       <div style={bubble}>{content.text}</div>
@@ -1986,14 +2006,18 @@ function AcCoachMessage({ content, onSendToBuilder, onSendToPlayer, onboardingPr
 
 function AcMessageBubble({ msg, onSendToBuilder, onSendToPlayer, onboardingProps, onOpenAula }) {
   const isUser = msg.role === 'user';
+  const isMobile = useIsMobile();
+  // Routine/onboarding cards go full width; plain messages stay ~85% on mobile.
+  const rich = !isUser && msg.content && (msg.content.type === 'routine' || msg.content.type === 'onboarding-step' || msg.content.type === 'analysis');
+  const bubbleMax = rich ? '100%' : (isMobile ? '85%' : '76%');
   return (
     <div style={{ display:'flex', justifyContent:isUser?'flex-end':'flex-start', alignItems:'flex-end', gap:8, marginBottom:20, animation:'fadeIn .22s ease' }}>
-      {!isUser && (
+      {!isUser && !rich && (
         <div style={{ width:28, height:28, borderRadius:8, flexShrink:0, background:'rgba(59,130,246,0.12)', border:'1px solid rgba(59,130,246,0.22)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'ui-monospace', fontSize:11, color:'#93C5FD', fontWeight:700, marginBottom:18 }}>A</div>
       )}
-      <div style={{ maxWidth:'76%', minWidth:0 }}>
+      <div style={{ maxWidth: bubbleMax, width: rich ? '100%' : undefined, minWidth:0 }}>
         {isUser
-          ? <div style={{ padding:'11px 16px', borderRadius:'18px 18px 4px 18px', background:'#2563EB', color:'#fff', fontFamily:'Inter,system-ui', fontSize:14, lineHeight:1.55, wordBreak:'break-word' }}>{msg.content}</div>
+          ? <div style={{ padding:'11px 16px', borderRadius:'18px 18px 4px 18px', background:'#2563EB', color:'#fff', fontFamily:'Inter,system-ui', fontSize: isMobile ? 15 : 14, lineHeight:1.55, wordBreak:'break-word' }}>{msg.content}</div>
           : <AcCoachMessage content={msg.content} onSendToBuilder={onSendToBuilder} onSendToPlayer={onSendToPlayer} onboardingProps={onboardingProps} onOpenAula={onOpenAula} />
         }
         <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:'rgba(232,237,248,0.22)', marginTop:5, textAlign:isUser?'right':'left' }}>
@@ -2133,6 +2157,27 @@ function AcSidebar({ chats, activeChatId, onSelect, onNew, profile, onSaveProfil
       <AcProfilePanel profile={profile} onSave={onSaveProfile} />
     </aside>
   );
+}
+
+// Tracks how much the on-screen keyboard overlaps the layout viewport, using the
+// visualViewport API. On iOS Safari the layout viewport does NOT shrink when the
+// keyboard opens, so a bottom-anchored input gets hidden; this returns the overlap
+// (in px) so the composer can be lifted above the keyboard.
+function useKeyboardInset(enabled) {
+  const [inset, setInset] = React.useState(0);
+  React.useEffect(() => {
+    const vv = window.visualViewport;
+    if (!enabled || !vv) { setInset(0); return; }
+    const update = () => {
+      const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setInset(overlap);
+    };
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    update();
+    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update); };
+  }, [enabled]);
+  return inset;
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -2575,10 +2620,25 @@ function AtlasCoachSection() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   }
 
-  const isMobile = window.innerWidth < 680;
+  const isMobile = useIsMobile();
+  const kbInset  = useKeyboardInset(isMobile);
+  const TABBAR   = 'calc(56px + env(safe-area-inset-bottom))';
+
+  // Mobile: chat owns the space between the app header and tab bar; drop the
+  // global body bottom-padding so the section can size itself precisely.
+  React.useEffect(() => {
+    if (!isMobile) return;
+    document.body.classList.add('atlas-chat');
+    return () => document.body.classList.remove('atlas-chat');
+  }, [isMobile]);
+
+  // Keep the newest message visible when the keyboard opens
+  React.useEffect(() => {
+    if (kbInset > 0) messagesEndRef.current?.scrollIntoView({ block: 'end' });
+  }, [kbInset]);
 
   return (
-    <section style={{ height:'calc(100vh - 57px)', display:'flex', flexDirection:'column', background:AC.page, overflow:'hidden' }}>
+    <section style={{ height: isMobile ? 'calc(100dvh - 48px)' : 'calc(100vh - 57px)', display:'flex', flexDirection:'column', background:AC.page, overflow:'hidden' }}>
       <div style={{ flex:1, display:'flex', overflow:'hidden', minHeight:0 }}>
 
         {!isMobile && (
@@ -2640,8 +2700,11 @@ function AtlasCoachSection() {
             </div>
           </div>
 
-          {/* Input */}
-          <div style={{ padding: isMobile ? '12px 14px' : '14px 28px', borderTop:`1px solid ${AC.border}`, background:AC.input, flexShrink:0 }}>
+          {/* Input — lifts above the keyboard (visualViewport) and the tab bar */}
+          <div style={{ padding: isMobile ? '12px 14px' : '14px 28px',
+            paddingBottom: isMobile ? `max(${TABBAR}, ${kbInset}px)` : undefined,
+            transition: 'padding-bottom .15s ease',
+            borderTop:`1px solid ${AC.border}`, background:AC.input, flexShrink:0 }}>
             <div style={{ maxWidth:700, margin:'0 auto' }}>
               <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
                 {chips.map(chip => (
@@ -2656,15 +2719,17 @@ function AtlasCoachSection() {
               <div style={{ display:'flex', gap:10, alignItems:'flex-end' }}>
                 <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
                   placeholder="Pregúntame cualquier cosa…" rows={1}
-                  style={{ flex:1, padding:'11px 15px', borderRadius:14, border:`1px solid ${AC.border}`, background:AC.card, color:AC.text, fontFamily:'Inter,system-ui', fontSize:14, resize:'none', lineHeight:1.5, maxHeight:100, overflowY:'auto' }} />
+                  style={{ flex:1, padding: isMobile ? '13px 15px' : '11px 15px', borderRadius:14, border:`1px solid ${AC.border}`, background:AC.card, color:AC.text, fontFamily:'Inter,system-ui', fontSize: isMobile ? 16 : 14, resize:'none', lineHeight:1.5, maxHeight:100, overflowY:'auto', boxSizing:'border-box' }} />
                 <button onClick={sendMessage} disabled={!input.trim() || loading}
-                  style={{ padding:'11px 18px', borderRadius:12, border:'none', cursor: input.trim()&&!loading ? 'pointer' : 'default', background: input.trim()&&!loading ? AC.blue : 'rgba(59,130,246,0.18)', color: input.trim()&&!loading ? '#fff' : 'rgba(255,255,255,0.28)', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, transition:'all .15s', flexShrink:0 }}>
+                  style={{ padding: isMobile ? '0 18px' : '11px 18px', minHeight: isMobile ? 48 : undefined, borderRadius:12, border:'none', cursor: input.trim()&&!loading ? 'pointer' : 'default', background: input.trim()&&!loading ? AC.blue : 'rgba(59,130,246,0.18)', color: input.trim()&&!loading ? '#fff' : 'rgba(255,255,255,0.28)', fontFamily:'Inter,system-ui', fontSize: isMobile ? 15 : 13, fontWeight:700, transition:'all .15s', flexShrink:0 }}>
                   Enviar
                 </button>
               </div>
-              <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:'rgba(232,237,248,0.18)', marginTop:7, textAlign:'center' }}>
-                Enter para enviar · Shift+Enter para nueva línea
-              </div>
+              {!isMobile && (
+                <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:'rgba(232,237,248,0.18)', marginTop:7, textAlign:'center' }}>
+                  Enter para enviar · Shift+Enter para nueva línea
+                </div>
+              )}
             </div>
           </div>
         </div>
