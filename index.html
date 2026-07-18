@@ -87,6 +87,8 @@
        the app's mobile header and drop the bottom padding (it manages its own). */
     body.atlas-training { padding-bottom: 0; }
     body.atlas-training .atlas-mobile-header { display: none; }
+    /* Chat owns its own bottom spacing (keyboard-aware); drop the global pad. */
+    body.atlas-chat { padding-bottom: 0; }
   }
 </style>
 
@@ -179,6 +181,10 @@ const APP_ROUTES = new Set(['/coach', '/builder', '/rutinas', '/laboratorio', '/
 
 function ConditionalFooter() {
   const { route } = useRoute();
+  const isMobile = useIsMobile();
+  // The marketing footer is a desktop sitemap; on mobile the tab bar covers
+  // navigation, so hide it to avoid a clipped, out-of-place footer.
+  if (isMobile) return null;
   if (APP_ROUTES.has(route)) return null;
   return <Footer />;
 }
