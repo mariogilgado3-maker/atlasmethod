@@ -372,7 +372,7 @@ function WpExerciseImage({ id, name }) {
   );
 }
 
-function WpActiveView({ session, exIdx, setIdx, elapsed, restTimer, onCompleteSet, onUpdateSet, onSelectSet, onNavigateEx, onFinish, onExit, onRestAdjust, onRestSkip }) {
+function WpActiveView({ session, exIdx, setIdx, elapsed, restTimer, restFlash, onCompleteSet, onUpdateSet, onSelectSet, onNavigateEx, onFinish, onExit, onRestAdjust, onRestSkip }) {
   const isMobile = useIsMobile();
   const TABBAR = 'calc(56px + env(safe-area-inset-bottom))';
 
@@ -402,6 +402,18 @@ function WpActiveView({ session, exIdx, setIdx, elapsed, restTimer, onCompleteSe
     <div style={{ display:'flex', flexDirection:'column', background:WP.page,
       // Mobile: fill the screen; the app top header is hidden via body.atlas-training
       minHeight: isMobile ? '100dvh' : '100vh' }}>
+
+      {/* Rest-finished visual flash — the silent-mode fallback (no external assets) */}
+      {restFlash && (
+        <div style={{ position:'fixed', inset:0, zIndex:500, pointerEvents:'none',
+          background:'rgba(34,197,94,0.28)', animation:'wpFlash .55s ease-out 2' }}>
+          <div style={{ position:'absolute', top:'42%', left:0, right:0, textAlign:'center',
+            fontFamily:'Inter,system-ui', fontWeight:900, fontSize:'clamp(28px,9vw,48px)', color:'#fff',
+            textShadow:'0 4px 24px rgba(0,0,0,0.5)', letterSpacing:-1 }}>
+            ¡Siguiente serie!
+          </div>
+        </div>
+      )}
 
       {/* Fixed header */}
       <div style={{ background:'rgba(6,13,24,0.97)', borderBottom:`1px solid ${WP.border}`, flexShrink:0, position:'sticky', top:0, zIndex:10 }}>
@@ -570,15 +582,29 @@ function WorkoutPlayerSection() {
   const [session,   setSession]   = React.useState(null);
   const [exIdx,     setExIdx]     = React.useState(0);
   const [setIdx,    setSetIdx]    = React.useState(0);
-  const [restTimer, setRestTimer] = React.useState(null); // { rem, total }
+  const [restTimer, setRestTimer] = React.useState(null); // { rem, total, key }
   const [elapsed,   setElapsed]   = React.useState(0);
   const [view,      setView]      = React.useState('loading');
   const [finished,  setFinished]  = React.useState(null);
+  const [restFlash, setRestFlash] = React.useState(false);
 
   const elapsedRef    = React.useRef(0);
   const restTimerRef  = React.useRef(null);
   const elapsedIntRef = React.useRef(null);
   const restIntRef    = React.useRef(null);
+  const flashTimerRef = React.useRef(null);
+
+  // Keep timer prefs current for the interval callbacks (avoid stale closures)
+  const soundPref = state.prefs?.timerSound !== false;
+  const keepAwakePref = state.prefs?.keepAwake !== false;
+  const soundPrefRef = React.useRef(soundPref);
+  soundPrefRef.current = soundPref;
+
+  function triggerRestFlash() {
+    setRestFlash(true);
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = setTimeout(() => setRestFlash(false), 1100);
+  }
 
   // ── Mount: load or create session ─────────────────────────────────────────
   React.useEffect(() => {
@@ -630,41 +656,73 @@ function WorkoutPlayerSection() {
   }, [view]);
 
   // ── Rest timer ─────────────────────────────────────────────────────────────
+  // Counts down once per second, firing a soft tick at 10s left and a double
+  // beep + vibration at 0 (with a visual flash as the silent-mode fallback).
   React.useEffect(() => {
     if (!restTimer) return;
-    restTimerRef.current = restTimer;
     restIntRef.current = setInterval(() => {
-      setRestTimer(prev => {
-        if (!prev) return null;
-        const next = prev.rem - 1;
-        if (next <= 0) { clearInterval(restIntRef.current); return null; }
-        return { ...prev, rem: next };
-      });
+      const cur = restTimerRef.current;
+      if (!cur) { clearInterval(restIntRef.current); return; }
+      const next = cur.rem - 1;
+      if (next === 10) {
+        try { AtlasTimer.restWarning(soundPrefRef.current); } catch (e) {}
+      }
+      if (next <= 0) {
+        clearInterval(restIntRef.current);
+        restTimerRef.current = null;
+        setRestTimer(null);
+        try { AtlasTimer.restDone(soundPrefRef.current); } catch (e) {}
+        triggerRestFlash();
+        return;
+      }
+      const nv = { ...cur, rem: next };
+      restTimerRef.current = nv;
+      setRestTimer(nv);
     }, 1000);
     return () => clearInterval(restIntRef.current);
-  }, [restTimer?.total]); // re-run only when a new timer starts
+  }, [restTimer?.key]); // re-run only when a new timer starts
 
   function startRestTimer(restStr) {
     clearInterval(restIntRef.current);
     // Parse rest string like '90s', '2 min', '90-120s' → pick first number
     const match = (restStr || '90s').match(/(\d+)/);
     const secs  = match ? parseInt(match[1]) : 90;
-    setRestTimer({ rem: secs, total: secs });
+    const t = { rem: secs, total: secs, key: Date.now() };
+    restTimerRef.current = t;
+    setRestTimer(t);
   }
 
   function handleRestAdjust(delta) {
     setRestTimer(prev => {
       if (!prev) return null;
       const next = Math.max(0, prev.rem + delta);
-      if (next === 0) { clearInterval(restIntRef.current); return null; }
-      return { ...prev, rem: next };
+      if (next === 0) { clearInterval(restIntRef.current); restTimerRef.current = null; return null; }
+      const nv = { ...prev, rem: next };
+      restTimerRef.current = nv;
+      return nv;
     });
   }
 
   function handleRestSkip() {
     clearInterval(restIntRef.current);
+    restTimerRef.current = null;
     setRestTimer(null);
   }
+
+  // ── Keep-awake + audio unlock during training ──────────────────────────────
+  React.useEffect(() => {
+    if (view !== 'active') return;
+    if (keepAwakePref) { try { AtlasTimer.requestWake(); } catch (e) {} }
+    // iOS Safari needs a user gesture to unlock audio — prime on first touch.
+    const unlock = () => { try { AtlasTimer.unlock(); } catch (e) {} };
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('touchstart', unlock, { once: true });
+    return () => {
+      try { AtlasTimer.releaseWake(); } catch (e) {}
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+  }, [view, keepAwakePref]);
 
   // ── Update a set field ─────────────────────────────────────────────────────
   function updateSet(ei, si, patch) {
@@ -788,6 +846,7 @@ function WorkoutPlayerSection() {
       setIdx={setIdx}
       elapsed={elapsed}
       restTimer={restTimer}
+      restFlash={restFlash}
       onCompleteSet={completeSet}
       onUpdateSet={updateSet}
       onSelectSet={handleSelectSet}
