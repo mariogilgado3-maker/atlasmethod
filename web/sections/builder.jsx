@@ -1850,27 +1850,60 @@ function BdExThumb({ id, name }) {
 
 function WorkoutExecution({ session, onFinish, onCancel }) {
   const mobile = useIsMobile();
+  const { state } = useStore();
   const [exs,       setExs]       = React.useState(session.exercises);
   const [restTimer, setRestTimer] = React.useState(null);
   const [elapsed,   setElapsed]   = React.useState(0);
+  const [restFlash, setRestFlash] = React.useState(false);
   // Clearance for the fixed mobile tab bar so nothing sits behind it
   const TABBAR = 'calc(56px + env(safe-area-inset-bottom))';
+
+  const soundPref = state.prefs?.timerSound !== false;
+  const keepAwakePref = state.prefs?.keepAwake !== false;
+  const soundRef = React.useRef(soundPref); soundRef.current = soundPref;
+  const firedWarn = React.useRef(null);
+  const firedDone = React.useRef(null);
+  const flashRef  = React.useRef(null);
+  function flashRest() {
+    setRestFlash(true);
+    if (flashRef.current) clearTimeout(flashRef.current);
+    flashRef.current = setTimeout(() => setRestFlash(false), 1100);
+  }
 
   React.useEffect(() => {
     const iv = setInterval(() => setElapsed(Math.floor((Date.now() - session.startTime) / 1000)), 1000);
     return () => clearInterval(iv);
   }, []);
 
-  // Immersive training: hide the app's mobile top header while executing
+  // Immersive training: hide the app's mobile top header while executing.
+  // Also keep the screen awake and prime audio on the first touch (iOS).
   React.useEffect(() => {
     document.body.classList.add('atlas-training');
-    return () => document.body.classList.remove('atlas-training');
-  }, []);
+    if (keepAwakePref) { try { AtlasTimer.requestWake(); } catch (e) {} }
+    const unlock = () => { try { AtlasTimer.unlock(); } catch (e) {} };
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('touchstart', unlock, { once: true });
+    return () => {
+      document.body.classList.remove('atlas-training');
+      try { AtlasTimer.releaseWake(); } catch (e) {}
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+  }, [keepAwakePref]);
 
+  // Rest countdown — soft tick at 10s, double beep + vibration + flash at 0.
   React.useEffect(() => {
     if (!restTimer) return;
-    if (restTimer.rem <= 0) { setRestTimer(null); return; }
-    const t = setTimeout(() => setRestTimer(r => r ? { ...r, rem: r.rem - 1 } : null), 1000);
+    const t = setTimeout(() => setRestTimer(r => {
+      if (!r) return null;
+      const next = r.rem - 1;
+      if (next === 10 && firedWarn.current !== r.key) { firedWarn.current = r.key; try { AtlasTimer.restWarning(soundRef.current); } catch (e) {} }
+      if (next <= 0) {
+        if (firedDone.current !== r.key) { firedDone.current = r.key; try { AtlasTimer.restDone(soundRef.current); } catch (e) {} flashRest(); }
+        return null;
+      }
+      return { ...r, rem: next };
+    }), 1000);
     return () => clearTimeout(t);
   }, [restTimer]);
 
@@ -1884,7 +1917,7 @@ function WorkoutExecution({ session, onFinish, onCancel }) {
       return next;
     });
     const rest = parseRestSec(exs[ei]?.rest);
-    setRestTimer({ rem: rest, total: rest });
+    setRestTimer({ rem: rest, total: rest, key: Date.now() });
   }
 
   function updateSetField(ei, si, field, val) {
@@ -1921,6 +1954,18 @@ function WorkoutExecution({ session, onFinish, onCancel }) {
       // Mobile: fill the screen (the app top header is hidden via body.atlas-training);
       // the fixed bottom tab bar shows over the padded finish bar.
       ...(mobile ? { minHeight:'100dvh' } : { height:'100%' }) }}>
+
+      {/* Rest-finished visual flash — silent-mode fallback */}
+      {restFlash && (
+        <div style={{ position:'fixed', inset:0, zIndex:500, pointerEvents:'none',
+          background:'rgba(34,197,94,0.28)', animation:'wpFlash .55s ease-out 2' }}>
+          <div style={{ position:'absolute', top:'42%', left:0, right:0, textAlign:'center',
+            fontFamily:'Inter,system-ui', fontWeight:900, fontSize:'clamp(28px,9vw,48px)', color:'#fff',
+            textShadow:'0 4px 24px rgba(0,0,0,0.5)', letterSpacing:-1 }}>
+            ¡Siguiente serie!
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div style={{ padding:'14px 20px', borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>

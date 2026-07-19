@@ -216,6 +216,64 @@ function HomeContextCard() {
   );
 }
 
+// ─── Return-to-habit card ────────────────────────────────────────────────────
+// Shown on Inicio when it's been 3+ days since the last recorded session.
+// Warm, never guilt-tripping. Dismissable — hidden for another 3 days if closed.
+const HABIT_DISMISS_KEY = 'atlas.habit.dismissedAt';
+
+function ReturnToHabitCard({ navigate, compact }) {
+  const { state } = useStore();
+  const last = (state.log || [])[0] || null;
+  const [hidden, setHidden] = React.useState(false);
+
+  const days = last?.dateTs ? Math.floor((Date.now() - last.dateTs) / 86400000) : null;
+  const dismissedAt = React.useMemo(() => {
+    try { return Number(localStorage.getItem(HABIT_DISMISS_KEY) || 0); } catch { return 0; }
+  }, []);
+  const recentlyDismissed = dismissedAt && (Date.now() - dismissedAt) < 3 * 86400000;
+
+  if (hidden || days === null || days < 3 || recentlyDismissed) return null;
+
+  const activeRoutine = (() => { try { return JSON.parse(localStorage.getItem('atlas.routine.active.v1') || 'null'); } catch { return null; } })();
+  const hasRoutine = activeRoutine && Array.isArray(activeRoutine.sessions) && activeRoutine.sessions.length;
+
+  // "el martes" within a week, otherwise "hace N días"
+  let when;
+  try {
+    when = days <= 7
+      ? `el ${new Date(last.dateTs).toLocaleDateString('es-ES', { weekday: 'long' })}`
+      : `hace ${days} días`;
+  } catch { when = `hace ${days} días`; }
+
+  function dismiss() {
+    try { localStorage.setItem(HABIT_DISMISS_KEY, String(Date.now())); } catch {}
+    setHidden(true);
+  }
+  function go() {
+    if (hasRoutine) { navigate('/rutinas'); }
+    else { navigate('/coach'); }
+  }
+
+  return (
+    <div style={{ position:'relative', background:'linear-gradient(135deg, #12203A 0%, #0F1A2E 100%)', borderRadius:16, border:'1px solid rgba(59,130,246,0.22)', padding: compact ? '16px 18px' : '18px 20px', boxShadow:'0 6px 24px -12px rgba(15,26,46,0.5)' }}>
+      <button onClick={dismiss} aria-label="Descartar" style={{ position:'absolute', top:10, right:12, width:30, height:30, borderRadius:8, border:'none', background:'transparent', color:'rgba(250,250,247,0.35)', fontSize:15, cursor:'pointer' }}>✕</button>
+      <div style={{ display:'inline-flex', alignItems:'center', gap:7, marginBottom:10, padding:'3px 10px', borderRadius:999, background:'rgba(59,130,246,0.12)', border:'1px solid rgba(59,130,246,0.22)' }}>
+        <span style={{ width:5, height:5, borderRadius:'50%', background:'#3B82F6' }} />
+        <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700, color:'#93C5FD', letterSpacing:1.2 }}>DE VUELTA</span>
+      </div>
+      <div style={{ fontFamily:'"Inter",system-ui', fontSize:'clamp(16px,4.4vw,18px)', fontWeight:800, color:'#F0F3FA', letterSpacing:-0.3, marginRight:28 }}>
+        Tu última sesión fue {when}.
+      </div>
+      <div style={{ fontFamily:'"Inter",system-ui', fontSize:14, color:'rgba(240,243,250,0.6)', lineHeight:1.5, margin:'6px 0 14px' }}>
+        Cada vuelta cuenta más que cualquier racha. ¿Retomamos hoy?
+      </div>
+      <button onClick={go} style={{ width: compact ? 'auto' : '100%', minHeight:46, padding:'0 18px', borderRadius:11, border:'none', cursor:'pointer', background:'#3B82F6', color:'#fff', fontFamily:'"Inter",system-ui', fontSize:14, fontWeight:700 }}>
+        {hasRoutine ? 'Ir a Mi rutina →' : 'Hablar con el Coach →'}
+      </button>
+    </div>
+  );
+}
+
 // ─── Mobile Inicio dashboard ─────────────────────────────────────────────────
 // One-column, utility-ordered: next workout / my routine → streak + recent
 // sessions → Aula. Progreso and Aula live here since they're not in the tab bar.
@@ -278,6 +336,9 @@ function HomeMobileDashboard() {
             {profile?.objective ? OBJ_LABEL_SHORT[profile.objective] : 'Datos. Decisiones. Rendimiento.'}
           </div>
         </div>
+
+        {/* Return-to-habit nudge (only after 3+ days away) */}
+        <ReturnToHabitCard navigate={navigate} />
 
         {/* 1 — Next workout / my routine (highest utility) */}
         <MdCard>
@@ -404,12 +465,25 @@ function HomePage() {
   );
   return (
     <>
+      <DesktopHabitBanner />
       <HomeContextCard />
       <Hero />
       <MethodSection />
       <MobileSection />
       <ClosingSection />
     </>
+  );
+}
+
+// Return-to-habit banner for desktop Inicio, in a container matching the context card.
+function DesktopHabitBanner() {
+  const { navigate } = useRoute();
+  return (
+    <div style={{ padding: '16px 48px 0' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <ReturnToHabitCard navigate={navigate} compact />
+      </div>
+    </div>
   );
 }
 

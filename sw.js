@@ -7,7 +7,7 @@
  * and forces a fresh precache run.
  */
 
-const CACHE_VER    = 'atlas-v11';
+const CACHE_VER    = 'atlas-v12';
 const SHELL_CACHE  = `${CACHE_VER}-shell`;
 const DYN_CACHE    = `${CACHE_VER}-dynamic`;
 // Exercise photos (free-exercise-db) are immutable and heavy; keep them in a
@@ -56,6 +56,7 @@ const SHELL_URLS = [
   '/web/services/backup.js',
   '/web/services/scientificEngine.js',
   '/web/services/workoutSession.js',
+  '/web/services/timerFeedback.js',
   '/web/services/progressionEngine.js',
   '/web/services/aulaEngine.js',
   '/web/services/atlasProgressionEngine.js',

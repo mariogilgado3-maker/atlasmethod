@@ -30,6 +30,8 @@ const DEFAULT_STORE = {
   prefs: {
     theme: 'light',
     sinnerduo: true,
+    timerSound: true,   // sound + vibration on the rest timer
+    keepAwake: true,    // Wake Lock during training
   },
   currentWorkout: [],
 };

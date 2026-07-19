@@ -345,11 +345,61 @@ function DashboardSection() {
           </div>
         </div>
 
-        {/* Row 6 — data backup */}
+        {/* Row 6 — training preferences */}
+        <TrainingPrefsBlock />
+
+        {/* Row 7 — data backup */}
         <DataBackupBlock />
 
       </div>
     </section>
+  );
+}
+
+// Toggle switch (accessible, 44px tap target)
+function PrefToggle({ label, hint, checked, onChange }) {
+  const isMobile = useIsMobile();
+  return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:16, padding: isMobile ? '10px 0' : '8px 0' }}>
+      <div style={{ minWidth:0 }}>
+        <div style={{ fontFamily:'"Inter",system-ui', fontSize: isMobile ? 15 : 14, fontWeight:600, color:'#0F1A2E' }}>{label}</div>
+        {hint && <div style={{ fontFamily:'"Inter",system-ui', fontSize:12, color:'#9498A4', marginTop:2, lineHeight:1.5 }}>{hint}</div>}
+      </div>
+      <button
+        role="switch" aria-checked={checked} aria-label={label}
+        onClick={() => onChange(!checked)}
+        style={{ flexShrink:0, width:52, height:32, borderRadius:999, border:'none', cursor:'pointer', position:'relative',
+          background: checked ? '#16A34A' : 'rgba(15,26,46,0.16)', transition:'background .2s' }}>
+        <span style={{ position:'absolute', top:3, left: checked ? 23 : 3, width:26, height:26, borderRadius:'50%', background:'#fff', boxShadow:'0 1px 3px rgba(0,0,0,0.25)', transition:'left .2s' }} />
+      </button>
+    </div>
+  );
+}
+
+function TrainingPrefsBlock() {
+  const { state, actions } = useStore();
+  const isMobile = useIsMobile();
+  const timerSound = state.prefs?.timerSound !== false;
+  const keepAwake  = state.prefs?.keepAwake !== false;
+  return (
+    <div style={{ marginTop: 20, background: '#FAFAF7', borderRadius: 20, border: '1px solid rgba(15,26,46,0.06)', padding: isMobile ? '18px 16px' : '20px 24px' }}>
+      <div style={sectionLabelStyle}>Entrenamiento</div>
+      <div style={{ marginTop: 6 }}>
+        <PrefToggle
+          label="Sonido y vibración del temporizador"
+          hint="Un aviso al terminar cada descanso (y un tick a falta de 10 s)."
+          checked={timerSound}
+          onChange={v => actions.setPref('timerSound', v)}
+        />
+        <div style={{ height:1, background:'rgba(15,26,46,0.06)', margin:'6px 0' }} />
+        <PrefToggle
+          label="Mantener pantalla activa"
+          hint="Evita que la pantalla se apague entre series durante el entrenamiento."
+          checked={keepAwake}
+          onChange={v => actions.setPref('keepAwake', v)}
+        />
+      </div>
+    </div>
   );
 }
 

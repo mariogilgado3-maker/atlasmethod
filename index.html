@@ -41,6 +41,12 @@
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
   }
+  /* rest-timer done flash (silent-mode visual fallback) */
+  @keyframes wpFlash {
+    0% { opacity: 0; }
+    45% { opacity: 1; }
+    100% { opacity: 0; }
+  }
   /* scrollbar in chat */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-thumb { background: rgba(15,26,46,0.14); border-radius: 999px; }
@@ -123,6 +129,7 @@
 <script src="web/services/backup.js"></script>
 <script src="web/services/scientificEngine.js"></script>
 <script src="web/services/workoutSession.js"></script>
+<script src="web/services/timerFeedback.js"></script>
 <script src="web/services/progressionEngine.js"></script>
 <script src="web/services/aulaEngine.js"></script>
 <script src="web/services/atlasProgressionEngine.js"></script>
