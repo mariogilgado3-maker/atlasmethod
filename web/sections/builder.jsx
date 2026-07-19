@@ -1724,15 +1724,79 @@ function EmptyPanel({ onPick, priorities }) {
 }
 
 // ── Barra de sesión sticky ────────────────────────────────────────────────────
-function WorkoutBar({ workout, saved, routineSaved, duration, onSave, onSaveRoutine, onStart, mobile }) {
+function BookmarkIcon({ filled, color }) {
   return (
-    <div style={{ position:'fixed', bottom:0, left:0, right:0, zIndex:200,
-      background:'rgba(6,13,24,0.97)', backdropFilter:'blur(24px)',
-      borderTop:'1px solid rgba(255,255,255,0.08)',
-      padding: mobile ? '12px 16px' : '12px 32px',
-      display:'flex', alignItems:'center', gap:12 }}>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill={filled ? color : 'none'} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
+      <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
+    </svg>
+  );
+}
+
+function WorkoutBar({ workout, saved, routineSaved, duration, onSave, onSaveRoutine, onStart, mobile }) {
+  // Save-to-Mis-rutinas (template) — bookmark, clearly distinct from "register session"
+  const saveRoutineBtn = (
+    <button onClick={onSaveRoutine}
+      title="Guardar como plantilla reutilizable en Mis rutinas"
+      style={{ flex: mobile ? 1 : '0 0 auto', minHeight: mobile ? 46 : undefined, padding:'11px 16px', borderRadius:12, cursor:'pointer',
+        background: routineSaved ? 'rgba(34,197,94,0.15)' : 'transparent',
+        color: routineSaved ? BD.green : '#93C5FD', border:`1px solid ${routineSaved ? 'rgba(34,197,94,0.3)' : 'rgba(59,130,246,0.28)'}`,
+        fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, transition:'all .25s', whiteSpace:'nowrap',
+        display:'inline-flex', alignItems:'center', justifyContent:'center', gap:7 }}>
+      {routineSaved ? '✓ Guardada' : <><BookmarkIcon color="#93C5FD" />{mobile ? 'Guardar rutina' : 'Guardar en Mis rutinas'}</>}
+    </button>
+  );
+  // Register today's session (awards gems) — clearly a log action, not a template
+  const registerBtn = (
+    <button onClick={onSave}
+      title="Registrar el entrenamiento de hoy en tu historial"
+      style={{ flex: mobile ? 1 : '0 0 auto', minHeight: mobile ? 46 : undefined, padding:'11px 18px', borderRadius:12, border:'none', cursor:'pointer',
+        background: saved ? 'rgba(34,197,94,0.15)' : BD.blue,
+        color: saved ? BD.green : '#fff',
+        fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, transition:'all .25s', whiteSpace:'nowrap' }}>
+      {saved ? '✓ Registrada' : `Registrar sesión +30 💎`}
+    </button>
+  );
+  const startBtn = (
+    <button onClick={onStart}
+      style={{ flexShrink:0, minHeight: mobile ? 46 : undefined, padding:'11px 18px', borderRadius:12, border:'none', cursor:'pointer',
+        background:'#22C55E', color:'#fff',
+        fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, transition:'all .25s', whiteSpace:'nowrap',
+        boxShadow:'0 4px 16px rgba(34,197,94,0.35)' }}>
+      ▶ Iniciar
+    </button>
+  );
+
+  const wrap = {
+    position:'fixed', left:0, right:0, zIndex:200,
+    // Mobile: sit just above the fixed bottom tab bar so neither is covered
+    bottom: mobile ? 'calc(56px + env(safe-area-inset-bottom))' : 0,
+    background:'rgba(6,13,24,0.97)', backdropFilter:'blur(24px)',
+    borderTop:'1px solid rgba(255,255,255,0.08)',
+    padding: mobile ? '10px 14px' : '12px 32px',
+  };
+
+  // Mobile: two rows so the two save buttons never truncate
+  if (mobile) {
+    return (
+      <div style={{ ...wrap, display:'flex', flexDirection:'column', gap:8 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ flex:1, fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600, color:BD.sub, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+            {workout.length} ejercicio{workout.length !== 1 ? 's' : ''} · ~{duration} min
+          </span>
+          {startBtn}
+        </div>
+        <div style={{ display:'flex', gap:8 }}>
+          {saveRoutineBtn}
+          {registerBtn}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ ...wrap, display:'flex', alignItems:'center', gap:12 }}>
       <div style={{ flex:1, display:'flex', gap:6, overflow:'hidden' }}>
-        {workout.slice(0, mobile ? 2 : 5).map(ex => {
+        {workout.slice(0, 5).map(ex => {
           const gs = ExerciseMedia.GROUP_STYLE[exGroup(ex)] || ExerciseMedia.GROUP_STYLE.core;
           return (
             <span key={ex.id} style={{ display:'flex', alignItems:'center', gap:6,
@@ -1745,41 +1809,20 @@ function WorkoutBar({ workout, saved, routineSaved, duration, onSave, onSaveRout
             </span>
           );
         })}
-        {workout.length > (mobile ? 2 : 5) && (
+        {workout.length > 5 && (
           <span style={{ padding:'5px 10px', borderRadius:999, flexShrink:0,
             background:'rgba(255,255,255,0.04)',
             fontFamily:'Inter,system-ui', fontSize:11, color:BD.muted }}>
-            +{workout.length - (mobile ? 2 : 5)}
+            +{workout.length - 5}
           </span>
         )}
       </div>
-      {!mobile && (
-        <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:11, color:BD.muted, flexShrink:0 }}>
-          ~{duration} min
-        </span>
-      )}
-      <button onClick={onStart}
-        style={{ flexShrink:0, padding:'11px 18px', borderRadius:12, border:'none', cursor:'pointer',
-          background:'#22C55E', color:'#fff',
-          fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, transition:'all .25s', whiteSpace:'nowrap',
-          boxShadow:'0 4px 16px rgba(34,197,94,0.35)' }}>
-        ▶ Iniciar
-      </button>
-      <button onClick={onSaveRoutine}
-        title="Guardar como rutina reutilizable en Mis rutinas"
-        style={{ flexShrink:0, padding:'11px 16px', borderRadius:12, cursor:'pointer',
-          background: routineSaved ? 'rgba(34,197,94,0.15)' : 'transparent',
-          color: routineSaved ? BD.green : '#93C5FD', border:`1px solid ${routineSaved ? 'rgba(34,197,94,0.3)' : 'rgba(59,130,246,0.28)'}`,
-          fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, transition:'all .25s', whiteSpace:'nowrap' }}>
-        {routineSaved ? '✓ Rutina' : '＋ Rutina'}
-      </button>
-      <button onClick={onSave}
-        style={{ flexShrink:0, padding:'11px 20px', borderRadius:12, border:'none', cursor:'pointer',
-          background: saved ? 'rgba(34,197,94,0.15)' : BD.blue,
-          color: saved ? BD.green : '#fff',
-          fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700, transition:'all .25s', whiteSpace:'nowrap' }}>
-        {saved ? '✓ +30 💎' : 'Guardar +30 💎'}
-      </button>
+      <span style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:11, color:BD.muted, flexShrink:0 }}>
+        ~{duration} min
+      </span>
+      {startBtn}
+      {saveRoutineBtn}
+      {registerBtn}
     </div>
   );
 }
@@ -1987,9 +2030,17 @@ function BuilderSection() {
   const [workout,    setWorkout]   = React.useState([]);
   const [saved,      setSaved]     = React.useState(false);
   const [routineSaved, setRoutineSaved] = React.useState(false);
-  const [flash,      setFlash]     = React.useState(false);
   const [showPlan,   setShowPlan]  = React.useState(false);
   const [execSession,setExecSession]= React.useState(null);
+
+  // Toast: { msg, link?: {label, to}, action?: {label, onClick} }
+  const [toast, setToast] = React.useState(null);
+  const toastTimer = React.useRef(null);
+  function showToast(t, ms = 4500) {
+    setToast(t);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), ms);
+  }
 
   // Priorities persist in localStorage
   const [priorities, setPrioritiesRaw] = React.useState(() => {
@@ -2110,23 +2161,34 @@ function BuilderSection() {
   function removeEx(id) { setWorkout(prev => prev.filter(e => e.id !== id)); }
   function editEx(ex) { openConfig(ex, false); }
 
+  // Register today's session in the history/log (awards gems). This does NOT
+  // save a reusable template — if the workout hasn't been saved to Mis rutinas
+  // yet, offer to do so from the toast.
   function save() {
     if (!workout.length) return;
-    actions.logSession(workout.map(ex => ({
+    const snapshot = workout;
+    const alreadySaved = routineSaved;
+    actions.logSession(snapshot.map(ex => ({
       id: ex.id, name: ex.name, group: exGroup(ex),
       muscles: ex.muscles.primary, sets: ex.sets,
     })));
-    setSaved(true); setFlash(true);
-    setTimeout(() => setFlash(false), 2500);
+    setSaved(true);
+    showToast(alreadySaved
+      ? { msg: 'Sesión registrada · +30 💎' }
+      : { msg: 'Sesión registrada · +30 💎', action: { label: 'Guardar rutina', onClick: () => saveAsRoutine(snapshot) } },
+      alreadySaved ? 3000 : 6000);
     setTimeout(() => { setSaved(false); setWorkout([]); setMuscle(null); setQuery(''); setMode('empty'); }, 3000);
   }
 
-  // Save the current workout as a reusable routine template ("Mis rutinas").
-  function saveAsRoutine() {
-    if (!workout.length) return;
-    const muscles = [...new Set(workout.flatMap(ex =>
+  // Save a workout as a reusable routine template ("Mis rutinas"). Accepts an
+  // optional snapshot so it can be triggered from the post-registration toast
+  // even after the live workout has been cleared.
+  function saveAsRoutine(wkt) {
+    const src = (wkt && wkt.length) ? wkt : workout;
+    if (!src.length) return;
+    const muscles = [...new Set(src.flatMap(ex =>
       Array.isArray(ex.muscles) ? ex.muscles : (ex.muscles?.primary || [])))].slice(0, 4);
-    const totalSets = workout.reduce((t, ex) => t + (ex.sets?.length || 0), 0);
+    const totalSets = src.reduce((t, ex) => t + (ex.sets?.length || 0), 0);
     const dateLabel = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
     const name = coachBanner?.routineName
       || (muscles.length ? `Rutina ${muscles.slice(0, 2).join(' + ')}` : `Rutina ${dateLabel}`);
@@ -2138,7 +2200,7 @@ function BuilderSection() {
       createdAt: Date.now(),
       sessions: [{
         name: coachBanner?.sessionName || 'Sesión 1',
-        exercises: workout.map(ex => ({
+        exercises: src.map(ex => ({
           id: ex.id, name: ex.name, group: exGroup(ex),
           muscles: Array.isArray(ex.muscles) ? { primary: ex.muscles, secondary: [] } : (ex.muscles || { primary: [], secondary: [] }),
           pattern: ex.pattern,
@@ -2154,6 +2216,7 @@ function BuilderSection() {
     };
     actions.saveRoutine(routine);
     setRoutineSaved(true);
+    showToast({ msg: 'Guardada en Mis rutinas ✓', link: { label: 'Ver', to: '/rutinas' } });
     setTimeout(() => setRoutineSaved(false), 2800);
   }
 
@@ -2189,8 +2252,7 @@ function BuilderSection() {
     setMuscle(null);
     setQuery('');
     setMode('empty');
-    setFlash(true);
-    setTimeout(() => setFlash(false), 3000);
+    showToast({ msg: '✓ Entrenamiento completado · +30 💎' }, 3000);
   }
 
   const renderMode = mode === 'empty' && hasFilter ? 'results' : mode;
@@ -2283,12 +2345,27 @@ function BuilderSection() {
           </div>
         )}
 
-        {flash && (
-          <div style={{ position:'fixed', top:72, right:20, zIndex:400,
-            background:'#0F1A2E', color:BD.text, padding:'10px 18px',
-            borderRadius:999, fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700,
-            animation:'fadeIn .3s ease', boxShadow:'0 8px 32px rgba(0,0,0,0.5)', whiteSpace:'nowrap' }}>
-            ✓ +30 gemas · Entrenamiento completado
+        {toast && (
+          <div style={{ position:'fixed', zIndex:400,
+            left: mobile ? 16 : 'auto', right: mobile ? 16 : 24,
+            bottom: mobile ? 'calc(178px + env(safe-area-inset-bottom))' : 96,
+            background:'#0F1A2E', color:BD.text, padding:'12px 16px',
+            borderRadius:14, fontFamily:'Inter,system-ui', fontSize:13, fontWeight:700,
+            animation:'fadeIn .25s ease', boxShadow:'0 12px 40px rgba(0,0,0,0.55)', border:'1px solid rgba(255,255,255,0.10)',
+            display:'flex', alignItems:'center', gap:14, justifyContent:'space-between' }}>
+            <span>{toast.msg}</span>
+            {toast.link && (
+              <button onClick={() => { setToast(null); navigate(toast.link.to); }}
+                style={{ flexShrink:0, border:'none', cursor:'pointer', background:'rgba(59,130,246,0.16)', color:'#93C5FD', borderRadius:9, padding:'7px 14px', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:800 }}>
+                {toast.link.label} →
+              </button>
+            )}
+            {toast.action && (
+              <button onClick={() => { toast.action.onClick(); }}
+                style={{ flexShrink:0, border:'1px solid rgba(59,130,246,0.35)', cursor:'pointer', background:'transparent', color:'#93C5FD', borderRadius:9, padding:'7px 14px', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:800 }}>
+                {toast.action.label}
+              </button>
+            )}
           </div>
         )}
 
