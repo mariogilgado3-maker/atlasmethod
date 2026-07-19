@@ -2129,7 +2129,83 @@ function AcMiRutina({ onSendToBuilder, onSendToPlayer }) {
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-function AcSidebar({ chats, activeChatId, onSelect, onNew, profile, onSaveProfile, onSendToBuilder, onSendToPlayer }) {
+// Formats a chat's creation date for the list ("12 jul")
+function acChatDate(chat) {
+  const ts = chat.createdAt || (chat.id && Number(String(chat.id).replace('chat-', ''))) || 0;
+  if (!ts) return '';
+  try { return new Date(ts).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }); }
+  catch { return ''; }
+}
+
+// A single conversation row with a ⋯ menu → delete + confirmation.
+// Delete only removes this conversation's messages; nothing else is touched.
+function AcChatRow({ chat, active, onSelect, onDelete }) {
+  const [menu, setMenu]       = React.useState(false);
+  const [confirm, setConfirm] = React.useState(false);
+  const nMsg = chat.messages.filter(m => m.content?.type !== 'onboarding-step').length;
+
+  return (
+    <div style={{ position:'relative', marginBottom:2 }}>
+      <div style={{ display:'flex', alignItems:'stretch', borderRadius:8, background: active ? 'rgba(59,130,246,0.12)' : 'transparent' }}
+        onMouseEnter={e => { if (!active) e.currentTarget.style.background='rgba(255,255,255,0.04)'; }}
+        onMouseLeave={e => { if (!active) e.currentTarget.style.background='transparent'; }}>
+        <button onClick={() => onSelect(chat.id)} style={{ flex:1, minWidth:0, padding:'9px 6px 9px 10px', border:'none', cursor:'pointer', textAlign:'left', background:'transparent' }}>
+          <div style={{ fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600, color: active ? '#93C5FD' : AC.sub, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{chat.title}</div>
+          <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:AC.muted, marginTop:2 }}>
+            {acChatDate(chat) ? `${acChatDate(chat)} · ` : ''}{nMsg} mensaje{nMsg!==1?'s':''}
+          </div>
+        </button>
+        <button aria-label="Opciones de conversación" onClick={() => setMenu(m => !m)}
+          style={{ flexShrink:0, width:34, border:'none', cursor:'pointer', background:'transparent', color:AC.muted, fontSize:16, lineHeight:1, borderRadius:8 }}>⋯</button>
+      </div>
+
+      {menu && (
+        <>
+          <div onClick={() => setMenu(false)} style={{ position:'fixed', inset:0, zIndex:40 }} />
+          <div style={{ position:'absolute', right:4, top:'calc(100% - 2px)', zIndex:41, minWidth:150, background:AC.card, border:`1px solid ${AC.border}`, borderRadius:10, boxShadow:'0 12px 32px rgba(0,0,0,0.5)', overflow:'hidden' }}>
+            <button onClick={() => { setMenu(false); setConfirm(true); }} style={{ display:'block', width:'100%', textAlign:'left', padding:'11px 14px', border:'none', cursor:'pointer', background:'transparent', color:'#FCA5A5', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:600 }}>Eliminar conversación</button>
+          </div>
+        </>
+      )}
+
+      {confirm && (
+        <div style={{ margin:'6px 4px 8px', padding:'12px 14px', borderRadius:10, border:'1px solid rgba(239,68,68,0.30)', background:'rgba(239,68,68,0.06)' }}>
+          <div style={{ fontFamily:'Inter,system-ui', fontSize:12, fontWeight:700, color:AC.text }}>¿Eliminar esta conversación?</div>
+          <div style={{ fontFamily:'Inter,system-ui', fontSize:11, color:AC.sub, marginTop:3, lineHeight:1.5 }}>No se puede deshacer. Solo se borran los mensajes; tu historial, rutinas y perfil no cambian.</div>
+          <div style={{ display:'flex', gap:8, marginTop:10 }}>
+            <button onClick={() => onDelete(chat.id)} style={{ minHeight:40, padding:'0 14px', borderRadius:8, border:'none', cursor:'pointer', background:'#EF4444', color:'#fff', fontFamily:'Inter,system-ui', fontSize:12, fontWeight:700 }}>Eliminar</button>
+            <button onClick={() => setConfirm(false)} style={{ minHeight:40, padding:'0 14px', borderRadius:8, cursor:'pointer', background:'transparent', color:AC.sub, border:`1px solid ${AC.border}`, fontFamily:'Inter,system-ui', fontSize:12, fontWeight:700 }}>Cancelar</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Mobile conversations sheet — slides up from the bottom, above the tab bar.
+function AcMobileChatSheet({ chats, activeChatId, onSelect, onNew, onDelete, onClose }) {
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:250, display:'flex', flexDirection:'column', justifyContent:'flex-end' }}>
+      <div onClick={onClose} style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.5)', animation:'fadeIn .15s ease' }} />
+      <div style={{ position:'relative', background:AC.page, borderTop:`1px solid ${AC.border}`, borderRadius:'18px 18px 0 0', maxHeight:'75vh', display:'flex', flexDirection:'column', paddingBottom:'calc(56px + env(safe-area-inset-bottom))', animation:'fadeIn .2s ease' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 18px 12px', flexShrink:0 }}>
+          <span style={{ fontFamily:'Inter,system-ui', fontSize:15, fontWeight:800, color:AC.text }}>Conversaciones</span>
+          <button onClick={onClose} aria-label="Cerrar" style={{ width:32, height:32, borderRadius:8, border:'none', background:'rgba(255,255,255,0.06)', color:AC.sub, fontSize:15, cursor:'pointer' }}>✕</button>
+        </div>
+        <div style={{ padding:'0 12px 8px', flexShrink:0 }}>
+          <button onClick={onNew} style={{ width:'100%', minHeight:46, borderRadius:11, border:'1px solid rgba(59,130,246,0.25)', background:'rgba(59,130,246,0.10)', color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:14, fontWeight:700, cursor:'pointer' }}>+ Nueva conversación</button>
+        </div>
+        <div style={{ flex:1, overflowY:'auto', padding:'6px 8px 12px' }}>
+          {chats.map(chat => (
+            <AcChatRow key={chat.id} chat={chat} active={chat.id === activeChatId} onSelect={onSelect} onDelete={onDelete} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AcSidebar({ chats, activeChatId, onSelect, onNew, onDelete, profile, onSaveProfile, onSendToBuilder, onSendToPlayer }) {
   return (
     <aside style={{ width:220, flexShrink:0, background:AC.sidebar, borderRight:`1px solid ${AC.border}`, display:'flex', flexDirection:'column', overflow:'hidden' }}>
       <div style={{ padding:'14px 12px', borderBottom:`1px solid ${AC.border}`, flexShrink:0 }}>
@@ -2141,17 +2217,9 @@ function AcSidebar({ chats, activeChatId, onSelect, onNew, profile, onSaveProfil
         </button>
       </div>
       <div style={{ flex:1, overflowY:'auto', padding:'8px 6px' }}>
-        {chats.map(chat => {
-          const active = chat.id === activeChatId;
-          return (
-            <button key={chat.id} onClick={() => onSelect(chat.id)} style={{ width:'100%', padding:'9px 10px', borderRadius:8, border:'none', cursor:'pointer', textAlign:'left', marginBottom:2, background: active ? 'rgba(59,130,246,0.12)' : 'transparent', transition:'background .1s' }}
-              onMouseEnter={e => { if (!active) e.currentTarget.style.background='rgba(255,255,255,0.04)'; }}
-              onMouseLeave={e => { if (!active) e.currentTarget.style.background='transparent'; }}>
-              <div style={{ fontFamily:'Inter,system-ui', fontSize:12, fontWeight:600, color: active ? '#93C5FD' : AC.sub, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{chat.title}</div>
-              <div style={{ fontFamily:'Inter,system-ui', fontSize:10, color:AC.muted, marginTop:2 }}>{chat.messages.length} mensaje{chat.messages.length!==1?'s':''}</div>
-            </button>
-          );
-        })}
+        {chats.map(chat => (
+          <AcChatRow key={chat.id} chat={chat} active={chat.id === activeChatId} onSelect={onSelect} onDelete={onDelete} />
+        ))}
       </div>
       <AcMiRutina onSendToBuilder={onSendToBuilder} onSendToPlayer={onSendToPlayer} />
       <AcProfilePanel profile={profile} onSave={onSaveProfile} />
@@ -2199,6 +2267,7 @@ function AtlasCoachSection() {
   // ── Atlas Profile onboarding ──────────────────────────────────────────────
   const [atlasProfile,   setAtlasProfile]   = React.useState(() => apLoadProfile());
   const [showCard,       setShowCard]       = React.useState(() => !apIsDismissed() && !apLoadProfile());
+  const [showChats,      setShowChats]      = React.useState(false);
   const [onboarding,     setOnboarding]     = React.useState({ active: false, level: 1, step: 0, answers: {}, pendingMulti: [], pendingInput: '', pendingInputs: {}, pendingNote: '' });
 
   // ── Builder plan injection — reads plan saved by CoachRecommendationPanel ────
@@ -2299,6 +2368,23 @@ function AtlasCoachSection() {
     };
     setChats(prev => [chat, ...prev]);
     setActiveChatId(id);
+  }
+
+  // Delete a single conversation. Only touches atlas.chats.v1 (via the persist
+  // effect) — session history, saved routines, profile and coach memory are all
+  // in separate keys and are never affected.
+  function deleteChat(id) {
+    setChats(prev => {
+      const next = prev.filter(c => c.id !== id);
+      if (id === activeChatId) {
+        setActiveChatId(next.length ? next[0].id : null);
+        if (!next.length) {
+          // recreate a fresh welcome chat so the view is never empty
+          setTimeout(() => startNewChat(), 0);
+        }
+      }
+      return next;
+    });
   }
 
   function handleSaveProfile(p) {
@@ -2647,6 +2733,7 @@ function AtlasCoachSection() {
             activeChatId={activeChatId}
             onSelect={setActiveChatId}
             onNew={startNewChat}
+            onDelete={deleteChat}
             profile={profile}
             onSaveProfile={handleSaveProfile}
             onSendToBuilder={sendToBuilder}
@@ -2659,8 +2746,21 @@ function AtlasCoachSection() {
           {isMobile && (
             <div style={{ padding:'10px 16px', borderBottom:`1px solid ${AC.border}`, display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
               <span style={{ fontFamily:'ui-monospace', fontSize:10, fontWeight:700, color:AC.muted, letterSpacing:1.4 }}>ATLAS COACH</span>
-              <button onClick={startNewChat} style={{ marginLeft:'auto', padding:'5px 12px', borderRadius:8, border:`1px solid rgba(59,130,246,0.25)`, background:'rgba(59,130,246,0.08)', color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700, cursor:'pointer' }}>+ Nuevo</button>
+              <button onClick={() => setShowChats(true)} style={{ marginLeft:'auto', padding:'6px 12px', minHeight:34, borderRadius:8, border:`1px solid ${AC.border}`, background:'transparent', color:AC.sub, fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700, cursor:'pointer' }}>Conversaciones</button>
+              <button onClick={startNewChat} style={{ padding:'6px 12px', minHeight:34, borderRadius:8, border:`1px solid rgba(59,130,246,0.25)`, background:'rgba(59,130,246,0.08)', color:'#93C5FD', fontFamily:'Inter,system-ui', fontSize:11, fontWeight:700, cursor:'pointer' }}>+ Nuevo</button>
             </div>
+          )}
+
+          {/* Mobile conversations sheet */}
+          {isMobile && showChats && (
+            <AcMobileChatSheet
+              chats={chats}
+              activeChatId={activeChatId}
+              onSelect={(id) => { setActiveChatId(id); setShowChats(false); }}
+              onNew={() => { startNewChat(); setShowChats(false); }}
+              onDelete={deleteChat}
+              onClose={() => setShowChats(false)}
+            />
           )}
 
           {/* Messages */}

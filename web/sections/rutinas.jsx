@@ -35,11 +35,21 @@ function mrCountExercises(routine) {
   return (routine.sessions || []).reduce((t, s) => t + (s.exercises || []).length, 0);
 }
 
+// Dropdown menu item style
+function mrMenuItem(color) {
+  return {
+    display: 'block', width: '100%', textAlign: 'left',
+    padding: '12px 14px', border: 'none', cursor: 'pointer', background: 'transparent',
+    color, fontFamily: 'Inter,system-ui', fontSize: 13, fontWeight: 600,
+  };
+}
+
 // ── Single routine card ─────────────────────────────────────────────────────
 function MrRoutineCard({ routine, onTrain, onLoad, onPDF, onRename, onDuplicate, onDelete }) {
   const [open, setOpen]       = React.useState(false);
   const [editing, setEditing] = React.useState(false);
   const [name, setName]       = React.useState(routine.name || 'Rutina');
+  const [menuOpen, setMenuOpen]     = React.useState(false);
   const [confirmDel, setConfirmDel] = React.useState(false);
 
   const sessions = routine.sessions || [];
@@ -97,8 +107,9 @@ function MrRoutineCard({ routine, onTrain, onLoad, onPDF, onRename, onDuplicate,
           ))}
         </div>
 
-        {/* Primary actions */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
+        {/* Primary actions — destructive/edit actions live in the ⋯ menu so
+            they can't be mis-tapped next to the train button */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14, position: 'relative' }}>
           <button onClick={() => setOpen(o => !o)} style={btn('transparent', MR.sub, `1px solid ${MR.border}`)}>
             {open ? 'Ocultar' : 'Ver sesiones'}
           </button>
@@ -106,17 +117,41 @@ function MrRoutineCard({ routine, onTrain, onLoad, onPDF, onRename, onDuplicate,
           {typeof exportRoutinePDF !== 'undefined' && (
             <button onClick={() => onPDF(routine)} style={btn('rgba(59,130,246,0.07)', '#93C5FD', '1px solid rgba(59,130,246,0.20)')}>↓ PDF</button>
           )}
-          <button onClick={() => { setEditing(true); setName(routine.name || 'Rutina'); }} style={btn('transparent', MR.sub, `1px solid ${MR.border}`)}>Renombrar</button>
-          <button onClick={() => onDuplicate(routine.id)} style={btn('transparent', MR.sub, `1px solid ${MR.border}`)}>Duplicar</button>
-          {confirmDel ? (
-            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-              <button onClick={() => onDelete(routine.id)} style={btn('rgba(239,68,68,0.14)', '#FCA5A5', '1px solid rgba(239,68,68,0.30)')}>Confirmar</button>
-              <button onClick={() => setConfirmDel(false)} style={btn('transparent', MR.muted, `1px solid ${MR.border}`)}>No</button>
-            </span>
-          ) : (
-            <button onClick={() => setConfirmDel(true)} style={btn('transparent', '#FCA5A5', '1px solid rgba(239,68,68,0.22)')}>Borrar</button>
-          )}
+          <div style={{ marginLeft: 'auto', position: 'relative' }}>
+            <button
+              aria-label="Más opciones"
+              onClick={() => setMenuOpen(o => !o)}
+              style={{ ...btn('transparent', MR.sub, `1px solid ${MR.border}`), padding: '7px 12px', fontSize: 15, lineHeight: 1 }}
+            >⋯</button>
+            {menuOpen && (
+              <>
+                {/* backdrop to close on outside tap */}
+                <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 30 }} />
+                <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 31, minWidth: 168, background: MR.panel, border: `1px solid ${MR.border}`, borderRadius: 12, boxShadow: '0 12px 32px rgba(0,0,0,0.45)', overflow: 'hidden' }}>
+                  <button onClick={() => { setMenuOpen(false); setEditing(true); setName(routine.name || 'Rutina'); }} style={mrMenuItem(MR.text)}>Renombrar</button>
+                  <button onClick={() => { setMenuOpen(false); onDuplicate(routine.id); }} style={mrMenuItem(MR.text)}>Duplicar</button>
+                  <button onClick={() => { setMenuOpen(false); setConfirmDel(true); }} style={mrMenuItem('#FCA5A5')}>Eliminar</button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
+
+        {/* Delete confirmation — explicit, irreversible */}
+        {confirmDel && (
+          <div style={{ marginTop: 12, padding: '14px 16px', borderRadius: 12, border: '1px solid rgba(239,68,68,0.30)', background: 'rgba(239,68,68,0.06)' }}>
+            <div style={{ fontFamily: 'Inter,system-ui', fontSize: 13, fontWeight: 700, color: MR.text }}>
+              ¿Eliminar «{routine.name || 'Rutina'}»?
+            </div>
+            <div style={{ fontFamily: 'Inter,system-ui', fontSize: 12, color: MR.sub, marginTop: 4, lineHeight: 1.5 }}>
+              Esta acción no se puede deshacer. Tus sesiones ya registradas en el historial no se verán afectadas.
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <button onClick={() => onDelete(routine.id)} style={{ minHeight: 44, padding: '0 16px', borderRadius: 10, border: 'none', cursor: 'pointer', background: '#EF4444', color: '#fff', fontFamily: 'Inter,system-ui', fontSize: 13, fontWeight: 700 }}>Eliminar</button>
+              <button onClick={() => setConfirmDel(false)} style={{ minHeight: 44, padding: '0 16px', borderRadius: 10, cursor: 'pointer', background: 'transparent', color: MR.sub, border: `1px solid ${MR.border}`, fontFamily: 'Inter,system-ui', fontSize: 13, fontWeight: 700 }}>Cancelar</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Sessions (expandable) — each trainable */}
