@@ -51,6 +51,7 @@ function MrRoutineCard({ routine, onTrain, onLoad, onPDF, onRename, onDuplicate,
   const [name, setName]       = React.useState(routine.name || 'Rutina');
   const [menuOpen, setMenuOpen]     = React.useState(false);
   const [confirmDel, setConfirmDel] = React.useState(false);
+  const menuBtnRef = React.useRef(null);
 
   const sessions = routine.sessions || [];
   const nEx = mrCountExercises(routine);
@@ -74,7 +75,7 @@ function MrRoutineCard({ routine, onTrain, onLoad, onPDF, onRename, onDuplicate,
   });
 
   return (
-    <div style={{ borderRadius: 16, border: `1px solid ${MR.border}`, background: MR.card, overflow: 'hidden' }}>
+    <div style={{ borderRadius: 16, border: `1px solid ${MR.border}`, background: MR.card }}>
       <div style={{ padding: '16px 18px' }}>
         {/* Title row */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
@@ -117,23 +118,19 @@ function MrRoutineCard({ routine, onTrain, onLoad, onPDF, onRename, onDuplicate,
           {typeof exportRoutinePDF !== 'undefined' && (
             <button onClick={() => onPDF(routine)} style={btn('rgba(59,130,246,0.07)', '#93C5FD', '1px solid rgba(59,130,246,0.20)')}>↓ PDF</button>
           )}
-          <div style={{ marginLeft: 'auto', position: 'relative' }}>
+          <div style={{ marginLeft: 'auto' }}>
             <button
+              ref={menuBtnRef}
               aria-label="Más opciones"
               onClick={() => setMenuOpen(o => !o)}
               style={{ ...btn('transparent', MR.sub, `1px solid ${MR.border}`), padding: '7px 12px', fontSize: 15, lineHeight: 1 }}
             >⋯</button>
-            {menuOpen && (
-              <>
-                {/* backdrop to close on outside tap */}
-                <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 30 }} />
-                <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 31, minWidth: 168, background: MR.panel, border: `1px solid ${MR.border}`, borderRadius: 12, boxShadow: '0 12px 32px rgba(0,0,0,0.45)', overflow: 'hidden' }}>
-                  <button onClick={() => { setMenuOpen(false); setEditing(true); setName(routine.name || 'Rutina'); }} style={mrMenuItem(MR.text)}>Renombrar</button>
-                  <button onClick={() => { setMenuOpen(false); onDuplicate(routine.id); }} style={mrMenuItem(MR.text)}>Duplicar</button>
-                  <button onClick={() => { setMenuOpen(false); setConfirmDel(true); }} style={mrMenuItem('#FCA5A5')}>Eliminar</button>
-                </div>
-              </>
-            )}
+            {/* Portal menu — rendered on <body> so sibling cards / overflow-clip can't cover it */}
+            <AtlasMenu open={menuOpen} anchorRef={menuBtnRef} onClose={() => setMenuOpen(false)} width={184}>
+              <button onClick={() => { setMenuOpen(false); setEditing(true); setName(routine.name || 'Rutina'); }} style={mrMenuItem(MR.text)}>Renombrar</button>
+              <button onClick={() => { setMenuOpen(false); onDuplicate(routine.id); }} style={mrMenuItem(MR.text)}>Duplicar</button>
+              <button onClick={() => { setMenuOpen(false); setConfirmDel(true); }} style={mrMenuItem('#FCA5A5')}>Eliminar</button>
+            </AtlasMenu>
           </div>
         </div>
 
@@ -156,7 +153,7 @@ function MrRoutineCard({ routine, onTrain, onLoad, onPDF, onRename, onDuplicate,
 
       {/* Sessions (expandable) — each trainable */}
       {open && (
-        <div style={{ borderTop: `1px solid ${MR.border}`, background: MR.panel, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ borderTop: `1px solid ${MR.border}`, background: MR.panel, padding: '10px 12px', borderRadius: '0 0 15px 15px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {sessions.length === 0 && (
             <div style={{ fontFamily: 'Inter,system-ui', fontSize: 12, color: MR.muted, padding: '8px 6px' }}>Esta rutina no tiene sesiones.</div>
           )}

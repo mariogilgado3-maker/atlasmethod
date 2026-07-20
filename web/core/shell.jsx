@@ -13,6 +13,45 @@ function useIsMobile(bp = 680) {
   return m;
 }
 
+// Anchored dropdown menu rendered in a portal on <body> with position:fixed, so
+// it's never clipped by an ancestor's overflow (e.g. a card's overflow:hidden or
+// the global overflow-x:clip) and always sits above the tab bar. Positioned from
+// the trigger's getBoundingClientRect; flips upward near the bottom of the screen.
+function AtlasMenu({ open, anchorRef, onClose, width = 184, children }) {
+  const [, force] = React.useState(0);
+  React.useEffect(() => {
+    if (!open) return;
+    const rerender = () => force(n => n + 1);
+    const close = () => onClose && onClose();
+    window.addEventListener('resize', rerender);
+    // Close on scroll so the fixed menu can't detach from its trigger
+    window.addEventListener('scroll', close, true);
+    return () => { window.removeEventListener('resize', rerender); window.removeEventListener('scroll', close, true); };
+  }, [open, onClose]);
+
+  if (!open || !anchorRef?.current || typeof ReactDOM === 'undefined' || !ReactDOM.createPortal) return null;
+  const r = anchorRef.current.getBoundingClientRect();
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const left = Math.max(8, Math.min(r.right - width, vw - width - 8));
+  const openUp = (vh - r.bottom) < 200;
+  const pos = openUp ? { bottom: Math.round(vh - r.top + 6) } : { top: Math.round(r.bottom + 6) };
+
+  return ReactDOM.createPortal(
+    React.createElement(React.Fragment, null,
+      React.createElement('div', { onClick: onClose, style: { position: 'fixed', inset: 0, zIndex: 3000 } }),
+      React.createElement('div', {
+        style: {
+          position: 'fixed', left: Math.round(left), ...pos, width, zIndex: 3001,
+          background: '#0E1A2C', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 12,
+          boxShadow: '0 16px 44px rgba(0,0,0,0.55)', overflow: 'hidden',
+          animation: 'fadeIn .12s ease',
+        },
+      }, children)
+    ),
+    document.body
+  );
+}
+
 // Minimal stroke icons for the mobile tab bar
 function NavIcon({ name, color }) {
   const p = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' };
@@ -78,6 +117,8 @@ function AppMobileHeader() {
       backdropFilter: 'saturate(180%) blur(20px)',
       WebkitBackdropFilter: 'saturate(180%) blur(20px)',
       borderBottom: '1px solid rgba(15,26,46,0.06)',
+      // Sit below the iPhone status bar / notch (viewport-fit=cover)
+      paddingTop: 'env(safe-area-inset-top)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 16px' }}>
         <a href="#/" onClick={(e) => { e.preventDefault(); navigate('/'); }}
@@ -275,4 +316,4 @@ function PageTransition({ routeKey, children }) {
   );
 }
 
-Object.assign(window, { AppNav, PageTransition, Gem, GemTray });
+Object.assign(window, { AppNav, PageTransition, Gem, GemTray, AtlasMenu, useIsMobile });
