@@ -20,6 +20,8 @@ function NavIcon({ name, color }) {
   if (name === 'coach')   return <svg {...p}><path d="M4 5h16v10H9l-4 4v-4H4z" /></svg>;
   if (name === 'builder') return <svg {...p}><path d="M4 6h16M4 12h16M4 18h10" /></svg>;
   if (name === 'play')    return <svg {...p}><path d="M7 4.5v15l12-7.5z" fill={color} /></svg>;
+  if (name === 'rutinas') return <svg {...p}><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" /></svg>;
+  if (name === 'aula')    return <svg {...p}><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z" /><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20" /></svg>;
   if (name === 'user')    return <svg {...p}><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></svg>;
   return null;
 }
@@ -31,8 +33,8 @@ function AppMobileTabBar() {
     { path: '/',        label: 'Inicio',   icon: 'home' },
     { path: '/coach',   label: 'Coach',    icon: 'coach' },
     { path: '/builder', label: 'Builder',  icon: 'builder' },
-    { path: '/player',  label: 'Entrenar', icon: 'play' },
-    { path: '/perfil',  label: 'Perfil',   icon: 'user' },
+    { path: '/rutinas', label: 'Rutinas',  icon: 'rutinas' },
+    { path: '/aula',    label: 'Aula',     icon: 'aula' },
   ];
   const ACTIVE = '#3B82F6';
   const IDLE   = 'rgba(250,250,247,0.5)';
@@ -63,9 +65,12 @@ function AppMobileTabBar() {
   );
 }
 
-// Slim mobile top header — logo + gems, keeps brand and balance visible
+// Slim mobile top header — logo + gems + profile avatar (Perfil lives here now
+// that the bottom tab bar is Inicio·Coach·Builder·Rutinas·Aula)
 function AppMobileHeader() {
-  const { navigate } = useRoute();
+  const { route, navigate } = useRoute();
+  const { state } = useStore();
+  const perfilActive = route === '/perfil';
   return (
     <nav className="atlas-mobile-header" style={{
       position: 'sticky', top: 0, zIndex: 50,
@@ -74,15 +79,25 @@ function AppMobileHeader() {
       WebkitBackdropFilter: 'saturate(180%) blur(20px)',
       borderBottom: '1px solid rgba(15,26,46,0.06)',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 16px' }}>
         <a href="#/" onClick={(e) => { e.preventDefault(); navigate('/'); }}
-          style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: '#0F1A2E' }}>
+          style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: '#0F1A2E', minWidth: 0 }}>
           <AtlasA size={24} color="#0F1A2E" stroke={9} />
-          <span style={{ fontFamily: '"Inter",system-ui', fontWeight: 800, fontSize: 16, letterSpacing: -0.4 }}>
+          <span style={{ fontFamily: '"Inter",system-ui', fontWeight: 800, fontSize: 16, letterSpacing: -0.4, whiteSpace: 'nowrap' }}>
             Atlas <span style={{ fontWeight: 500, opacity: 0.55 }}>Method</span>
           </span>
         </a>
-        <GemTray />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <GemTray />
+          <button aria-label="Perfil" onClick={() => navigate('/perfil')}
+            style={{ width: 34, height: 34, borderRadius: 999, flexShrink: 0, cursor: 'pointer', padding: 0,
+              border: perfilActive ? '2px solid #3B82F6' : '1px solid rgba(15,26,46,0.12)',
+              background: 'linear-gradient(135deg, #1A2845, #0F1A2E)', color: '#FAFAF7',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: '"Inter",system-ui', fontSize: 13, fontWeight: 800 }}>
+            {(state.user?.name || 'A')[0].toUpperCase()}
+          </button>
+        </div>
       </div>
     </nav>
   );
