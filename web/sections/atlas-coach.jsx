@@ -2142,6 +2142,7 @@ function acChatDate(chat) {
 function AcChatRow({ chat, active, onSelect, onDelete }) {
   const [menu, setMenu]       = React.useState(false);
   const [confirm, setConfirm] = React.useState(false);
+  const menuBtnRef = React.useRef(null);
   const nMsg = chat.messages.filter(m => m.content?.type !== 'onboarding-step').length;
 
   return (
@@ -2155,18 +2156,14 @@ function AcChatRow({ chat, active, onSelect, onDelete }) {
             {acChatDate(chat) ? `${acChatDate(chat)} · ` : ''}{nMsg} mensaje{nMsg!==1?'s':''}
           </div>
         </button>
-        <button aria-label="Opciones de conversación" onClick={() => setMenu(m => !m)}
+        <button ref={menuBtnRef} aria-label="Opciones de conversación" onClick={() => setMenu(m => !m)}
           style={{ flexShrink:0, width:34, border:'none', cursor:'pointer', background:'transparent', color:AC.muted, fontSize:16, lineHeight:1, borderRadius:8 }}>⋯</button>
       </div>
 
-      {menu && (
-        <>
-          <div onClick={() => setMenu(false)} style={{ position:'fixed', inset:0, zIndex:40 }} />
-          <div style={{ position:'absolute', right:4, top:'calc(100% - 2px)', zIndex:41, minWidth:150, background:AC.card, border:`1px solid ${AC.border}`, borderRadius:10, boxShadow:'0 12px 32px rgba(0,0,0,0.5)', overflow:'hidden' }}>
-            <button onClick={() => { setMenu(false); setConfirm(true); }} style={{ display:'block', width:'100%', textAlign:'left', padding:'11px 14px', border:'none', cursor:'pointer', background:'transparent', color:'#FCA5A5', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:600 }}>Eliminar conversación</button>
-          </div>
-        </>
-      )}
+      {/* Portal menu — never clipped by the sidebar/sheet scroll container */}
+      <AtlasMenu open={menu} anchorRef={menuBtnRef} onClose={() => setMenu(false)} width={180}>
+        <button onClick={() => { setMenu(false); setConfirm(true); }} style={{ display:'block', width:'100%', textAlign:'left', padding:'12px 14px', border:'none', cursor:'pointer', background:'transparent', color:'#FCA5A5', fontFamily:'Inter,system-ui', fontSize:13, fontWeight:600 }}>Eliminar conversación</button>
+      </AtlasMenu>
 
       {confirm && (
         <div style={{ margin:'6px 4px 8px', padding:'12px 14px', borderRadius:10, border:'1px solid rgba(239,68,68,0.30)', background:'rgba(239,68,68,0.06)' }}>
