@@ -1297,14 +1297,14 @@ function SearchBar({ query, onQuery, muscle, onMuscle }) {
   const [focused, setFocused] = React.useState(false);
   const mobile = useIsMobile();
   return (
-    <div style={{ marginBottom:22 }}>
+    <div id="builder-search" style={{ marginBottom:22, scrollMarginTop: 70 }}>
       <div style={{ position:'relative' }}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
           style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)',
             stroke: focused ? '#93C5FD' : BD.muted, strokeWidth:2.5, pointerEvents:'none', transition:'stroke .15s' }}>
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
         </svg>
-        <input value={query} onChange={e => onQuery(e.target.value)}
+        <input id="builder-search-input" value={query} onChange={e => onQuery(e.target.value)}
           onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
           placeholder="Buscar ejercicios, músculos, patrones..."
           style={{ width:'100%', padding: mobile ? '14px 42px' : '13px 42px', borderRadius:14, boxSizing:'border-box',
@@ -1495,8 +1495,10 @@ function ExerciseDetail({ ex, inSession, onAdd, onBack }) {
 }
 
 // ── Panel de resultados ───────────────────────────────────────────────────────
-function ResultsPanel({ filteredExs, sessionIds, workout, muscle, query, priorities, onDetail, onQuickAdd, onRemoveEx, onEditEx, onTogglePriority }) {
-  const sessionExsInView = workout.filter(e => filteredExs.some(f => f.id === e.id));
+function ResultsPanel({ filteredExs, sessionIds, workout, muscle, query, priorities, onDetail, onQuickAdd, onRemoveEx, onEditEx, onTogglePriority, mobile }) {
+  // On mobile the added exercises live in the always-visible MobileWorkoutBlock,
+  // so don't repeat them here.
+  const sessionExsInView = mobile ? [] : workout.filter(e => filteredExs.some(f => f.id === e.id));
   const remainingExs     = filteredExs.filter(e => !sessionIds.has(e.id));
   const prio             = muscle ? priorities[muscle] : null;
 
@@ -1680,6 +1682,41 @@ function SetConfig({ ex, initSets, onConfirm, onBack }) {
 }
 
 // ── Panel vacío ───────────────────────────────────────────────────────────────
+// Scroll to + focus the search so "＋ Añadir ejercicio" always leads somewhere.
+function focusBuilderSearch() {
+  const el  = document.getElementById('builder-search');
+  const inp = document.getElementById('builder-search-input');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => { try { if (inp) inp.focus(); } catch (e) {} }, 220);
+}
+
+// Mobile: the routine-in-construction is ALWAYS visible while building, with a
+// persistent "＋ Añadir ejercicio" that returns to the search/selector. This is
+// what makes adding the 2nd, 3rd, Nth exercise identical to the 1st.
+function MobileWorkoutBlock({ workout, duration, onEdit, onRemove, onAdd }) {
+  return (
+    <div style={{ marginBottom:18, borderRadius:16, border:`1px solid ${BD.border}`, background:BD.card, padding:'14px 14px 16px' }}>
+      <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', marginBottom:12 }}>
+        <div style={{ fontFamily:'ui-monospace,Menlo,monospace', fontSize:9, fontWeight:700, color:BD.muted, letterSpacing:1.2 }}>TU RUTINA</div>
+        <div style={{ fontFamily:'Inter,system-ui', fontSize:12, color:BD.sub, fontWeight:600 }}>
+          {workout.length} ejercicio{workout.length !== 1 ? 's' : ''} · ~{duration} min
+        </div>
+      </div>
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        {workout.map(ex => (
+          <ExRow key={ex.id} ex={ex} onRemove={() => onRemove(ex.id)} onEdit={() => onEdit(ex)} />
+        ))}
+      </div>
+      <button onClick={onAdd}
+        style={{ width:'100%', marginTop:12, minHeight:48, borderRadius:12, cursor:'pointer',
+          border:'1px dashed rgba(59,130,246,0.45)', background:'rgba(59,130,246,0.08)', color:'#93C5FD',
+          fontFamily:'Inter,system-ui', fontSize:15, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+        <span style={{ fontSize:19, lineHeight:1 }}>＋</span> Añadir ejercicio
+      </button>
+    </div>
+  );
+}
+
 function EmptyPanel({ onPick, priorities }) {
   const hasPrios = Object.values(priorities).some(v => v === 'priority');
   return (
@@ -2430,8 +2467,8 @@ function BuilderSection() {
         <div style={{ display:'flex', gap: mobile ? 0 : 44,
           alignItems:'flex-start', flexDirection: mobile ? 'column' : 'row' }}>
 
-          {/* ── Mapa corporal ── */}
-          <div style={{ width: mobile ? '100%' : 288, flexShrink:0, marginBottom: mobile ? 28 : 0 }}>
+          {/* ── Mapa corporal ── (below the add-panel on mobile) */}
+          <div style={{ width: mobile ? '100%' : 288, flexShrink:0, marginBottom: mobile ? 28 : 0, order: mobile ? 2 : 0 }}>
 
             {/* Atlas Score — siempre visible en cabecera de columna */}
             <AtlasScoreCard priorities={priorities} log={state.log} sessionSets={sessionSets} />
@@ -2504,11 +2541,23 @@ function BuilderSection() {
             )}
           </div>
 
-          {/* ── Panel contextual ── */}
-          <div style={{ flex:1, minWidth:0, width: mobile ? '100%' : undefined,
+          {/* ── Panel contextual ── (above the map on mobile) */}
+          <div style={{ flex:1, minWidth:0, width: mobile ? '100%' : undefined, order: mobile ? 1 : 0,
             maxHeight: mobile ? 'none' : 700, overflowY: mobile ? 'visible' : 'auto' }}>
 
-            {renderMode === 'empty' && (
+            {/* Mobile: routine-in-construction always visible with a persistent add button */}
+            {mobile && workout.length > 0 && renderMode !== 'config' && renderMode !== 'detail' && (
+              <MobileWorkoutBlock
+                workout={workout}
+                duration={duration}
+                onEdit={editEx}
+                onRemove={removeEx}
+                onAdd={() => { handleQuery(''); focusBuilderSearch(); }}
+              />
+            )}
+
+            {/* Welcome panel only when NOT already building (otherwise it's a dead end) */}
+            {renderMode === 'empty' && !(mobile && workout.length > 0) && (
               <EmptyPanel onPick={pickMuscle} priorities={priorities} />
             )}
 
@@ -2525,6 +2574,7 @@ function BuilderSection() {
                 onRemoveEx={removeEx}
                 onEditEx={editEx}
                 onTogglePriority={togglePriority}
+                mobile={mobile}
               />
             )}
 
